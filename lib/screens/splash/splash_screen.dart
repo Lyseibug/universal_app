@@ -57,15 +57,19 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         .read(versionProvider.notifier)
         .checkVersion();
 
+    debugPrint('[Splash] Version check result: $versionStatus');
+
     if (!mounted) return;
 
     if (versionStatus == VersionStatus.forceUpdate) {
       final versionState = ref.read(versionProvider);
+      debugPrint('[Splash] Showing FORCE UPDATE dialog');
       await UpdateDialog.show(
         context,
         currentVersion: versionState.appVersion ?? '1.0.0',
         newVersion: versionState.serverVersion?.currentVersion ?? '',
         updateUrl: versionState.serverVersion?.updateUrl ?? '',
+        updateMessage: versionState.serverVersion?.message,
         isForceUpdate: true,
       );
       return; // Block app usage
@@ -73,12 +77,14 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
     if (versionStatus == VersionStatus.updateAvailable) {
       final versionState = ref.read(versionProvider);
+      debugPrint('[Splash] Showing OPTIONAL UPDATE dialog');
       if (mounted) {
         await UpdateDialog.show(
           context,
           currentVersion: versionState.appVersion ?? '1.0.0',
           newVersion: versionState.serverVersion?.currentVersion ?? '',
           updateUrl: versionState.serverVersion?.updateUrl ?? '',
+          updateMessage: versionState.serverVersion?.message,
           isForceUpdate: false,
         );
       }
@@ -88,6 +94,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
     // Check authentication status
     final authState = ref.read(authProvider);
+    debugPrint(
+      '[Splash] Auth state: isAuthenticated=${authState.isAuthenticated}',
+    );
     if (authState.isAuthenticated) {
       context.go('/dashboard');
     } else {

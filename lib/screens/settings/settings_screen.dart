@@ -146,8 +146,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 icon: Icons.restore,
               ),
               const SizedBox(height: 32),
-              // Connection info card
-              _buildInfoCard(context),
             ],
           ),
         ),
@@ -194,52 +192,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  /// Build information card about connection settings.
-  Widget _buildInfoCard(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  'Connection Info',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _buildInfoRow('Protocol', 'HTTP/HTTPS'),
-            _buildInfoRow('Timeout', '${AppConstants.connectionTimeout}s'),
-            _buildInfoRow('Retries', '${AppConstants.maxRetries}'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-          Text(
-            value,
-            style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
-          ),
-        ],
-      ),
     );
   }
 }

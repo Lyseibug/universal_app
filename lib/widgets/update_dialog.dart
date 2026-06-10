@@ -5,10 +5,12 @@ import '../core/constants/app_constants.dart';
 import '../core/theme/app_theme.dart';
 
 /// Dialog widget for showing version update notifications.
+/// Downloads APK directly from the ERP server.
 class UpdateDialog extends StatelessWidget {
   final String currentVersion;
   final String newVersion;
   final String updateUrl;
+  final String? updateMessage;
   final bool isForceUpdate;
 
   const UpdateDialog({
@@ -16,6 +18,7 @@ class UpdateDialog extends StatelessWidget {
     required this.currentVersion,
     required this.newVersion,
     required this.updateUrl,
+    this.updateMessage,
     this.isForceUpdate = false,
   });
 
@@ -25,6 +28,7 @@ class UpdateDialog extends StatelessWidget {
     required String currentVersion,
     required String newVersion,
     required String updateUrl,
+    String? updateMessage,
     bool isForceUpdate = false,
   }) {
     return showDialog(
@@ -34,6 +38,7 @@ class UpdateDialog extends StatelessWidget {
         currentVersion: currentVersion,
         newVersion: newVersion,
         updateUrl: updateUrl,
+        updateMessage: updateMessage,
         isForceUpdate: isForceUpdate,
       ),
     );
@@ -54,6 +59,7 @@ class UpdateDialog extends StatelessWidget {
               color: isForceUpdate
                   ? AppTheme.errorColor
                   : AppTheme.primaryColor,
+              size: 28,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -71,22 +77,66 @@ class UpdateDialog extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              isForceUpdate
-                  ? 'Your app version ($currentVersion) is no longer supported. '
-                        'Please update to version $newVersion to continue using ${AppConstants.appName}.'
-                  : 'A new version ($newVersion) is available. '
-                        'You are currently on version $currentVersion.',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 8),
-            if (isForceUpdate)
+            // Server message (if provided)
+            if (updateMessage != null && updateMessage!.isNotEmpty) ...[
               Text(
-                'This update is mandatory.',
-                style: TextStyle(
-                  color: AppTheme.errorColor,
-                  fontWeight: FontWeight.w600,
+                updateMessage!,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 12),
+            ],
+            // Version info
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                children: [
+                  _buildVersionRow(context, 'Current Version', currentVersion),
+                  const Divider(height: 16),
+                  _buildVersionRow(context, 'New Version', newVersion),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (isForceUpdate)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppTheme.errorColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
                 ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      color: AppTheme.errorColor,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'This update is mandatory to continue using the app.',
+                        style: TextStyle(
+                          color: AppTheme.errorColor,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              Text(
+                'You can update later from Settings.',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
               ),
           ],
         ),
@@ -96,12 +146,28 @@ class UpdateDialog extends StatelessWidget {
               onPressed: () => Navigator.of(context).pop(),
               child: const Text('Later'),
             ),
-          ElevatedButton(
+          ElevatedButton.icon(
             onPressed: () => _launchUpdate(context),
-            child: const Text('Update Now'),
+            icon: const Icon(Icons.download, size: 18),
+            label: const Text('Download Update'),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildVersionRow(BuildContext context, String label, String version) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: Theme.of(context).textTheme.bodySmall),
+        Text(
+          'v$version',
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+      ],
     );
   }
 
@@ -112,7 +178,7 @@ class UpdateDialog extends StatelessWidget {
     } else {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Unable to open update link')),
+          const SnackBar(content: Text('Unable to open download link')),
         );
       }
     }

@@ -9,7 +9,7 @@ class ApiEndpoints {
   static const String getLoggedUser = '/api/method/frappe.auth.get_logged_user';
 
   // Version Management
-  static const String versionCheck = '/api/method/frappe.client.get_list';
+  static const String versionCheck = '/api/method/app_version_check';
 
   // User
   static const String userProfile = '/api/resource/User';

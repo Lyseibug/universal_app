@@ -29,14 +29,14 @@ class VersionRepository {
 
       AppLogger.info(
         'Server version info - current: ${serverVersion.currentVersion}, '
-        'minimum: ${serverVersion.minimumSupportedVersion}',
+        'minimum: ${serverVersion.minimumSupportedVersion}, '
+        'force_update: ${serverVersion.forceUpdate}',
         tag: 'VersionRepository',
       );
 
-      final status = _compareVersions(
+      final status = _determineStatus(
         appVersion: appVersion,
-        currentVersion: serverVersion.currentVersion,
-        minimumVersion: serverVersion.minimumSupportedVersion,
+        serverVersion: serverVersion,
       );
 
       return (
@@ -49,12 +49,18 @@ class VersionRepository {
         'Version check failed, continuing with current version: $e',
         tag: 'VersionRepository',
       );
+      AppLogger.error(
+        'Version check exception details',
+        error: e,
+        tag: 'VersionRepository',
+      );
       // If version check fails, allow app to continue
       return (
         status: VersionStatus.upToDate,
         serverVersion: VersionModel(
           currentVersion: appVersion,
           minimumSupportedVersion: appVersion,
+          forceUpdate: false,
           updateUrl: '',
         ),
         appVersion: appVersion,
@@ -62,26 +68,31 @@ class VersionRepository {
     }
   }
 
-  /// Compare semantic versions.
-  VersionStatus _compareVersions({
+  /// Determine version status based on server response.
+  VersionStatus _determineStatus({
     required String appVersion,
-    required String currentVersion,
-    required String minimumVersion,
+    required VersionModel serverVersion,
   }) {
     final app = _parseVersion(appVersion);
-    final current = _parseVersion(currentVersion);
-    final minimum = _parseVersion(minimumVersion);
+    final minimum = _parseVersion(serverVersion.minimumSupportedVersion);
+    final current = _parseVersion(serverVersion.currentVersion);
 
-    // Check if below minimum supported version
+    // Case 1: App version is below minimum supported → force update
     if (_isLessThan(app, minimum)) {
       return VersionStatus.forceUpdate;
     }
 
-    // Check if a newer version is available
+    // Case 2: Server explicitly says force update
+    if (serverVersion.forceUpdate && _isLessThan(app, current)) {
+      return VersionStatus.forceUpdate;
+    }
+
+    // Case 3: A newer version is available → optional update
     if (_isLessThan(app, current)) {
       return VersionStatus.updateAvailable;
     }
 
+    // Case 4: App is up to date
     return VersionStatus.upToDate;
   }
 
