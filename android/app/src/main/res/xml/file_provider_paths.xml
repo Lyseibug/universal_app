@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
-    <external-path name="external_files" path="." />
-    <external-files-path name="external_files_path" path="." />
-    <cache-path name="cache" path="." />
-    <files-path name="files" path="." />
+    <!-- getExternalStorageDirectory() path -->
+    <external-files-path name="external_files" path="." />
+    <!-- getApplicationSupportDirectory() path -->
+    <files-path name="internal_files" path="." />
+    <!-- getCacheDir() path -->
+    <cache-path name="cache_files" path="." />
+    <!-- External storage root (fallback) -->
+    <external-path name="external_root" path="." />
 </paths>
