@@ -82,7 +82,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         context,
         currentVersion: state.appVersion ?? '1.0.0',
         newVersion: state.serverVersion?.latestVersion ?? '',
-        updateUrl: state.serverVersion?.apkUrl ?? '',
+        apkUrl: state.serverVersion?.apkUrl ?? '',
         updateMessage: state.serverVersion?.message,
         isForceUpdate: true,
       );
@@ -102,7 +102,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
           context,
           currentVersion: state.appVersion ?? '1.0.0',
           newVersion: state.serverVersion?.latestVersion ?? '',
-          updateUrl: state.serverVersion?.apkUrl ?? '',
+          apkUrl: state.serverVersion?.apkUrl ?? '',
           updateMessage: state.serverVersion?.message,
           isForceUpdate: false,
         );

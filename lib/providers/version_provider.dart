@@ -1,8 +1,32 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../core/services/version_service.dart';
+import '../core/utils/logger.dart';
 import '../data/models/version_model.dart';
 import 'service_providers.dart';
+
+/// Live installed app version provider.
+///
+/// Reads the version directly from package_info_plus every time it's invalidated.
+/// After an APK update + restart, this returns the NEW version automatically.
+///
+/// Usage in UI:
+///   final versionAsync = ref.watch(appVersionProvider);
+///   versionAsync.when(
+///     data: (v) => Text('Current Version: $v'),
+///     loading: () => Text('Current Version: ...'),
+///     error: (_, __) => Text('Current Version: -'),
+///   );
+final appVersionProvider = FutureProvider<String>((ref) async {
+  final packageInfo = await PackageInfo.fromPlatform();
+  final version = packageInfo.version;
+  AppLogger.info(
+    'Installed Version (package_info_plus): $version (build ${packageInfo.buildNumber})',
+    tag: 'AppVersionProvider',
+  );
+  return version;
+});
 
 /// Version check state.
 class VersionState {
@@ -61,13 +85,6 @@ class VersionNotifier extends StateNotifier<VersionState> {
     );
 
     return result.status;
-  }
-
-  /// Launch the APK download URL.
-  Future<bool> launchUpdate() async {
-    final url = state.serverVersion?.apkUrl;
-    if (url == null || url.isEmpty) return false;
-    return _versionService.launchUpdate(url);
   }
 }
 

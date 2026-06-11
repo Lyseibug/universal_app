@@ -1,25 +1,25 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../core/constants/app_constants.dart';
+import '../core/services/apk_download_service.dart';
 import '../core/theme/app_theme.dart';
 import '../core/utils/logger.dart';
 
-/// Modern update dialog widget.
+/// Modern update dialog with in-app APK download + auto-install.
+///
+/// Flow:
+/// 1. Show update info (current vs latest version)
+/// 2. User taps "Update Now"
+/// 3. APK downloads in background with progress bar
+/// 4. At 100%, Android package installer opens automatically
+/// 5. User sees native "Install" popup
 ///
 /// Force Update:  Non-dismissible, only "Update Now" button.
 /// Optional Update: Dismissible, "Later" + "Update Now" buttons.
-///
-/// Displays:
-/// - 🚀 Update Available (or ⚠️ Update Required)
-/// - Server message
-/// - Current Version vs Latest Version
-/// - "New update available" badge
-/// - Action buttons
-class UpdateDialog extends StatelessWidget {
+class UpdateDialog extends StatefulWidget {
   final String currentVersion;
   final String newVersion;
-  final String updateUrl;
+  final String apkUrl;
   final String? updateMessage;
   final bool isForceUpdate;
 
@@ -27,7 +27,7 @@ class UpdateDialog extends StatelessWidget {
     super.key,
     required this.currentVersion,
     required this.newVersion,
-    required this.updateUrl,
+    required this.apkUrl,
     this.updateMessage,
     this.isForceUpdate = false,
   });
@@ -37,7 +37,7 @@ class UpdateDialog extends StatelessWidget {
     BuildContext context, {
     required String currentVersion,
     required String newVersion,
-    required String updateUrl,
+    required String apkUrl,
     String? updateMessage,
     bool isForceUpdate = false,
   }) {
@@ -47,7 +47,7 @@ class UpdateDialog extends StatelessWidget {
       builder: (context) => UpdateDialog(
         currentVersion: currentVersion,
         newVersion: newVersion,
-        updateUrl: updateUrl,
+        apkUrl: apkUrl,
         updateMessage: updateMessage,
         isForceUpdate: isForceUpdate,
       ),
@@ -55,9 +55,31 @@ class UpdateDialog extends StatelessWidget {
   }
 
   @override
+  State<UpdateDialog> createState() => _UpdateDialogState();
+}
+
+class _UpdateDialogState extends State<UpdateDialog> {
+  bool _isDownloading = false;
+  double _progress = 0.0;
+  String? _error;
+  late final ApkDownloadService _downloadService;
+
+  @override
+  void initState() {
+    super.initState();
+    _downloadService = ApkDownloadService();
+  }
+
+  @override
+  void dispose() {
+    _downloadService.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: !isForceUpdate,
+      canPop: !widget.isForceUpdate && !_isDownloading,
       child: Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         elevation: 8,
@@ -66,24 +88,27 @@ class UpdateDialog extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Icon + Title
-              _buildHeader(context),
+              _buildHeader(),
               const SizedBox(height: 20),
-
-              // Message
-              _buildMessage(context),
+              _buildMessage(),
               const SizedBox(height: 20),
-
-              // Version info card
-              _buildVersionCard(context),
+              _buildVersionCard(),
               const SizedBox(height: 16),
-
-              // "New update available" chip
-              _buildUpdateBadge(context),
+              _buildUpdateBadge(),
+              const SizedBox(height: 8),
+              // Download progress section
+              if (_isDownloading) ...[
+                const SizedBox(height: 16),
+                _buildDownloadProgress(),
+              ],
+              // Error message
+              if (_error != null) ...[
+                const SizedBox(height: 12),
+                _buildError(),
+              ],
               const SizedBox(height: 24),
-
-              // Action buttons
-              _buildButtons(context),
+              // Action buttons (hidden during download)
+              if (!_isDownloading) _buildButtons(),
             ],
           ),
         ),
@@ -91,29 +116,28 @@ class UpdateDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildHeader() {
     return Column(
       children: [
-        // Emoji icon in a circle
         Container(
           width: 64,
           height: 64,
           decoration: BoxDecoration(
-            color: isForceUpdate
+            color: widget.isForceUpdate
                 ? AppTheme.errorColor.withValues(alpha: 0.1)
                 : AppTheme.primaryColor.withValues(alpha: 0.1),
             shape: BoxShape.circle,
           ),
           child: Center(
             child: Text(
-              isForceUpdate ? '⚠️' : '🚀',
+              widget.isForceUpdate ? '⚠️' : '🚀',
               style: const TextStyle(fontSize: 32),
             ),
           ),
         ),
         const SizedBox(height: 16),
         Text(
-          isForceUpdate ? 'Update Required' : 'Update Available',
+          widget.isForceUpdate ? 'Update Required' : 'Update Available',
           style: Theme.of(
             context,
           ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
@@ -123,8 +147,9 @@ class UpdateDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildMessage(BuildContext context) {
-    final message = updateMessage ?? 'A new version of the app is available.';
+  Widget _buildMessage() {
+    final message =
+        widget.updateMessage ?? 'A new version of the app is available.';
     return Text(
       message,
       style: Theme.of(
@@ -134,7 +159,7 @@ class UpdateDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildVersionCard(BuildContext context) {
+  Widget _buildVersionCard() {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -146,9 +171,8 @@ class UpdateDialog extends StatelessWidget {
       child: Column(
         children: [
           _buildVersionRow(
-            context,
             label: 'Current Version',
-            version: currentVersion,
+            version: widget.currentVersion,
             icon: Icons.phone_android,
             color: Colors.grey[600]!,
           ),
@@ -157,9 +181,8 @@ class UpdateDialog extends StatelessWidget {
             child: Divider(height: 1, color: Colors.grey[300]),
           ),
           _buildVersionRow(
-            context,
             label: 'Latest Version',
-            version: newVersion,
+            version: widget.newVersion,
             icon: Icons.cloud_download_outlined,
             color: AppTheme.primaryColor,
           ),
@@ -168,8 +191,7 @@ class UpdateDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildVersionRow(
-    BuildContext context, {
+  Widget _buildVersionRow({
     required String label,
     required String version,
     required IconData icon,
@@ -205,16 +227,16 @@ class UpdateDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildUpdateBadge(BuildContext context) {
+  Widget _buildUpdateBadge() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: isForceUpdate
+        color: widget.isForceUpdate
             ? AppTheme.errorColor.withValues(alpha: 0.1)
             : Colors.orange.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isForceUpdate
+          color: widget.isForceUpdate
               ? AppTheme.errorColor.withValues(alpha: 0.3)
               : Colors.orange.withValues(alpha: 0.3),
         ),
@@ -223,19 +245,25 @@ class UpdateDialog extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            isForceUpdate ? Icons.warning_rounded : Icons.new_releases_outlined,
+            widget.isForceUpdate
+                ? Icons.warning_rounded
+                : Icons.new_releases_outlined,
             size: 16,
-            color: isForceUpdate ? AppTheme.errorColor : Colors.orange[700],
+            color: widget.isForceUpdate
+                ? AppTheme.errorColor
+                : Colors.orange[700],
           ),
           const SizedBox(width: 6),
           Text(
-            isForceUpdate
+            widget.isForceUpdate
                 ? 'Mandatory update required'
                 : 'New update available',
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: isForceUpdate ? AppTheme.errorColor : Colors.orange[700],
+              color: widget.isForceUpdate
+                  ? AppTheme.errorColor
+                  : Colors.orange[700],
             ),
           ),
         ],
@@ -243,14 +271,95 @@ class UpdateDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildButtons(BuildContext context) {
-    if (isForceUpdate) {
-      // Force update: only "Update Now" button, full width
+  Widget _buildDownloadProgress() {
+    final percent = (_progress * 100).toInt();
+    return Column(
+      children: [
+        Row(
+          children: [
+            const Icon(
+              Icons.downloading,
+              size: 20,
+              color: AppTheme.primaryColor,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Downloading update...',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+            ),
+            const Spacer(),
+            Text(
+              '$percent%',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: AppTheme.primaryColor,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: LinearProgressIndicator(
+            value: _progress,
+            minHeight: 8,
+            backgroundColor: Colors.grey[200],
+            valueColor: AlwaysStoppedAnimation<Color>(
+              _progress >= 1.0 ? Colors.green : AppTheme.primaryColor,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (_progress >= 1.0)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.check_circle, size: 16, color: Colors.green),
+              const SizedBox(width: 6),
+              Text(
+                'Download complete. Installing...',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.green[700],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+      ],
+    );
+  }
+
+  Widget _buildError() {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppTheme.errorColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline, size: 18, color: AppTheme.errorColor),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _error!,
+              style: TextStyle(fontSize: 12, color: AppTheme.errorColor),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildButtons() {
+    if (widget.isForceUpdate) {
       return SizedBox(
         width: double.infinity,
         height: AppConstants.buttonHeight,
         child: ElevatedButton.icon(
-          onPressed: () => _launchUpdate(context),
+          onPressed: _startDownload,
           icon: const Icon(Icons.system_update_alt, size: 20),
           label: const Text(
             'Update Now',
@@ -267,7 +376,6 @@ class UpdateDialog extends StatelessWidget {
       );
     }
 
-    // Optional update: "Later" + "Update Now"
     return Row(
       children: [
         Expanded(
@@ -293,7 +401,7 @@ class UpdateDialog extends StatelessWidget {
           child: SizedBox(
             height: AppConstants.buttonHeight,
             child: ElevatedButton.icon(
-              onPressed: () => _launchUpdate(context),
+              onPressed: _startDownload,
               icon: const Icon(Icons.system_update_alt, size: 18),
               label: const Text(
                 'Update Now',
@@ -313,59 +421,46 @@ class UpdateDialog extends StatelessWidget {
     );
   }
 
-  /// Open the APK download URL in an external browser.
-  /// Uses launchUrl directly without canLaunchUrl() — the latter is unreliable
-  /// on Android 11+ without explicit <queries> in AndroidManifest.xml.
-  Future<void> _launchUpdate(BuildContext context) async {
-    debugPrint('[UpdateDialog] APK URL: $updateUrl');
-
-    if (updateUrl.isEmpty) {
-      debugPrint('[UpdateDialog] ERROR: APK URL is empty');
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Download URL not available'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
+  /// Start APK download and trigger install on completion.
+  Future<void> _startDownload() async {
+    if (widget.apkUrl.isEmpty) {
+      setState(() => _error = 'Download URL not available');
       return;
     }
 
-    try {
-      final uri = Uri.parse(updateUrl);
-      debugPrint('[UpdateDialog] Launching URL: $uri');
+    setState(() {
+      _isDownloading = true;
+      _progress = 0.0;
+      _error = null;
+    });
 
-      final launched = await launchUrl(
-        uri,
-        mode: LaunchMode.externalApplication,
-      );
+    debugPrint('[UpdateDialog] Starting APK download: ${widget.apkUrl}');
+    AppLogger.info(
+      'Starting APK download: ${widget.apkUrl}',
+      tag: 'UpdateDialog',
+    );
 
-      debugPrint('[UpdateDialog] Launch result: $launched');
+    final result = await _downloadService.downloadAndInstall(
+      widget.apkUrl,
+      onProgress: (progress) {
+        if (mounted) {
+          setState(() => _progress = progress);
+        }
+      },
+    );
 
-      if (!launched && context.mounted) {
-        AppLogger.warning(
-          'launchUrl returned false for: $updateUrl',
-          tag: 'UpdateDialog',
-        );
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Unable to open download link'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } catch (e) {
-      debugPrint('[UpdateDialog] Exception: $e');
-      AppLogger.error('Error launching URL', error: e, tag: 'UpdateDialog');
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
+    if (!mounted) return;
+
+    if (result == null) {
+      debugPrint('[UpdateDialog] Download failed');
+      setState(() {
+        _isDownloading = false;
+        _error = 'Download failed. Please check your internet and try again.';
+      });
+    } else {
+      debugPrint('[UpdateDialog] APK installed from: $result');
+      // Keep dialog showing "Installing..." state
+      // Android installer will overlay on top
     }
   }
 }

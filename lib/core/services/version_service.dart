@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../data/models/version_model.dart';
 import '../../data/repositories/version_repository.dart';
@@ -49,19 +48,24 @@ class VersionService {
       debugPrint('═══════════════════════════════════════════');
       debugPrint('📱 VERSION CHECK');
       debugPrint('───────────────────────────────────────────');
-      debugPrint('Current Version: $appVersion');
+      debugPrint(
+        'Installed Version: $appVersion (build ${packageInfo.buildNumber})',
+      );
 
-      AppLogger.info('Current Version: $appVersion', tag: 'VersionService');
+      AppLogger.info(
+        'Installed Version: $appVersion (build ${packageInfo.buildNumber})',
+        tag: 'VersionService',
+      );
 
       final serverVersion = await _versionRepository.fetchServerVersion();
 
-      debugPrint('Latest Version: ${serverVersion.latestVersion}');
+      debugPrint('Server Version: ${serverVersion.latestVersion}');
       debugPrint('Minimum Version: ${serverVersion.minimumVersion}');
       debugPrint('Force Update: ${serverVersion.forceUpdate}');
       debugPrint('APK URL: ${serverVersion.apkUrl}');
 
       AppLogger.info(
-        'Latest Version: ${serverVersion.latestVersion}',
+        'Server Version: ${serverVersion.latestVersion}',
         tag: 'VersionService',
       );
       AppLogger.info(
@@ -110,26 +114,6 @@ class VersionService {
         tag: 'VersionService',
       );
       return _fallbackResult(e.toString());
-    }
-  }
-
-  /// Launch the APK download URL in an external browser/downloader.
-  /// Skips canLaunchUrl() — unreliable on Android 11+ without queries declaration.
-  Future<bool> launchUpdate(String updateUrl) async {
-    try {
-      debugPrint('[VersionService] Launching APK URL: $updateUrl');
-      final uri = Uri.parse(updateUrl);
-      final result = await launchUrl(uri, mode: LaunchMode.externalApplication);
-      debugPrint('[VersionService] Launch result: $result');
-      return result;
-    } catch (e) {
-      debugPrint('[VersionService] Launch error: $e');
-      AppLogger.error(
-        'Error launching update URL',
-        error: e,
-        tag: 'VersionService',
-      );
-      return false;
     }
   }
 
