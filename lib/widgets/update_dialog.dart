@@ -3,9 +3,19 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../core/constants/app_constants.dart';
 import '../core/theme/app_theme.dart';
+import '../core/utils/logger.dart';
 
-/// Dialog widget for showing version update notifications.
-/// Downloads APK directly from the ERP server.
+/// Modern update dialog widget.
+///
+/// Force Update:  Non-dismissible, only "Update Now" button.
+/// Optional Update: Dismissible, "Later" + "Update Now" buttons.
+///
+/// Displays:
+/// - 🚀 Update Available (or ⚠️ Update Required)
+/// - Server message
+/// - Current Version vs Latest Version
+/// - "New update available" badge
+/// - Action buttons
 class UpdateDialog extends StatelessWidget {
   final String currentVersion;
   final String newVersion;
@@ -48,137 +58,312 @@ class UpdateDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: !isForceUpdate,
-      child: AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-        ),
-        title: Row(
-          children: [
-            Icon(
-              isForceUpdate ? Icons.system_update : Icons.update,
-              color: isForceUpdate
-                  ? AppTheme.errorColor
-                  : AppTheme.primaryColor,
-              size: 28,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                isForceUpdate ? 'Update Required' : 'Update Available',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Server message (if provided)
-            if (updateMessage != null && updateMessage!.isNotEmpty) ...[
-              Text(
-                updateMessage!,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 12),
+      child: Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        elevation: 8,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Icon + Title
+              _buildHeader(context),
+              const SizedBox(height: 20),
+
+              // Message
+              _buildMessage(context),
+              const SizedBox(height: 20),
+
+              // Version info card
+              _buildVersionCard(context),
+              const SizedBox(height: 16),
+
+              // "New update available" chip
+              _buildUpdateBadge(context),
+              const SizedBox(height: 24),
+
+              // Action buttons
+              _buildButtons(context),
             ],
-            // Version info
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                children: [
-                  _buildVersionRow(context, 'Current Version', currentVersion),
-                  const Divider(height: 16),
-                  _buildVersionRow(context, 'New Version', newVersion),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            if (isForceUpdate)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppTheme.errorColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.warning_amber_rounded,
-                      color: AppTheme.errorColor,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'This update is mandatory to continue using the app.',
-                        style: TextStyle(
-                          color: AppTheme.errorColor,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            else
-              Text(
-                'You can update later from Settings.',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
-              ),
-          ],
+          ),
         ),
-        actions: [
-          if (!isForceUpdate)
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Later'),
+      ),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    return Column(
+      children: [
+        // Emoji icon in a circle
+        Container(
+          width: 64,
+          height: 64,
+          decoration: BoxDecoration(
+            color: isForceUpdate
+                ? AppTheme.errorColor.withValues(alpha: 0.1)
+                : AppTheme.primaryColor.withValues(alpha: 0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Center(
+            child: Text(
+              isForceUpdate ? '⚠️' : '🚀',
+              style: const TextStyle(fontSize: 32),
             ),
-          ElevatedButton.icon(
-            onPressed: () => _launchUpdate(context),
-            icon: const Icon(Icons.download, size: 18),
-            label: const Text('Download Update'),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          isForceUpdate ? 'Update Required' : 'Update Available',
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMessage(BuildContext context) {
+    final message = updateMessage ?? 'A new version of the app is available.';
+    return Text(
+      message,
+      style: Theme.of(
+        context,
+      ).textTheme.bodyMedium?.copyWith(color: Colors.grey[700], height: 1.4),
+      textAlign: TextAlign.center,
+    );
+  }
+
+  Widget _buildVersionCard(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        children: [
+          _buildVersionRow(
+            context,
+            label: 'Current Version',
+            version: currentVersion,
+            icon: Icons.phone_android,
+            color: Colors.grey[600]!,
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Divider(height: 1, color: Colors.grey[300]),
+          ),
+          _buildVersionRow(
+            context,
+            label: 'Latest Version',
+            version: newVersion,
+            icon: Icons.cloud_download_outlined,
+            color: AppTheme.primaryColor,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildVersionRow(BuildContext context, String label, String version) {
+  Widget _buildVersionRow(
+    BuildContext context, {
+    required String label,
+    required String version,
+    required IconData icon,
+    required Color color,
+  }) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: Theme.of(context).textTheme.bodySmall),
-        Text(
-          'v$version',
-          style: Theme.of(
-            context,
-          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+        Icon(icon, size: 20, color: color),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            label,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            'v$version',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
         ),
       ],
     );
   }
 
+  Widget _buildUpdateBadge(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: isForceUpdate
+            ? AppTheme.errorColor.withValues(alpha: 0.1)
+            : Colors.orange.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isForceUpdate
+              ? AppTheme.errorColor.withValues(alpha: 0.3)
+              : Colors.orange.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isForceUpdate ? Icons.warning_rounded : Icons.new_releases_outlined,
+            size: 16,
+            color: isForceUpdate ? AppTheme.errorColor : Colors.orange[700],
+          ),
+          const SizedBox(width: 6),
+          Text(
+            isForceUpdate
+                ? 'Mandatory update required'
+                : 'New update available',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: isForceUpdate ? AppTheme.errorColor : Colors.orange[700],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildButtons(BuildContext context) {
+    if (isForceUpdate) {
+      // Force update: only "Update Now" button, full width
+      return SizedBox(
+        width: double.infinity,
+        height: AppConstants.buttonHeight,
+        child: ElevatedButton.icon(
+          onPressed: () => _launchUpdate(context),
+          icon: const Icon(Icons.system_update_alt, size: 20),
+          label: const Text(
+            'Update Now',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.errorColor,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Optional update: "Later" + "Update Now"
+    return Row(
+      children: [
+        Expanded(
+          child: SizedBox(
+            height: AppConstants.buttonHeight,
+            child: OutlinedButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: Colors.grey[400]!),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                'Later',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: SizedBox(
+            height: AppConstants.buttonHeight,
+            child: ElevatedButton.icon(
+              onPressed: () => _launchUpdate(context),
+              icon: const Icon(Icons.system_update_alt, size: 18),
+              label: const Text(
+                'Update Now',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Open the APK download URL in an external browser.
+  /// Uses launchUrl directly without canLaunchUrl() — the latter is unreliable
+  /// on Android 11+ without explicit <queries> in AndroidManifest.xml.
   Future<void> _launchUpdate(BuildContext context) async {
-    final uri = Uri.parse(updateUrl);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
+    debugPrint('[UpdateDialog] APK URL: $updateUrl');
+
+    if (updateUrl.isEmpty) {
+      debugPrint('[UpdateDialog] ERROR: APK URL is empty');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Unable to open download link')),
+          const SnackBar(
+            content: Text('Download URL not available'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      final uri = Uri.parse(updateUrl);
+      debugPrint('[UpdateDialog] Launching URL: $uri');
+
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+
+      debugPrint('[UpdateDialog] Launch result: $launched');
+
+      if (!launched && context.mounted) {
+        AppLogger.warning(
+          'launchUrl returned false for: $updateUrl',
+          tag: 'UpdateDialog',
+        );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to open download link'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('[UpdateDialog] Exception: $e');
+      AppLogger.error('Error launching URL', error: e, tag: 'UpdateDialog');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     }

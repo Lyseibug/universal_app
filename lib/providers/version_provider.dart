@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/services/version_service.dart';
 import '../data/models/version_model.dart';
-import '../data/repositories/version_repository.dart';
 import 'service_providers.dart';
 
 /// Version check state.
@@ -39,40 +39,48 @@ class VersionState {
 
 /// Version management state notifier.
 class VersionNotifier extends StateNotifier<VersionState> {
-  final VersionRepository _versionRepository;
+  final VersionService _versionService;
 
-  VersionNotifier({required VersionRepository versionRepository})
-    : _versionRepository = versionRepository,
+  VersionNotifier({required VersionService versionService})
+    : _versionService = versionService,
       super(const VersionState());
 
-  /// Perform version check against ERP server.
+  /// Perform version check.
+  /// Returns the [VersionStatus] for the splash screen to act on.
   Future<VersionStatus> checkVersion() async {
     state = state.copyWith(isChecking: true, error: null);
 
-    try {
-      final result = await _versionRepository.checkVersion();
-      state = VersionState(
-        isChecking: false,
-        status: result.status,
-        serverVersion: result.serverVersion,
-        appVersion: result.appVersion,
-      );
-      return result.status;
-    } catch (e) {
-      state = state.copyWith(
-        isChecking: false,
-        status: VersionStatus.upToDate,
-        error: e.toString(),
-      );
-      return VersionStatus.upToDate;
-    }
+    final result = await _versionService.checkVersion();
+
+    state = VersionState(
+      isChecking: false,
+      status: result.status,
+      serverVersion: result.serverVersion,
+      appVersion: result.appVersion,
+      error: result.error,
+    );
+
+    return result.status;
+  }
+
+  /// Launch the APK download URL.
+  Future<bool> launchUpdate() async {
+    final url = state.serverVersion?.apkUrl;
+    if (url == null || url.isEmpty) return false;
+    return _versionService.launchUpdate(url);
   }
 }
+
+/// Provider for version service.
+final versionServiceProvider = Provider<VersionService>((ref) {
+  final versionRepository = ref.watch(versionRepositoryProvider);
+  return VersionService(versionRepository: versionRepository);
+});
 
 /// Provider for version management state.
 final versionProvider = StateNotifierProvider<VersionNotifier, VersionState>((
   ref,
 ) {
-  final versionRepository = ref.watch(versionRepositoryProvider);
-  return VersionNotifier(versionRepository: versionRepository);
+  final versionService = ref.watch(versionServiceProvider);
+  return VersionNotifier(versionService: versionService);
 });

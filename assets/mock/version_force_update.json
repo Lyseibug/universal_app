@@ -1,7 +1,7 @@
 {
-  "current_version": "2.0.0",
-  "minimum_supported_version": "1.5.0",
+  "latest_version": "2.0.0",
+  "minimum_version": "1.5.0",
   "force_update": true,
-  "update_url": "https://universaltest.lyseibug.com/files/universal-v2.0.0.apk",
-  "message": "Critical update required. Please update to continue."
+  "apk_url": "https://universaltest.lyseibug.com/files/mobile-updates/app-release.apk",
+  "message": "Critical security update. Please update to continue using the app."
 }

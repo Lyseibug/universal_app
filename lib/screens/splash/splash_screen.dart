@@ -10,7 +10,15 @@ import '../../providers/version_provider.dart';
 import '../../widgets/update_dialog.dart';
 
 /// Splash screen shown on app startup.
-/// Checks ERP URL, login session, and app version before navigation.
+///
+/// Startup Flow:
+/// 1. Show splash animation (2 seconds)
+/// 2. Call: https://universaltest.lyseibug.com/files/mobile-updates/version.json
+/// 3. Get installed version via package_info_plus
+/// 4. Compare installed version with latest_version & minimum_version
+/// 5. If installed < minimum_version OR force_update=true → Force Update dialog
+/// 6. If installed < latest_version → Optional Update dialog
+/// 7. Check auth → navigate to dashboard or login
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
@@ -39,7 +47,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     );
     _animationController.forward();
 
-    // Start initialization checks after animation
+    // Start initialization after splash animation
     Future.delayed(const Duration(milliseconds: 2000), _initializeApp);
   }
 
@@ -49,42 +57,53 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     super.dispose();
   }
 
+  /// Main initialization flow after splash animation.
   Future<void> _initializeApp() async {
     if (!mounted) return;
 
-    // Check version
+    // ─── Step 1: Version Check ─────────────────────────────────────────────
     final versionStatus = await ref
         .read(versionProvider.notifier)
         .checkVersion();
 
-    debugPrint('[Splash] Version check result: $versionStatus');
+    debugPrint('[Splash] Version check result: ${versionStatus.name}');
 
     if (!mounted) return;
 
+    // ─── Step 2: Force Update Dialog (non-dismissible) ─────────────────────
     if (versionStatus == VersionStatus.forceUpdate) {
-      final versionState = ref.read(versionProvider);
-      debugPrint('[Splash] Showing FORCE UPDATE dialog');
+      final state = ref.read(versionProvider);
+      debugPrint('[Splash] 🚫 Showing FORCE UPDATE dialog');
+      debugPrint('[Splash] Installed: ${state.appVersion}');
+      debugPrint('[Splash] Latest: ${state.serverVersion?.latestVersion}');
+      debugPrint('[Splash] Minimum: ${state.serverVersion?.minimumVersion}');
+
       await UpdateDialog.show(
         context,
-        currentVersion: versionState.appVersion ?? '1.0.0',
-        newVersion: versionState.serverVersion?.currentVersion ?? '',
-        updateUrl: versionState.serverVersion?.updateUrl ?? '',
-        updateMessage: versionState.serverVersion?.message,
+        currentVersion: state.appVersion ?? '1.0.0',
+        newVersion: state.serverVersion?.latestVersion ?? '',
+        updateUrl: state.serverVersion?.apkUrl ?? '',
+        updateMessage: state.serverVersion?.message,
         isForceUpdate: true,
       );
-      return; // Block app usage
+      // User cannot dismiss this → app stays blocked here
+      return;
     }
 
+    // ─── Step 3: Optional Update Dialog (dismissible) ──────────────────────
     if (versionStatus == VersionStatus.updateAvailable) {
-      final versionState = ref.read(versionProvider);
-      debugPrint('[Splash] Showing OPTIONAL UPDATE dialog');
+      final state = ref.read(versionProvider);
+      debugPrint('[Splash] 📦 Showing OPTIONAL UPDATE dialog');
+      debugPrint('[Splash] Installed: ${state.appVersion}');
+      debugPrint('[Splash] Latest: ${state.serverVersion?.latestVersion}');
+
       if (mounted) {
         await UpdateDialog.show(
           context,
-          currentVersion: versionState.appVersion ?? '1.0.0',
-          newVersion: versionState.serverVersion?.currentVersion ?? '',
-          updateUrl: versionState.serverVersion?.updateUrl ?? '',
-          updateMessage: versionState.serverVersion?.message,
+          currentVersion: state.appVersion ?? '1.0.0',
+          newVersion: state.serverVersion?.latestVersion ?? '',
+          updateUrl: state.serverVersion?.apkUrl ?? '',
+          updateMessage: state.serverVersion?.message,
           isForceUpdate: false,
         );
       }
@@ -92,11 +111,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
     if (!mounted) return;
 
-    // Check authentication status
+    // ─── Step 4: Auth Check & Navigation ───────────────────────────────────
     final authState = ref.read(authProvider);
-    debugPrint(
-      '[Splash] Auth state: isAuthenticated=${authState.isAuthenticated}',
-    );
+    debugPrint('[Splash] Auth: isAuthenticated=${authState.isAuthenticated}');
+
     if (authState.isAuthenticated) {
       context.go('/dashboard');
     } else {

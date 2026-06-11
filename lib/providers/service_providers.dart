@@ -43,7 +43,7 @@ final authApiProvider = Provider<AuthApi>((ref) {
 });
 
 final versionApiProvider = Provider<VersionApi>((ref) {
-  return VersionApi(apiClient: ref.watch(apiClientProvider));
+  return VersionApi();
 });
 
 final userApiProvider = Provider<UserApi>((ref) {

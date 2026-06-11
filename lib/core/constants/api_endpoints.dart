@@ -8,8 +8,9 @@ class ApiEndpoints {
   static const String logout = '/api/method/logout';
   static const String getLoggedUser = '/api/method/frappe.auth.get_logged_user';
 
-  // Version Management
-  static const String versionCheck = '/api/method/app_version_check';
+  // Version Management (standalone URL — not relative to ERP base)
+  static const String versionCheck =
+      'https://universaltest.lyseibug.com/files/mobile-updates/version.json';
 
   // User
   static const String userProfile = '/api/resource/User';
