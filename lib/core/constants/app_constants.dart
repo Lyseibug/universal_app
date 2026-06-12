@@ -17,6 +17,11 @@ class AppConstants {
   static const String keyUserEmail = 'user_email';
   static const String keyUserRole = 'user_role';
 
+  // Update / version tracking
+  /// Version we attempted to install via the in-app updater. On next launch we
+  /// compare the running version against this to confirm the install succeeded.
+  static const String keyPendingUpdateVersion = 'pending_update_version';
+
   // Secure Storage Keys
   static const String keyAuthToken = 'auth_token';
   static const String keyRefreshToken = 'refresh_token';

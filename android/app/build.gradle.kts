@@ -44,10 +44,16 @@ android {
                 keyPassword = keystoreProperties["keyPassword"] as String
                 storeFile = file(keystoreProperties["storeFile"] as String)
                 storePassword = keystoreProperties["storePassword"] as String
-                // Enable BOTH signature schemes so sideloaded APK installs
-                // work on all Android versions (v1 = JAR, v2 = APK Signature v2).
+                // Enable ALL signature schemes so sideloaded APK installs
+                // work on all Android versions:
+                // v1 = JAR signing (legacy, Android <7)
+                // v2 = APK Signature Scheme v2 (Android 7+)
+                // v3 = APK Signature Scheme v3 (Android 9+, key rotation)
+                // v4 = APK Signature Scheme v4 (Android 11+, streaming install)
                 enableV1Signing = true
                 enableV2Signing = true
+                enableV3Signing = true
+                enableV4Signing = true
             }
         }
     }

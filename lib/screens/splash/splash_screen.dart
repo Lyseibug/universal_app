@@ -7,6 +7,7 @@ import '../../core/theme/app_theme.dart';
 import '../../data/models/version_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/version_provider.dart';
+import '../../providers/service_providers.dart';
 import '../../widgets/update_dialog.dart';
 
 /// Splash screen shown on app startup.
@@ -85,6 +86,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         apkUrl: state.serverVersion?.apkUrl ?? '',
         updateMessage: state.serverVersion?.message,
         isForceUpdate: true,
+        onInstallAttempt: (version) =>
+            ref.read(storageServiceProvider).savePendingUpdateVersion(version),
       );
       // User cannot dismiss this → app stays blocked here
       return;
@@ -105,6 +108,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
           apkUrl: state.serverVersion?.apkUrl ?? '',
           updateMessage: state.serverVersion?.message,
           isForceUpdate: false,
+          onInstallAttempt: (version) => ref
+              .read(storageServiceProvider)
+              .savePendingUpdateVersion(version),
         );
       }
     }

@@ -23,6 +23,10 @@ class UpdateDialog extends StatefulWidget {
   final String? updateMessage;
   final bool isForceUpdate;
 
+  /// Called with the target version right before the install is launched, so
+  /// the host can persist it and verify the outcome on next launch.
+  final Future<void> Function(String version)? onInstallAttempt;
+
   const UpdateDialog({
     super.key,
     required this.currentVersion,
@@ -30,6 +34,7 @@ class UpdateDialog extends StatefulWidget {
     required this.apkUrl,
     this.updateMessage,
     this.isForceUpdate = false,
+    this.onInstallAttempt,
   });
 
   /// Show the update dialog.
@@ -40,6 +45,7 @@ class UpdateDialog extends StatefulWidget {
     required String apkUrl,
     String? updateMessage,
     bool isForceUpdate = false,
+    Future<void> Function(String version)? onInstallAttempt,
   }) {
     return showDialog(
       context: context,
@@ -50,6 +56,7 @@ class UpdateDialog extends StatefulWidget {
         apkUrl: apkUrl,
         updateMessage: updateMessage,
         isForceUpdate: isForceUpdate,
+        onInstallAttempt: onInstallAttempt,
       ),
     );
   }
@@ -435,13 +442,19 @@ class _UpdateDialogState extends State<UpdateDialog> {
     });
 
     debugPrint('[UpdateDialog] Starting APK download: ${widget.apkUrl}');
+    debugPrint('[UpdateDialog] Target version: ${widget.newVersion}');
     AppLogger.info(
-      'Starting APK download: ${widget.apkUrl}',
+      'Starting APK download: ${widget.apkUrl} (target: v${widget.newVersion})',
       tag: 'UpdateDialog',
     );
 
+    // Persist the version we are about to install so the next launch can
+    // verify whether the install actually completed.
+    await widget.onInstallAttempt?.call(widget.newVersion);
+
     final result = await _downloadService.downloadAndInstall(
       widget.apkUrl,
+      expectedVersion: widget.newVersion,
       onProgress: (progress) {
         if (mounted) {
           setState(() => _progress = progress);
@@ -451,16 +464,45 @@ class _UpdateDialogState extends State<UpdateDialog> {
 
     if (!mounted) return;
 
-    if (result == null) {
-      debugPrint('[UpdateDialog] Download failed');
-      setState(() {
-        _isDownloading = false;
-        _error = 'Download failed. Please check your internet and try again.';
-      });
-    } else {
-      debugPrint('[UpdateDialog] APK installed from: $result');
-      // Keep dialog showing "Installing..." state
-      // Android installer will overlay on top
+    // The PackageInstaller session reports a real terminal status. Branch on
+    // it so the user sees what actually happened instead of a generic "ok".
+    if (result.success) {
+      // Note: in practice the OS often kills our process during the package
+      // replace, so this branch may never run. The post-restart check in
+      // main.dart compares the pending version against PackageInfo.version
+      // and is the source of truth either way.
+      debugPrint('[UpdateDialog] ✅ Install completed for ${result.apkPath}');
+      AppLogger.info('APK install completed successfully', tag: 'UpdateDialog');
+      await Future.delayed(const Duration(seconds: 1));
+      if (mounted) Navigator.of(context).pop();
+      return;
     }
+
+    setState(() {
+      _isDownloading = false;
+      if (result.permissionRequired) {
+        _error =
+            'Please allow "Install unknown apps" for this app, then tap '
+            'Update Now again.';
+      } else if (result.userCancelled) {
+        _error = 'Install was cancelled. Tap Update Now to try again.';
+      } else if (result.launched) {
+        // Installer ran but reported a failure (signature mismatch,
+        // incompatible APK, storage, etc.). Surface the real reason.
+        _error =
+            result.error ??
+            'Installation failed (status ${result.statusCode}). Please try again.';
+      } else {
+        _error =
+            result.error ??
+            'Download failed. Please check your internet and try again.';
+      }
+    });
+
+    debugPrint('[UpdateDialog] Install not successful: ${result.toLogMap()}');
+    AppLogger.warning(
+      'Install not successful: ${result.toLogMap()}',
+      tag: 'UpdateDialog',
+    );
   }
 }

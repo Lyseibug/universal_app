@@ -15,12 +15,18 @@ import '../models/version_model.dart';
 /// This does NOT use the main ApiClient because the version endpoint
 /// is a standalone static JSON file, not relative to the ERP base URL.
 ///
+/// Cache-busting strategy:
+/// - A timestamp query param (?t=...) is appended to prevent CDN caching
+/// - No-cache request headers are sent
+/// - The server keeps one static URL: .../app-release.apk
+/// - The app always deletes old APK + downloads fresh with cache busting
+///
 /// Expected JSON format at the URL:
 /// {
-///   "latest_version": "1.0.2",
+///   "latest_version": "1.0.6",
 ///   "minimum_version": "1.0.0",
 ///   "force_update": false,
-///   "apk_url": "https://universaltest.lyseibug.com/files/mobile-updates/app-release.apk",
+///   "apk_url": "https://universaltest.lyseibug.com/files/app-release.apk",
 ///   "message": "A new version is available."
 /// }
 class VersionApi {
@@ -41,7 +47,12 @@ class VersionApi {
         BaseOptions(
           connectTimeout: const Duration(seconds: 10),
           receiveTimeout: const Duration(seconds: 10),
-          headers: {'Accept': 'application/json'},
+          headers: {
+            'Accept': 'application/json',
+            // Prevent CDN/proxy/browser from serving stale version.json
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+          },
         ),
       );
 
@@ -55,9 +66,16 @@ class VersionApi {
   }
 
   /// Fetch version.json from the standalone server URL.
+  /// Appends a timestamp query parameter to bust CDN/proxy caches.
   Future<VersionModel> _fetchFromServer() async {
     try {
-      final response = await _dio.get(ApiEndpoints.versionCheck);
+      // Append cache-busting timestamp to prevent CDN caching stale version.json
+      final cacheBuster = DateTime.now().millisecondsSinceEpoch;
+      final url = '${ApiEndpoints.versionCheck}?t=$cacheBuster';
+
+      AppLogger.info('Fetching version info: $url', tag: 'VersionApi');
+
+      final response = await _dio.get(url);
 
       AppLogger.debug(
         'Version API response: ${response.data}',

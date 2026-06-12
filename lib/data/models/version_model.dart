@@ -4,12 +4,15 @@
 ///
 /// Expected JSON format:
 /// {
-///   "latest_version": "1.0.2",
+///   "latest_version": "1.0.6",
 ///   "minimum_version": "1.0.0",
 ///   "force_update": false,
-///   "apk_url": "https://universaltest.lyseibug.com/files/mobile-updates/app-release.apk",
+///   "apk_url": "https://universaltest.lyseibug.com/files/app-release.apk",
 ///   "message": "A new version is available with bug fixes."
 /// }
+///
+/// The APK URL is always the same static file. Cache busting is handled
+/// by the download service appending ?t={timestamp} at download time.
 ///
 /// Also supports legacy field names for backward compatibility:
 /// - "current_version" → mapped to latestVersion

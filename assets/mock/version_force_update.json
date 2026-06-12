@@ -2,6 +2,6 @@
   "latest_version": "2.0.0",
   "minimum_version": "1.5.0",
   "force_update": true,
-  "apk_url": "https://universaltest.lyseibug.com/files/mobile-updates/app-release.apk",
+  "apk_url": "https://universaltest.lyseibug.com/files/app-release.apk",
   "message": "Critical security update. Please update to continue using the app."
 }

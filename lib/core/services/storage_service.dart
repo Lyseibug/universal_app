@@ -41,6 +41,24 @@ class StorageService {
     return _prefs.containsKey(AppConstants.keyErpUrl);
   }
 
+  // ─── Update / Version Tracking ───────────────────────────────────────────
+
+  /// Record the version the user is attempting to install. Read on next launch
+  /// to verify whether the install actually completed.
+  Future<bool> savePendingUpdateVersion(String version) async {
+    return _prefs.setString(AppConstants.keyPendingUpdateVersion, version);
+  }
+
+  /// The version the user last attempted to install, or null if none pending.
+  String? getPendingUpdateVersion() {
+    return _prefs.getString(AppConstants.keyPendingUpdateVersion);
+  }
+
+  /// Clear the pending update marker (after success or abandonment).
+  Future<bool> clearPendingUpdateVersion() async {
+    return _prefs.remove(AppConstants.keyPendingUpdateVersion);
+  }
+
   // ─── Login Session ─────────────────────────────────────────────────────────
 
   /// Check if user is logged in.

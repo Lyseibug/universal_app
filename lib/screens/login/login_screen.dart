@@ -6,7 +6,6 @@ import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/validators.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/version_provider.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
 
@@ -152,23 +151,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         isLoading: authState.isLoading,
                         onPressed: _handleLogin,
                         icon: Icons.login,
-                      ),
-                      const SizedBox(height: 24),
-                      // App version (live from package_info_plus)
-                      Consumer(
-                        builder: (context, ref, _) {
-                          final versionAsync = ref.watch(appVersionProvider);
-                          return Text(
-                            versionAsync.when(
-                              data: (v) => 'Current Version: $v',
-                              loading: () => 'Current Version: ...',
-                              error: (e, st) => 'Current Version: -',
-                            ),
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: Colors.grey[500]),
-                            textAlign: TextAlign.center,
-                          );
-                        },
                       ),
                       const SizedBox(height: 40),
                     ],

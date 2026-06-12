@@ -1,7 +1,7 @@
 name: universal_app
 description: "Universal ERP - Production Flutter Application"
 publish_to: 'none'
-version: 1.0.3+5
+version: 1.0.8+8
 
 environment:
   sdk: ^3.11.4
@@ -22,6 +22,8 @@ dependencies:
   path_provider: ^2.1.5
   # Connectivity
   connectivity_plus: ^6.1.1
+  # Crypto (SHA256 hash for APK verification)
+  crypto: ^3.0.6
   # Navigation
   go_router: ^14.8.1
 
