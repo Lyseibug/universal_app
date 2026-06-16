@@ -228,29 +228,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   /// Build the company logo widget.
   Widget _buildLogo() {
     return Center(
-      child: Container(
-        width: 80,
-        height: 80,
-        decoration: BoxDecoration(
-          color: AppTheme.primaryColor,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.primaryColor.withValues(alpha: 0.3),
-              blurRadius: 12,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: const Center(
-          child: Text(
-            'U',
-            style: TextStyle(
-              fontSize: 40,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Image.asset(
+          'assets/images/universal_rubber_belt_manufacturing_logo.jpg',
+          width: 100,
+          height: 100,
+          fit: BoxFit.contain,
         ),
       ),
     );
