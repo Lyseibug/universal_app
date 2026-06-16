@@ -97,12 +97,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
             children: [
               _buildHeader(),
               const SizedBox(height: 20),
-              _buildMessage(),
-              const SizedBox(height: 20),
               _buildVersionCard(),
-              const SizedBox(height: 16),
-              _buildUpdateBadge(),
-              const SizedBox(height: 8),
               // Download progress section
               if (_isDownloading) ...[
                 const SizedBox(height: 16),
@@ -124,44 +119,11 @@ class _UpdateDialogState extends State<UpdateDialog> {
   }
 
   Widget _buildHeader() {
-    return Column(
-      children: [
-        Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            color: widget.isForceUpdate
-                ? AppTheme.errorColor.withValues(alpha: 0.1)
-                : AppTheme.primaryColor.withValues(alpha: 0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Center(
-            child: Text(
-              widget.isForceUpdate ? '⚠️' : '🚀',
-              style: const TextStyle(fontSize: 32),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Text(
-          widget.isForceUpdate ? 'Update Required' : 'Update Available',
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-          textAlign: TextAlign.center,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMessage() {
-    final message =
-        widget.updateMessage ?? 'A new version of the app is available.';
     return Text(
-      message,
+      widget.isForceUpdate ? 'Update Required' : 'Update Available',
       style: Theme.of(
         context,
-      ).textTheme.bodyMedium?.copyWith(color: Colors.grey[700], height: 1.4),
+      ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
       textAlign: TextAlign.center,
     );
   }
@@ -231,50 +193,6 @@ class _UpdateDialogState extends State<UpdateDialog> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildUpdateBadge() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: widget.isForceUpdate
-            ? AppTheme.errorColor.withValues(alpha: 0.1)
-            : Colors.orange.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: widget.isForceUpdate
-              ? AppTheme.errorColor.withValues(alpha: 0.3)
-              : Colors.orange.withValues(alpha: 0.3),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            widget.isForceUpdate
-                ? Icons.warning_rounded
-                : Icons.new_releases_outlined,
-            size: 16,
-            color: widget.isForceUpdate
-                ? AppTheme.errorColor
-                : Colors.orange[700],
-          ),
-          const SizedBox(width: 6),
-          Text(
-            widget.isForceUpdate
-                ? 'Mandatory update required'
-                : 'New update available',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: widget.isForceUpdate
-                  ? AppTheme.errorColor
-                  : Colors.orange[700],
-            ),
-          ),
-        ],
-      ),
     );
   }
 

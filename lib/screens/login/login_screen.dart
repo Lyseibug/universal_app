@@ -5,9 +5,13 @@ import 'package:go_router/go_router.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/validators.dart';
+import '../../data/models/version_model.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/service_providers.dart';
+import '../../providers/version_provider.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
+import '../../widgets/update_dialog.dart';
 
 /// Professional login screen with form validation and settings access.
 class LoginScreen extends ConsumerStatefulWidget {
@@ -23,6 +27,63 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordController = TextEditingController();
   final _passwordFocusNode = FocusNode();
   bool _obscurePassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // Check for app updates on launch
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkForUpdate());
+  }
+
+  /// Check version and show update dialog if needed.
+  Future<void> _checkForUpdate() async {
+    if (!mounted) return;
+
+    final versionStatus = await ref
+        .read(versionProvider.notifier)
+        .checkVersion();
+
+    if (!mounted) return;
+
+    if (versionStatus == VersionStatus.forceUpdate) {
+      final state = ref.read(versionProvider);
+      await UpdateDialog.show(
+        context,
+        currentVersion: state.appVersion ?? '1.0.0',
+        newVersion: state.serverVersion?.latestVersion ?? '',
+        apkUrl: state.serverVersion?.apkUrl ?? '',
+        updateMessage: state.serverVersion?.message,
+        isForceUpdate: true,
+        onInstallAttempt: (version) =>
+            ref.read(storageServiceProvider).savePendingUpdateVersion(version),
+      );
+      return;
+    }
+
+    if (versionStatus == VersionStatus.updateAvailable) {
+      final state = ref.read(versionProvider);
+      if (mounted) {
+        await UpdateDialog.show(
+          context,
+          currentVersion: state.appVersion ?? '1.0.0',
+          newVersion: state.serverVersion?.latestVersion ?? '',
+          apkUrl: state.serverVersion?.apkUrl ?? '',
+          updateMessage: state.serverVersion?.message,
+          isForceUpdate: false,
+          onInstallAttempt: (version) => ref
+              .read(storageServiceProvider)
+              .savePendingUpdateVersion(version),
+        );
+      }
+    }
+
+    // If already authenticated, navigate to dashboard
+    if (!mounted) return;
+    final authState = ref.read(authProvider);
+    if (authState.isAuthenticated) {
+      context.go('/dashboard');
+    }
+  }
 
   @override
   void dispose() {

@@ -61,15 +61,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  void _resetToDefault() {
-    _urlController.text = AppConstants.defaultErpUrl;
-  }
-
   @override
   Widget build(BuildContext context) {
     final settingsState = ref.watch(settingsProvider);
     final size = MediaQuery.of(context).size;
     final isTablet = size.width > 600;
+    final horizontalPadding = isTablet
+        ? size.width * 0.2
+        : AppConstants.horizontalPadding;
 
     return Scaffold(
       appBar: AppBar(
@@ -79,119 +78,64 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.symmetric(
-          horizontal: isTablet
-              ? size.width * 0.2
-              : AppConstants.horizontalPadding,
-          vertical: 24,
-        ),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Section header
-              _buildSectionHeader(
-                context,
-                title: 'ERP Server Configuration',
-                subtitle: 'Configure the server URL for your ERP system',
-                icon: Icons.dns_outlined,
+      body: Column(
+        children: [
+          // Scrollable content
+          Expanded(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.symmetric(
+                horizontal: horizontalPadding,
+                vertical: 24,
               ),
-              const SizedBox(height: 24),
-              // URL Input
-              CustomTextField(
-                controller: _urlController,
-                labelText: 'ERP Server URL',
-                hintText: 'http://your-erp-server.com',
-                prefixIcon: const Icon(Icons.link),
-                validator: Validators.url,
-                keyboardType: TextInputType.url,
-                textInputAction: TextInputAction.done,
-              ),
-              const SizedBox(height: 12),
-              // Default URL hint
-              Text(
-                'Default: ${AppConstants.defaultErpUrl}',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: Colors.grey[500]),
-              ),
-              const SizedBox(height: 8),
-              // Error display
-              if (settingsState.error != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  settingsState.error!,
-                  style: const TextStyle(
-                    color: AppTheme.errorColor,
-                    fontSize: 13,
-                  ),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // URL Input
+                    CustomTextField(
+                      controller: _urlController,
+                      labelText: 'ERP Server URL',
+                      hintText: 'http://your-erp-server.com',
+                      prefixIcon: const Icon(Icons.link),
+                      validator: Validators.url,
+                      keyboardType: TextInputType.url,
+                      textInputAction: TextInputAction.done,
+                    ),
+                    // Error display
+                    if (settingsState.error != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        settingsState.error!,
+                        style: const TextStyle(
+                          color: AppTheme.errorColor,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-              ],
-              const SizedBox(height: 32),
-              // Save button
-              CustomButton(
+              ),
+            ),
+          ),
+          // Fixed bottom button
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: horizontalPadding,
+                vertical: 16,
+              ),
+              child: CustomButton(
                 text: 'Save Settings',
                 isLoading: settingsState.isSaving,
                 onPressed: _saveSettings,
                 icon: Icons.save,
               ),
-              const SizedBox(height: 16),
-              // Reset to default button
-              CustomButton(
-                text: 'Reset to Default',
-                onPressed: _resetToDefault,
-                outlined: true,
-                icon: Icons.restore,
-              ),
-              const SizedBox(height: 32),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
-    );
-  }
-
-  /// Build section header widget.
-  Widget _buildSectionHeader(
-    BuildContext context, {
-    required String title,
-    required String subtitle,
-    required IconData icon,
-  }) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: AppTheme.primaryColor.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(icon, color: AppTheme.primaryColor, size: 28),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

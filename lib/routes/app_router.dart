@@ -5,17 +5,14 @@ import '../screens/dashboard/dashboard_screen.dart';
 import '../screens/login/login_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/settings/settings_screen.dart';
-import '../screens/splash/splash_screen.dart';
 
 /// Application router configuration using GoRouter.
 /// Manages all navigation routes and transitions.
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
-    initialLocation: '/',
+    initialLocation: '/login',
     routes: [
-      // Splash screen - entry point
-      GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
-      // Login screen
+      // Login screen - entry point
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       // Settings screen
       GoRoute(
