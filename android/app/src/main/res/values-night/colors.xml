@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Primary blue matching AppTheme.primary (0xFF1B4F8A) — same for dark mode -->
+    <color name="splash_background">#FF1B4F8A</color>
+</resources>

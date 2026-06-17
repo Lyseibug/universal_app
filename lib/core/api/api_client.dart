@@ -91,29 +91,57 @@ class ApiClient {
     );
 
     final root = res.data;
-    final msg = (root is Map && root['message'] is Map)
-        ? root['message'] as Map
-        : null;
+    final statusCode = res.statusCode ?? 200;
 
-    if (msg == null) {
-      throw const ApiException('PROTOCOL', 'Unexpected server response');
-    }
+    if (statusCode == 200) {
+      if (root is Map && root.containsKey('message')) {
+        final msg = root['message'];
+        if (msg is Map) {
+          if (msg['error'] == true) {
+            final code = (msg['code'] ?? 'UNKNOWN').toString();
+            final message = (msg['message'] ?? 'Error').toString();
+            
+            final apiException = ApiException(code, message);
 
-    if (msg['error'] == true) {
-      final code = (msg['code'] ?? 'UNKNOWN').toString();
-      final message = (msg['message'] ?? 'Error').toString();
-      
-      final apiException = ApiException(code, message);
+            if (apiException.isAuth) {
+              AppLogger.warning('Received UNAUTHENTICATED error. Triggering global logout.', tag: 'ApiClient');
+              onUnauthenticated?.call();
+            }
 
-      if (apiException.isAuth) {
-        AppLogger.warning('Received UNAUTHENTICATED error. Triggering global logout.', tag: 'ApiClient');
+            throw apiException;
+          }
+          return msg['data'];
+        } else {
+          // Return the unwrapped message value directly (e.g. List)
+          return msg;
+        }
+      }
+    } else {
+      // Non-200 status code (e.g. 417 Expectation Failed) represents an error
+      String errorCode = 'SERVER_ERROR';
+      String errorMessage = 'Server returned status code $statusCode';
+
+      if (root is Map && root.containsKey('message')) {
+        final msg = root['message'];
+        if (msg is Map) {
+          errorCode = (msg['code'] ?? 'SERVER_ERROR').toString();
+          errorMessage = (msg['message'] ?? errorMessage).toString();
+        } else if (msg is String) {
+          errorMessage = msg;
+        }
+      }
+
+      final apiException = ApiException(errorCode, errorMessage);
+
+      if (apiException.isAuth || statusCode == 401 || statusCode == 403) {
+        AppLogger.warning('Received unauthorized error ($statusCode). Triggering global logout.', tag: 'ApiClient');
         onUnauthenticated?.call();
       }
 
       throw apiException;
     }
 
-    return msg['data'];
+    throw const ApiException('PROTOCOL', 'Unexpected server response');
   }
 
   /// Check internet connectivity before making a request.

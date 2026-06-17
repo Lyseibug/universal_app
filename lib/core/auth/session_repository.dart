@@ -34,6 +34,7 @@ class SessionRepository {
       throw Exception('Login did not return a valid API token');
     }
     await _tokens.write(token);
+    await _sessionBox.put('logged_in_username', usr); // Cache username
     AppLogger.info('Login successful. Token saved.', tag: _tag);
     return List<String>.from(data['roles'] ?? const []);
   }
@@ -104,6 +105,11 @@ class SessionRepository {
     }
   }
 
+  /// Retrieve the cached username of the logged-in user
+  Future<String?> getUsername() async {
+    return _sessionBox.get('logged_in_username') as String?;
+  }
+
   /// Perform logout and clear all local credentials and caches.
   Future<void> logout() async {
     try {
@@ -113,6 +119,7 @@ class SessionRepository {
     } finally {
       await _tokens.clear();
       await _sessionBox.delete(_sessionCacheKey);
+      await _sessionBox.delete('logged_in_username'); // Clear username cache
       await _menuBox.delete(_menuCacheKey);
       AppLogger.info('Session and menu cache cleared.', tag: _tag);
     }

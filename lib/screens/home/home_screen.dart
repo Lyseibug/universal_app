@@ -8,6 +8,8 @@ import '../../core/utils/icon_helper.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/service_providers.dart';
 import '../../providers/update_provider.dart';
+import '../../providers/notification_provider.dart';
+import '../../providers/socket_provider.dart';
 import '../../widgets/update_dialog.dart';
 import 'screen_registry.dart';
 
@@ -59,6 +61,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final authState = ref.watch(authProvider);
     final menuAsync = ref.watch(menuProvider);
 
+    // Initialize Socket.io to listen for real-time notification events
+    ref.watch(socketProvider);
+
     final employee = authState.session?.employeeName ?? 'Worker';
     final workspace = authState.session?.workspaceLabel ?? '';
 
@@ -104,6 +109,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
       actions: [
+        // Notifications
+        _buildNotificationBell(),
         // Refresh menu
         IconButton(
           icon: const Icon(Icons.refresh_outlined),
@@ -118,6 +125,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         const SizedBox(width: 4),
       ],
+    );
+  }
+
+  Widget _buildNotificationBell() {
+    final unreadCount = ref.watch(unreadNotificationCountProvider);
+    return Badge(
+      isLabelVisible: unreadCount > 0,
+      label: Text(unreadCount > 99 ? '99+' : unreadCount.toString()),
+      offset: const Offset(-4, 4),
+      backgroundColor: AppTheme.danger,
+      textColor: Colors.white,
+      child: IconButton(
+        icon: const Icon(Icons.notifications_outlined),
+        tooltip: 'Notifications',
+        onPressed: () => context.push('/notifications'),
+      ),
     );
   }
 

@@ -47,6 +47,8 @@ void main() async {
   );
 }
 
+final scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+
 /// Root widget of the PDT WMS application.
 class PdtApp extends ConsumerWidget {
   const PdtApp({super.key});
@@ -60,6 +62,7 @@ class PdtApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       routerConfig: router,
+      scaffoldMessengerKey: scaffoldMessengerKey,
     );
   }
 }
