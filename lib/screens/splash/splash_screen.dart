@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/service_providers.dart';
+import '../../providers/update_provider.dart';
 
 /// Splash screen — animates for 1.5 s then routes based on auth state.
 ///
@@ -52,28 +53,45 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   void _navigate() async {
     if (!mounted) return;
     final authState = ref.read(authProvider);
-    
+
     if (authState.isAuthenticated) {
       try {
         final sessionRepo = ref.read(sessionRepositoryProvider);
         // Verify session / token validity
         final sessionInfo = await sessionRepo.getSessionInfo();
-        
+
         if (sessionInfo != null) {
           ref.read(authProvider.notifier).setSession(sessionInfo);
         }
         if (mounted) {
           context.go('/home');
+          // Run update check after navigation — non-blocking
+          _runUpdateCheck();
         }
       } catch (e) {
         if (mounted) {
           context.go('/home');
+          _runUpdateCheck();
         }
       }
     } else {
       context.go('/login');
+      // Also check for updates on the login screen path
+      _runUpdateCheck();
     }
   }
+
+  /// Fires the update check in the background.
+  ///
+  /// The result is handled by whichever screen is visible after navigation
+  /// (home or login) via their own [ref.listen] on [updateProvider].
+  void _runUpdateCheck() {
+    // Fire-and-forget: do NOT await here and do NOT call UpdateDialog.show().
+    // After context.go() the splash widget unmounts, so mounted becomes false
+    // before checkForUpdate() completes. The destination screen owns the dialog.
+    ref.read(updateProvider.notifier).checkForUpdate();
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -109,15 +127,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                     ),
                   ],
                 ),
-                child: const Center(
-                  child: Text(
-                    'WMS',
-                    style: TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w800,
-                      color: AppTheme.primary,
-                      letterSpacing: 1,
-                    ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Image.asset(
+                    'assets/images/logo.jpg',
+                    fit: BoxFit.cover,
                   ),
                 ),
               ),

@@ -5,8 +5,10 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/validators.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/update_provider.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
+import '../../widgets/update_dialog.dart';
 
 /// Login screen for the PDT WMS app.
 ///
@@ -28,6 +30,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _obscurePassword = true;
 
   @override
+  void initState() {
+    super.initState();
+    // If the splash-fired update check already resolved before we mounted,
+    // show the dialog immediately after the first frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final phase = ref.read(updateProvider).phase;
+      if (phase == UpdatePhase.updateAvailable || phase == UpdatePhase.forceUpdate) {
+        UpdateDialog.show(context);
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _usernameCtrl.dispose();
     _passwordCtrl.dispose();
@@ -46,12 +62,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     if (success && mounted) {
       context.go('/home');
+      // Run update check after successful login (non-blocking)
+      _runUpdateCheck();
     }
+  }
+
+  /// Fires the update check in the background after a successful login.
+  ///
+  /// The home screen (the navigation destination) owns showing the dialog
+  /// via its own [ref.listen] on [updateProvider].
+  void _runUpdateCheck() {
+    // Fire-and-forget — do NOT await or call UpdateDialog.show() here.
+    // After context.go('/home'), this screen unmounts before the async
+    // check completes, making any mounted-gated dialog call a no-op.
+    ref.read(updateProvider.notifier).checkForUpdate();
   }
 
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
+
+    // Show update dialog if a check resolves while the user is on this screen.
+    ref.listen<UpdateState>(updateProvider, (previous, next) {
+      final wasActionable = previous?.isVisible ?? false;
+      final isActionable = next.phase == UpdatePhase.updateAvailable ||
+          next.phase == UpdatePhase.forceUpdate;
+      if (isActionable && !wasActionable && mounted) {
+        UpdateDialog.show(context);
+      }
+    });
 
     return Scaffold(
       backgroundColor: AppTheme.bgScaffold,
@@ -95,15 +134,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                           textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Use your ERP credentials to access the warehouse',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppTheme.textSecondary,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 24),
 
                         // ── Error banner ─────────────────────────────────────
                         if (authState.error != null) ...[
@@ -172,25 +203,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         width: 88,
         height: 88,
         decoration: BoxDecoration(
-          color: AppTheme.primary,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.primary.withValues(alpha: 0.25),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
           ],
         ),
-        child: const Center(
-          child: Text(
-            'WMS',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-              letterSpacing: 1,
-            ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: Image.asset(
+            'assets/images/logo.jpg',
+            fit: BoxFit.cover,
           ),
         ),
       ),

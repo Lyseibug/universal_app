@@ -97,3 +97,8 @@ final cameraScanServiceProvider = Provider<CameraScanService>((ref) {
   ref.onDispose(service.dispose);
   return service;
 });
+
+// ─── Update ──────────────────────────────────────────────────────────────────
+// NOTE: updateProvider and appUpdateServiceProvider are declared in
+//       providers/update_provider.dart to keep update logic self-contained.
+//       Import that file wherever update state is needed.

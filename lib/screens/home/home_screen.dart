@@ -7,6 +7,8 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/icon_helper.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/service_providers.dart';
+import '../../providers/update_provider.dart';
+import '../../widgets/update_dialog.dart';
 import 'screen_registry.dart';
 
 /// Home screen — renders the dynamic menu returned by `session.get_menu`.
@@ -14,11 +16,46 @@ import 'screen_registry.dart';
 /// Layout: AppBar with employee name + workspace, then a scrollable list
 /// of module sections, each containing screen tiles. Tiles not in the
 /// [screenRegistry] are silently skipped (forward-compatible).
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Show the update dialog if a check already completed before we mounted
+    // (e.g. splash fired the check and navigated here before it resolved).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeShowUpdateDialog();
+    });
+  }
+
+  void _maybeShowUpdateDialog() {
+    if (!mounted) return;
+    final phase = ref.read(updateProvider).phase;
+    if (phase == UpdatePhase.updateAvailable || phase == UpdatePhase.forceUpdate) {
+      UpdateDialog.show(context);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Listen for update state changes that happen AFTER we mount
+    // (covers the case where checkForUpdate() resolves after navigation).
+    ref.listen<UpdateState>(updateProvider, (previous, next) {
+      final wasActionable = previous?.isVisible ?? false;
+      final isActionable = next.phase == UpdatePhase.updateAvailable ||
+          next.phase == UpdatePhase.forceUpdate;
+      // Only show once per transition into an actionable phase
+      if (isActionable && !wasActionable && mounted) {
+        UpdateDialog.show(context);
+      }
+    });
+
     final authState = ref.watch(authProvider);
     final menuAsync = ref.watch(menuProvider);
 
@@ -27,25 +64,20 @@ class HomeScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: AppTheme.bgScaffold,
-      appBar: _buildAppBar(context, ref, employee, workspace),
+      appBar: _buildAppBar(employee, workspace),
       body: menuAsync.when(
         loading: () => _buildLoading(),
-        error: (e, _) => _buildError(context, ref, e.toString()),
+        error: (e, _) => _buildError(e.toString()),
         data: (payload) => payload == null
-            ? _buildEmpty(context)
-            : _buildMenu(context, payload),
+            ? _buildEmpty()
+            : _buildMenu(payload),
       ),
     );
   }
 
   // ─── AppBar ────────────────────────────────────────────────────────────────
 
-  AppBar _buildAppBar(
-    BuildContext context,
-    WidgetRef ref,
-    String employee,
-    String workspace,
-  ) {
+  AppBar _buildAppBar(String employee, String workspace) {
     return AppBar(
       toolbarHeight: 64,
       title: Column(
@@ -82,7 +114,7 @@ class HomeScreen extends ConsumerWidget {
         IconButton(
           icon: const Icon(Icons.logout_outlined),
           tooltip: 'Logout',
-          onPressed: () => _confirmLogout(context, ref),
+          onPressed: () => _confirmLogout(),
         ),
         const SizedBox(width: 4),
       ],
@@ -104,7 +136,7 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildError(BuildContext context, WidgetRef ref, String message) {
+  Widget _buildError(String message) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppTheme.horizontalPad),
@@ -158,7 +190,7 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildEmpty(BuildContext context) {
+  Widget _buildEmpty() {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppTheme.horizontalPad),
@@ -187,7 +219,7 @@ class HomeScreen extends ConsumerWidget {
 
   // ─── Dynamic Menu ──────────────────────────────────────────────────────────
 
-  Widget _buildMenu(BuildContext context, MenuPayload payload) {
+  Widget _buildMenu(MenuPayload payload) {
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(
         AppTheme.horizontalPad, 16, AppTheme.horizontalPad, 32,
@@ -232,7 +264,7 @@ class HomeScreen extends ConsumerWidget {
               ),
               childrenPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               children: availableScreens.map(
-                (screen) => _buildScreenTile(context, screen),
+                (screen) => _buildScreenTile(screen),
               ).toList(),
             ),
           ),
@@ -241,7 +273,7 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildScreenTile(BuildContext context, MenuScreen screen) {
+  Widget _buildScreenTile(MenuScreen screen) {
     debugPrint('HomeScreen: screen "${screen.label}" (key: ${screen.screenKey}) parsed icon = "${screen.icon}"');
     final icon = IconHelper.getIcon(screen.icon, fallback: Icons.grid_view_outlined);
 
@@ -255,7 +287,7 @@ class HomeScreen extends ConsumerWidget {
         ),
         child: InkWell(
           borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-          onTap: () => _navigateToScreen(context, screen),
+          onTap: () => _navigateToScreen(screen),
           child: SizedBox(
             height: AppTheme.listItemHeight,
             child: Padding(
@@ -304,9 +336,9 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  // ─── Navigation ────────────────────────────────────────────────────────────
+  // ─── Navigation ──────────────────────────────────────────────────────────
 
-  void _navigateToScreen(BuildContext context, MenuScreen screen) {
+  void _navigateToScreen(MenuScreen screen) {
     final builder = screenRegistry[screen.screenKey];
     if (builder == null) return;
     Navigator.of(context).push(
@@ -314,9 +346,10 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  // ─── Logout ────────────────────────────────────────────────────────────────
+  // ─── Logout ──────────────────────────────────────────────────────────
 
-  Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
+  Future<void> _confirmLogout() async {
+    final router = GoRouter.of(context); // capture before any await
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -346,7 +379,7 @@ class HomeScreen extends ConsumerWidget {
 
     if (confirm == true) {
       await ref.read(authProvider.notifier).logout();
-      if (context.mounted) context.go('/login');
+      if (mounted) router.go('/login');
     }
   }
 }
