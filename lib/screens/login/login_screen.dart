@@ -2,14 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/validators.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
 
-/// Professional login screen with form validation and settings access.
+/// Login screen for the PDT WMS app.
+///
+/// Multiple workers use the same device across shifts — each must log in
+/// with their own credentials. The cookie-based Frappe session ensures
+/// proper per-user data isolation.
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
@@ -19,141 +22,140 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _usernameController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _passwordFocusNode = FocusNode();
+  final _usernameCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
+  final _passwordFocus = FocusNode();
   bool _obscurePassword = true;
 
   @override
   void dispose() {
-    _usernameController.dispose();
-    _passwordController.dispose();
-    _passwordFocusNode.dispose();
+    _usernameCtrl.dispose();
+    _passwordCtrl.dispose();
+    _passwordFocus.dispose();
     super.dispose();
   }
 
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
-
-    // Clear any previous error
     ref.read(authProvider.notifier).clearError();
 
-    final success = await ref
-        .read(authProvider.notifier)
-        .login(
-          username: _usernameController.text.trim(),
-          password: _passwordController.text,
-        );
+    final success = await ref.read(authProvider.notifier).login(
+      username: _usernameCtrl.text.trim(),
+      password: _passwordCtrl.text,
+    );
 
     if (success && mounted) {
-      context.go('/dashboard');
+      context.go('/home');
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
-    final size = MediaQuery.of(context).size;
-    final isTablet = size.width > 600;
 
     return Scaffold(
+      backgroundColor: AppTheme.bgScaffold,
       body: SafeArea(
         child: Stack(
           children: [
-            // Settings icon (top-right)
+            // ── Settings gear (top-right) ──────────────────────────────────
             Positioned(
               top: 8,
               right: 8,
               child: IconButton(
-                icon: const Icon(Icons.settings_outlined),
-                tooltip: 'Settings',
+                icon: const Icon(Icons.settings_outlined, color: AppTheme.textSecondary),
+                tooltip: 'Server Settings',
                 onPressed: () => context.push('/settings'),
               ),
             ),
-            // Main content
+
+            // ── Main content ───────────────────────────────────────────────
             Center(
               child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(
-                  horizontal: isTablet
-                      ? size.width * 0.2
-                      : AppConstants.horizontalPadding,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppTheme.horizontalPad,
+                  vertical: 32,
                 ),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const SizedBox(height: 40),
-                      // Logo
-                      _buildLogo(),
-                      const SizedBox(height: 40),
-                      // Welcome text
-                      Text(
-                        'Welcome Back',
-                        style: Theme.of(context).textTheme.headlineMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Sign in to continue to ${AppConstants.appName}',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey[600],
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 40),
-                      // Error message
-                      if (authState.error != null)
-                        _buildErrorBanner(authState.error!),
-                      // Username field
-                      CustomTextField(
-                        controller: _usernameController,
-                        labelText: 'Username',
-                        hintText: 'Enter your username',
-                        prefixIcon: const Icon(Icons.person_outline),
-                        validator: Validators.username,
-                        textInputAction: TextInputAction.next,
-                        onChanged: (_) =>
-                            ref.read(authProvider.notifier).clearError(),
-                      ),
-                      const SizedBox(height: 16),
-                      // Password field
-                      CustomTextField(
-                        controller: _passwordController,
-                        labelText: 'Password',
-                        hintText: 'Enter your password',
-                        obscureText: _obscurePassword,
-                        prefixIcon: const Icon(Icons.lock_outline),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // ── Logo ────────────────────────────────────────────
+                        _buildLogo(),
+                        const SizedBox(height: 36),
+
+                        // ── Title ───────────────────────────────────────────
+                        Text(
+                          'Sign In',
+                          style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                            color: AppTheme.textPrimary,
                           ),
-                          onPressed: () {
-                            setState(
-                              () => _obscurePassword = !_obscurePassword,
-                            );
-                          },
+                          textAlign: TextAlign.center,
                         ),
-                        validator: Validators.password,
-                        focusNode: _passwordFocusNode,
-                        textInputAction: TextInputAction.done,
-                        onChanged: (_) =>
-                            ref.read(authProvider.notifier).clearError(),
-                      ),
-                      const SizedBox(height: 32),
-                      // Login button
-                      CustomButton(
-                        text: 'Login',
-                        isLoading: authState.isLoading,
-                        onPressed: _handleLogin,
-                        icon: Icons.login,
-                      ),
-                      const SizedBox(height: 40),
-                    ],
+                        const SizedBox(height: 6),
+                        Text(
+                          'Use your ERP credentials to access the warehouse',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: AppTheme.textSecondary,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 32),
+
+                        // ── Error banner ─────────────────────────────────────
+                        if (authState.error != null) ...[
+                          _buildErrorBanner(authState.error!),
+                          const SizedBox(height: 16),
+                        ],
+
+                        // ── Username ─────────────────────────────────────────
+                        CustomTextField(
+                          controller: _usernameCtrl,
+                          labelText: 'Username / Email',
+                          hintText: 'Enter your ERP username',
+                          prefixIcon: const Icon(Icons.person_outline),
+                          validator: Validators.username,
+                          textInputAction: TextInputAction.next,
+                          onChanged: (_) => ref.read(authProvider.notifier).clearError(),
+                        ),
+                        const SizedBox(height: 14),
+
+                        // ── Password ─────────────────────────────────────────
+                        CustomTextField(
+                          controller: _passwordCtrl,
+                          labelText: 'Password',
+                          hintText: 'Enter your password',
+                          obscureText: _obscurePassword,
+                          prefixIcon: const Icon(Icons.lock_outline),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                            ),
+                            onPressed: () => setState(
+                              () => _obscurePassword = !_obscurePassword,
+                            ),
+                          ),
+                          validator: Validators.password,
+                          focusNode: _passwordFocus,
+                          textInputAction: TextInputAction.done,
+                          onChanged: (_) => ref.read(authProvider.notifier).clearError(),
+                        ),
+                        const SizedBox(height: 28),
+
+                        // ── Login button ─────────────────────────────────────
+                        CustomButton(
+                          text: 'Sign In',
+                          isLoading: authState.isLoading,
+                          onPressed: _handleLogin,
+                          icon: Icons.login,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -164,30 +166,30 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  /// Build the company logo widget.
   Widget _buildLogo() {
     return Center(
       child: Container(
-        width: 80,
-        height: 80,
+        width: 88,
+        height: 88,
         decoration: BoxDecoration(
-          color: AppTheme.primaryColor,
+          color: AppTheme.primary,
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.primaryColor.withValues(alpha: 0.3),
-              blurRadius: 12,
-              offset: const Offset(0, 6),
+              color: AppTheme.primary.withValues(alpha: 0.25),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
         child: const Center(
           child: Text(
-            'U',
+            'WMS',
             style: TextStyle(
-              fontSize: 40,
-              fontWeight: FontWeight.bold,
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
               color: Colors.white,
+              letterSpacing: 1,
             ),
           ),
         ),
@@ -195,24 +197,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  /// Build error banner widget.
-  Widget _buildErrorBanner(String error) {
+  Widget _buildErrorBanner(String message) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppTheme.errorColor.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-        border: Border.all(color: AppTheme.errorColor.withValues(alpha: 0.3)),
+        color: AppTheme.dangerLight,
+        borderRadius: BorderRadius.circular(AppTheme.borderRadius),
+        border: Border.all(color: AppTheme.danger.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline, color: AppTheme.errorColor, size: 20),
-          const SizedBox(width: 12),
+          const Icon(Icons.error_outline, color: AppTheme.danger, size: 20),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
-              error,
-              style: const TextStyle(color: AppTheme.errorColor, fontSize: 14),
+              message,
+              style: const TextStyle(color: AppTheme.danger, fontSize: 14),
             ),
           ),
         ],

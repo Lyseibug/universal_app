@@ -1,97 +1,150 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../data/models/user_model.dart';
-import '../data/repositories/auth_repository.dart';
+import '../core/auth/session_models.dart';
+import '../core/auth/session_repository.dart';
+import '../core/auth/token_store.dart';
+import '../core/utils/logger.dart';
 import 'service_providers.dart';
 
-/// Authentication state.
+const _tag = 'AuthNotifier';
+
+/// Complete authentication + session state for the PDT app.
 class AuthState {
   final bool isLoading;
   final bool isAuthenticated;
-  final UserModel? user;
+  
+  /// Stored session details (populated after login and workspace selection)
+  final SessionInfo? session;
   final String? error;
 
   const AuthState({
     this.isLoading = false,
     this.isAuthenticated = false,
-    this.user,
+    this.session,
     this.error,
   });
 
   AuthState copyWith({
     bool? isLoading,
     bool? isAuthenticated,
-    UserModel? user,
+    SessionInfo? session,
     String? error,
+    bool clearError = false,
+    bool clearSession = false,
   }) {
     return AuthState(
       isLoading: isLoading ?? this.isLoading,
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
-      user: user ?? this.user,
-      error: error,
+      session: clearSession ? null : (session ?? this.session),
+      error: clearError ? null : (error ?? this.error),
     );
   }
 }
 
-/// Authentication state notifier managing login/logout operations.
+/// Manages token authentication state, login, logout, and workstation session selection.
 class AuthNotifier extends StateNotifier<AuthState> {
-  final AuthRepository _authRepository;
+  final SessionRepository _sessionRepository;
+  final TokenStore _tokenStore;
+  final Ref _ref;
 
-  AuthNotifier({required AuthRepository authRepository})
-    : _authRepository = authRepository,
-      super(const AuthState()) {
-    // Check initial authentication state
+  AuthNotifier({
+    required SessionRepository sessionRepository,
+    required TokenStore tokenStore,
+    required Ref ref,
+  })  : _sessionRepository = sessionRepository,
+        _tokenStore = tokenStore,
+        _ref = ref,
+        super(const AuthState()) {
     _checkAuthStatus();
+    _listenToSessionExpiry();
   }
 
-  /// Check if user is already authenticated.
-  void _checkAuthStatus() {
-    final isLoggedIn = _authRepository.isLoggedIn();
-    if (isLoggedIn) {
-      final user = _authRepository.getCachedUser();
-      state = AuthState(isAuthenticated: true, user: user);
+  /// Verify on startup if a secure token is already present.
+  ///
+  /// If present, we pre-authenticate the state so GoRouter doesn't immediately boot to login.
+  /// The SplashScreen/bootstrap then triggers remote checks to load the menu/workspace info.
+  void _checkAuthStatus() async {
+    final token = await _tokenStore.read();
+    if (token != null && token.isNotEmpty) {
+      AppLogger.info('Found stored session token', tag: _tag);
+      
+      // Try to load cached session info if available to pre-fill the workspace/employee name
+      final cachedSession = await _sessionRepository.getSessionInfo();
+      state = AuthState(
+        isAuthenticated: true,
+        session: cachedSession,
+      );
+    } else {
+      AppLogger.info('No stored session token found', tag: _tag);
+      state = const AuthState();
     }
   }
 
-  /// Perform login.
+  /// Listen to the session expiry state provider.
+  void _listenToSessionExpiry() {
+    _ref.listen<bool>(sessionExpiredProvider, (prev, next) {
+      if (next == true) {
+        AppLogger.warning('Session expired. Logging out worker.', tag: _tag);
+        logout();
+        _ref.read(sessionExpiredProvider.notifier).state = false; // Reset the trigger
+      }
+    });
+  }
+
+  /// Perform login using Token authentication params (`usr` / `pwd`).
   Future<bool> login({
     required String username,
     required String password,
   }) async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true, clearError: true);
 
     try {
-      final user = await _authRepository.login(
-        username: username,
-        password: password,
+      final roles = await _sessionRepository.login(username, password);
+      final sessionInfo = await _sessionRepository.getSessionInfo();
+      
+      // Successfully logged in (token stored by repo)
+      state = AuthState(
+        isAuthenticated: true,
+        session: sessionInfo,
       );
-      state = AuthState(isAuthenticated: true, user: user);
+      AppLogger.info('Logged in successfully. Assigned roles: $roles', tag: _tag);
       return true;
     } catch (e) {
-      String errorMessage = 'Login failed. Please try again.';
-      if (e.toString().contains('Exception:')) {
-        errorMessage = e.toString().replaceFirst('Exception: ', '');
+      String msg = 'Login failed. Please try again.';
+      if (e.toString().contains('ApiException:')) {
+        msg = e.toString().replaceFirst('ApiException: ', '');
+      } else if (e.toString().contains('Exception:')) {
+        msg = e.toString().replaceFirst('Exception: ', '');
       }
-      state = state.copyWith(isLoading: false, error: errorMessage);
+      state = state.copyWith(isLoading: false, error: msg);
       return false;
     }
   }
 
-  /// Perform logout.
+  /// Set active workstation session details after user picks a workspace.
+  void setSession(SessionInfo session) {
+    state = state.copyWith(session: session);
+  }
+
+  /// Clear session credentials and reset navigation.
   Future<void> logout() async {
     state = state.copyWith(isLoading: true);
-    await _authRepository.logout();
+    await _sessionRepository.logout();
     state = const AuthState();
   }
 
-  /// Clear error message.
   void clearError() {
-    state = state.copyWith(error: null);
+    state = state.copyWith(clearError: true);
   }
 }
 
-/// Provider for authentication state.
+/// Provider for authentication + session state.
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  final authRepository = ref.watch(authRepositoryProvider);
-  return AuthNotifier(authRepository: authRepository);
+  final sessionRepository = ref.watch(sessionRepositoryProvider);
+  final tokenStore = ref.watch(tokenStoreProvider);
+  return AuthNotifier(
+    sessionRepository: sessionRepository,
+    tokenStore: tokenStore,
+    ref: ref,
+  );
 });

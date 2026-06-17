@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Reusable custom text field widget with validation support.
+/// Reusable custom text field widget with validation, styling, and submission support.
 class CustomTextField extends StatelessWidget {
   final TextEditingController? controller;
   final String? labelText;
@@ -16,6 +16,8 @@ class CustomTextField extends StatelessWidget {
   final TextInputAction? textInputAction;
   final FocusNode? focusNode;
   final bool autofocus;
+  final TextStyle? textStyle;
+  final ValueChanged<String>? onSubmitted;
 
   const CustomTextField({
     super.key,
@@ -33,6 +35,8 @@ class CustomTextField extends StatelessWidget {
     this.textInputAction,
     this.focusNode,
     this.autofocus = false,
+    this.textStyle,
+    this.onSubmitted,
   });
 
   @override
@@ -48,6 +52,8 @@ class CustomTextField extends StatelessWidget {
       focusNode: focusNode,
       autofocus: autofocus,
       validator: validator,
+      style: textStyle,
+      onFieldSubmitted: onSubmitted,
       decoration: InputDecoration(
         labelText: labelText,
         hintText: hintText,
