@@ -136,33 +136,26 @@ class _ScanInputFieldState extends ConsumerState<ScanInputField> {
       textInputAction: widget.textInputAction,
       onSubmitted: widget.onSubmitted,
       autofocus: widget.autofocus,
-      suffixIcon: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Camera scan button — always visible so users can use camera scan
-          // regardless of mode. Primary action when scan_mode == 'camera'.
-          IconButton(
-            icon: Icon(
-              Icons.camera_alt_outlined,
-              color: isCameraMode ? AppTheme.primary : AppTheme.textSecondary,
-            ),
-            tooltip: 'Scan with Camera',
-            onPressed: _openCameraScanner,
-          ),
-          // Keyboard-wedge status indicator — shows when keyboard mode is active
-          if (!isCameraMode)
-            Padding(
-              padding: const EdgeInsets.only(right: 8.0),
+      suffixIcon: isCameraMode
+          // Camera mode: show only the camera icon button
+          ? IconButton(
+              icon: const Icon(
+                Icons.camera_alt_outlined,
+                color: AppTheme.primary,
+              ),
+              tooltip: 'Scan with Camera',
+              onPressed: _openCameraScanner,
+            )
+          // Keyboard-wedge mode: show only the scanner-ready indicator
+          : Padding(
+              padding: const EdgeInsets.only(right: 12.0),
               child: Icon(
                 Icons.sensors,
-                size: 20,
                 color: widget.focusNode.hasFocus
                     ? AppTheme.success
                     : AppTheme.textDisabled,
               ),
             ),
-        ],
-      ),
     );
   }
 }
