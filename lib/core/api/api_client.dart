@@ -3,6 +3,9 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 
+import 'package:flutter/foundation.dart';
+import 'package:pretty_dio_logger/pretty_dio_logger.dart';
+
 import '../auth/token_store.dart';
 import '../services/connectivity_service.dart';
 import '../utils/logger.dart';
@@ -56,6 +59,18 @@ class ApiClient {
 
   /// Setup token authorization and global error handler interceptor
   void _setupInterceptors() {
+    if (kDebugMode) {
+      _dio.interceptors.add(PrettyDioLogger(
+        requestHeader: true,
+        requestBody: true,
+        responseBody: true,
+        responseHeader: false,
+        error: true,
+        compact: true,
+        maxWidth: 90,
+      ));
+    }
+
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
         AppLogger.info('→ ${options.method} ${options.uri}', tag: 'HTTP');

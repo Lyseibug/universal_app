@@ -16,7 +16,10 @@ class AppNotification with _$AppNotification {
     required DateTime creation,
   }) = _AppNotification;
 
-  factory AppNotification.fromJson(Map<String, dynamic> json) {
+  factory AppNotification.fromJson(Map<String, dynamic> json) =>
+      _$AppNotificationFromJson(_preprocessJson(json));
+
+  static Map<String, dynamic> _preprocessJson(Map<String, dynamic> json) {
     final map = Map<String, dynamic>.from(json);
     if (map['read'] is int) {
       map['read'] = map['read'] == 1;
@@ -31,7 +34,7 @@ class AppNotification with _$AppNotification {
       map['email_content'] = _stripHtml(map['email_content'] as String);
     }
 
-    return _$AppNotificationFromJson(map);
+    return map;
   }
 
   static String _stripHtml(String htmlString) {

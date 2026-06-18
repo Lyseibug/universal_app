@@ -27,4 +27,10 @@ abstract class PdtErrorCode {
 
   /// Server-side input validation failed.
   static const String validation           = 'VALIDATION';
+
+  /// No stock found for the requested item/location.
+  static const String noStock              = 'NO_STOCK';
+
+  /// Insufficient quantity available for the operation.
+  static const String insufficientQty      = 'INSUFFICIENT_QTY';
 }

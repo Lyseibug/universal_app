@@ -5,11 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/api_exceptions.dart';
 import '../../core/errors/error_mapper.dart';
 import '../../core/menu/menu_models.dart';
-import '../../core/scanner/scan_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/service_providers.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
+import '../../widgets/pdt_scaffold.dart';
+import '../../widgets/scan_input_field.dart';
+import '../../widgets/confirm_bottom_sheet.dart';
 import 'inventory_repository.dart';
 
 class PhysicalInventoryScreen extends ConsumerStatefulWidget {
@@ -34,20 +36,20 @@ class _PhysicalInventoryScreenState extends ConsumerState<PhysicalInventoryScree
   final _startLotCtrl = TextEditingController();
   final _startLotFocus = FocusNode();
 
-  late StreamSubscription<String> _scanSubscription;
   bool _submitting = false;
 
   @override
   void initState() {
     super.initState();
-    _startLotFocus.requestFocus();
-
-    _scanSubscription = ref.read(keyboardScanServiceProvider).scans.listen(_onBarcodeScanned);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _startLotFocus.requestFocus();
+      }
+    });
   }
 
   @override
   void dispose() {
-    _scanSubscription.cancel();
     _countCtrl.dispose();
     _countFocus.dispose();
     _startLotCtrl.dispose();
@@ -55,18 +57,7 @@ class _PhysicalInventoryScreenState extends ConsumerState<PhysicalInventoryScree
     super.dispose();
   }
 
-  void _onBarcodeScanned(String barcode) {
-    if (_activeLot == null) {
-      if (_startLotFocus.hasFocus) {
-        _startLotCtrl.text = barcode;
-        _startSession(barcode);
-      } else {
-        _startLotCtrl.text = barcode;
-      }
-      return;
-    }
-
-    // Active session: scanning an item code finds it in the list and increments count or focuses it
+  void _onItemScanned(String barcode) {
     final cleanBarcode = barcode.trim();
     bool found = false;
 
@@ -125,9 +116,8 @@ class _PhysicalInventoryScreenState extends ConsumerState<PhysicalInventoryScree
         _activeLot = cleanLot;
         _counts = items.map((e) {
           final m = Map<String, dynamic>.from(e);
-          // Set initial counted qty equal to system qty, or leave at 0 for blind count.
-          // Spec: expected quantities displayed, but user counts manually. Let's initialize counted_qty to system_qty or 0.0.
-          m['counted_qty'] = m['counted_qty'] ?? 0.0;
+          // Set initial counted qty equal to system qty (as per plan specs)
+          m['counted_qty'] = m['counted_qty'] ?? m['system_qty'] ?? 0.0;
           return m;
         }).toList();
       });
@@ -140,7 +130,7 @@ class _PhysicalInventoryScreenState extends ConsumerState<PhysicalInventoryScree
         SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.danger),
       );
     } finally {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -150,7 +140,9 @@ class _PhysicalInventoryScreenState extends ConsumerState<PhysicalInventoryScree
       _countCtrl.text = (item['counted_qty'] ?? 0.0).toString();
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _countFocus.requestFocus();
+      if (mounted) {
+        _countFocus.requestFocus();
+      }
     });
   }
 
@@ -180,6 +172,37 @@ class _PhysicalInventoryScreenState extends ConsumerState<PhysicalInventoryScree
       return;
     }
 
+    // Identify discrepancies
+    final discrepancies = _counts.where((c) {
+      final sys = c['system_qty'] ?? 0.0;
+      final cnt = c['counted_qty'] ?? 0.0;
+      return sys != cnt;
+    }).toList();
+
+    if (discrepancies.isNotEmpty) {
+      final details = <String, String>{};
+      for (var d in discrepancies) {
+        final item = d['item_code'];
+        final batch = d['batch_no'] != null && d['batch_no'].toString().isNotEmpty ? ' (${d['batch_no']})' : '';
+        details['$item$batch'] = 'System: ${d['system_qty']} | Counted: ${d['counted_qty']}';
+      }
+
+      final confirmed = await ConfirmBottomSheet.show(
+        context: context,
+        title: 'Submit Stock Audit',
+        message: 'There are ${discrepancies.length} discrepancy items in this count. Do you want to proceed with submission?',
+        details: details,
+        confirmText: 'Submit Audit',
+        onConfirm: _submitCountsActual,
+      );
+      if (confirmed != true) return;
+    } else {
+      // No discrepancies, submit immediately
+      await _submitCountsActual();
+    }
+  }
+
+  Future<void> _submitCountsActual() async {
     setState(() => _submitting = true);
     
     try {
@@ -189,13 +212,23 @@ class _PhysicalInventoryScreenState extends ConsumerState<PhysicalInventoryScree
         'counted_qty': c['counted_qty'] ?? 0.0,
       }).toList();
 
-      await ref.read(inventoryRepositoryProvider).submitCounts(
+      final response = await ref.read(inventoryRepositoryProvider).submitCounts(
             lot: _activeLot!,
             counts: formattedCounts,
           );
 
+      final recName = (response is Map && response.containsKey('name'))
+          ? response['name'].toString()
+          : (response is Map && response.containsKey('message') && response['message'] is Map && response['message'].containsKey('name'))
+              ? response['message']['name'].toString()
+              : 'Synced';
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Counts submitted successfully!'), backgroundColor: AppTheme.success),
+        SnackBar(
+          content: Text('Stock audit submitted successfully! ID: $recName'),
+          backgroundColor: AppTheme.success,
+          duration: const Duration(seconds: 4),
+        ),
       );
 
       setState(() {
@@ -203,7 +236,11 @@ class _PhysicalInventoryScreenState extends ConsumerState<PhysicalInventoryScree
         _counts = [];
       });
       _startLotCtrl.clear();
-      _startLotFocus.requestFocus();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _startLotFocus.requestFocus();
+        }
+      });
     } on ApiException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(messageFor(e)), backgroundColor: AppTheme.danger),
@@ -213,33 +250,15 @@ class _PhysicalInventoryScreenState extends ConsumerState<PhysicalInventoryScree
         SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.danger),
       );
     } finally {
-      setState(() => _submitting = false);
+      if (mounted) setState(() => _submitting = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return KeyboardWedgeScanWidget(
-      service: ref.read(keyboardScanServiceProvider),
-      child: Scaffold(
-        backgroundColor: AppTheme.bgScaffold,
-        appBar: AppBar(
-          title: Text(
-            _activeLot == null ? 'Physical Count' : 'Counting Lot: $_activeLot',
-          ),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () {
-              if (_activeLot != null) {
-                setState(() => _activeLot = null);
-              } else {
-                Navigator.of(context).pop();
-              }
-            },
-          ),
-        ),
-        body: _activeLot == null ? _buildStartBody() : _buildCountingBody(),
-      ),
+    return PdtScaffold(
+      title: _activeLot == null ? widget.screen.label : 'Counting Lot: $_activeLot',
+      body: _activeLot == null ? _buildStartBody() : _buildCountingBody(),
     );
   }
 
@@ -268,15 +287,15 @@ class _PhysicalInventoryScreenState extends ConsumerState<PhysicalInventoryScree
               ),
               const SizedBox(height: 32),
               
-              CustomTextField(
+              ScanInputField(
                 controller: _startLotCtrl,
                 focusNode: _startLotFocus,
                 labelText: 'Scan Location / Lot',
-                hintText: 'Press trigger or type location',
-                prefixIcon: const Icon(Icons.qr_code_scanner),
-                textStyle: AppTheme.scanValueStyle,
+                hintText: 'Press trigger or scan location',
+                prefixIcon: Icons.qr_code_scanner,
                 textInputAction: TextInputAction.go,
                 onSubmitted: _startSession,
+                onScanned: _startSession,
               ),
               const SizedBox(height: 20),
               
@@ -294,113 +313,156 @@ class _PhysicalInventoryScreenState extends ConsumerState<PhysicalInventoryScree
   }
 
   Widget _buildCountingBody() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Quick instruction banner
-        Container(
-          color: AppTheme.primary.withValues(alpha: 0.08),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: const Row(
-            children: [
-              Icon(Icons.info_outline, color: AppTheme.primary, size: 18),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Scan an item barcode to increment its count, or tap an item to enter count manually.',
-                  style: TextStyle(fontSize: 12, color: AppTheme.primary, fontWeight: FontWeight.w500),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // List of counted items
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.all(AppTheme.horizontalPad),
-            itemCount: _counts.length,
-            itemBuilder: (context, i) {
-              final item = _counts[i];
-              final isEditing = _editingItem != null &&
-                  _editingItem!['item_code'] == item['item_code'] &&
-                  _editingItem!['batch_no'] == item['batch_no'];
-
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Card(
-                  color: isEditing ? AppTheme.amberLight : null,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-                    side: BorderSide(
-                      color: isEditing ? AppTheme.amber : AppTheme.bgBorder,
-                      width: isEditing ? 2.0 : 1.0,
-                    ),
+    return WillPopScope(
+      onWillPop: () async {
+        setState(() {
+          _activeLot = null;
+          _counts = [];
+        });
+        return false;
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Quick instruction banner
+          Container(
+            color: AppTheme.primary.withValues(alpha: 0.08),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: const Row(
+              children: [
+                Icon(Icons.info_outline, color: AppTheme.primary, size: 18),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Scan an item barcode to increment its count, or tap an item to enter count manually.',
+                    style: TextStyle(fontSize: 12, color: AppTheme.primary, fontWeight: FontWeight.w500),
                   ),
-                  child: ListTile(
-                    title: Text(
-                      item['item_code'].toString(),
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ),
+
+          // Hidden item scanner hook
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: ScanInputField(
+              controller: TextEditingController(),
+              focusNode: FocusNode(),
+              labelText: 'Scan item barcode',
+              hintText: 'Ready to scan items...',
+              autofocus: true,
+              onScanned: _onItemScanned,
+            ),
+          ),
+
+          // List of counted items
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(AppTheme.horizontalPad),
+              itemCount: _counts.length,
+              itemBuilder: (context, i) {
+                final item = _counts[i];
+                final isEditing = _editingItem != null &&
+                    _editingItem!['item_code'] == item['item_code'] &&
+                    _editingItem!['batch_no'] == item['batch_no'];
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Card(
+                    color: isEditing ? AppTheme.amberLight : null,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+                      side: BorderSide(
+                        color: isEditing ? AppTheme.amber : AppTheme.bgBorder,
+                        width: isEditing ? 2.0 : 1.0,
+                      ),
                     ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (item['batch_no'] != null && item['batch_no'].toString().isNotEmpty)
-                          Text('Batch/Lot: ${item['batch_no']}'),
-                        Text('System Stock: ${item['system_qty']}'),
-                      ],
-                    ),
-                    trailing: isEditing
-                        ? SizedBox(
-                            width: 120,
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: TextField(
-                                    controller: _countCtrl,
-                                    focusNode: _countFocus,
-                                    keyboardType: TextInputType.number,
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                    decoration: const InputDecoration(
-                                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    child: ListTile(
+                      title: Text(
+                        item['item_code'].toString(),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (item['batch_no'] != null && item['batch_no'].toString().isNotEmpty)
+                            Text('Batch/Lot: ${item['batch_no']}'),
+                          Text('System Stock: ${item['system_qty']}'),
+                        ],
+                      ),
+                      trailing: isEditing
+                          ? SizedBox(
+                              width: 120,
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _countCtrl,
+                                      focusNode: _countFocus,
+                                      keyboardType: TextInputType.number,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                      decoration: const InputDecoration(
+                                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      ),
+                                      onSubmitted: (_) => _saveItemCount(),
                                     ),
-                                    onSubmitted: (_) => _saveItemCount(),
                                   ),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.check, color: AppTheme.success),
-                                  onPressed: _saveItemCount,
-                                ),
-                              ],
+                                  IconButton(
+                                    icon: const Icon(Icons.check, color: AppTheme.success),
+                                    onPressed: _saveItemCount,
+                                  ),
+                                ],
+                              ),
+                            )
+                          : Text(
+                              'Counted: ${item['counted_qty']}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 16,
+                                color: AppTheme.primary,
+                              ),
                             ),
-                          )
-                        : Text(
-                            'Counted: ${item['counted_qty']}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 16,
-                              color: AppTheme.primary,
-                            ),
-                          ),
-                    onTap: isEditing ? null : () => _editItemCount(item),
+                      onTap: isEditing ? null : () => _editItemCount(item),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+
+          // Bottom action bar
+          Padding(
+            padding: const EdgeInsets.all(AppTheme.horizontalPad),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () {
+                      setState(() {
+                        _activeLot = null;
+                        _counts = [];
+                      });
+                    },
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, AppTheme.buttonHeight),
+                    ),
+                    child: const Text('Cancel'),
                   ),
                 ),
-              );
-            },
+                const SizedBox(width: 12),
+                Expanded(
+                  child: CustomButton(
+                    text: 'Submit Audit Count',
+                    isLoading: _submitting,
+                    icon: Icons.cloud_upload_outlined,
+                    onPressed: widget.screen.can('submit_count') ? _submitCounts : null,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-
-        // Bottom action bar
-        Padding(
-          padding: const EdgeInsets.all(AppTheme.horizontalPad),
-          child: CustomButton(
-            text: 'Submit Audit Count',
-            isLoading: _submitting,
-            icon: Icons.cloud_upload_outlined,
-            onPressed: widget.screen.can('submit_count') ? _submitCounts : null,
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

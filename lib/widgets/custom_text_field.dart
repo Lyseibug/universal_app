@@ -18,6 +18,7 @@ class CustomTextField extends StatelessWidget {
   final bool autofocus;
   final TextStyle? textStyle;
   final ValueChanged<String>? onSubmitted;
+  final VoidCallback? onTap;
 
   const CustomTextField({
     super.key,
@@ -37,6 +38,7 @@ class CustomTextField extends StatelessWidget {
     this.autofocus = false,
     this.textStyle,
     this.onSubmitted,
+    this.onTap,
   });
 
   @override
@@ -54,6 +56,7 @@ class CustomTextField extends StatelessWidget {
       validator: validator,
       style: textStyle,
       onFieldSubmitted: onSubmitted,
+      onTap: onTap,
       decoration: InputDecoration(
         labelText: labelText,
         hintText: hintText,

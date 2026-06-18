@@ -18,6 +18,10 @@ String messageFor(ApiException e) {
       return 'Already submitted.';
     case PdtErrorCode.validation:
       return e.message;
+    case PdtErrorCode.noStock:
+      return 'No stock found in this location.';
+    case PdtErrorCode.insufficientQty:
+      return 'Insufficient quantity available.';
     default:
       return e.message;
   }

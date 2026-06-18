@@ -21,11 +21,13 @@ AppNotification _$AppNotificationFromJson(Map<String, dynamic> json) {
 /// @nodoc
 mixin _$AppNotification {
   String get id => throw _privateConstructorUsedError;
-  String get subject => throw _privateConstructorUsedError;
+  String get subject =>
+      throw _privateConstructorUsedError; // ignore: invalid_annotation_target
   @JsonKey(name: 'email_content')
   String? get content => throw _privateConstructorUsedError;
   String get type =>
       throw _privateConstructorUsedError; // 'Alert', 'Mention', 'Share', 'Assignment'
+// ignore: invalid_annotation_target
   @JsonKey(name: 'read', defaultValue: false)
   bool get read => throw _privateConstructorUsedError;
   DateTime get creation => throw _privateConstructorUsedError;
@@ -182,12 +184,14 @@ class _$AppNotificationImpl implements _AppNotification {
   final String id;
   @override
   final String subject;
+// ignore: invalid_annotation_target
   @override
   @JsonKey(name: 'email_content')
   final String? content;
   @override
   final String type;
 // 'Alert', 'Mention', 'Share', 'Assignment'
+// ignore: invalid_annotation_target
   @override
   @JsonKey(name: 'read', defaultValue: false)
   final bool read;
@@ -249,12 +253,13 @@ abstract class _AppNotification implements AppNotification {
   String get id;
   @override
   String get subject;
-  @override
+  @override // ignore: invalid_annotation_target
   @JsonKey(name: 'email_content')
   String? get content;
   @override
   String get type;
   @override // 'Alert', 'Mention', 'Share', 'Assignment'
+// ignore: invalid_annotation_target
   @JsonKey(name: 'read', defaultValue: false)
   bool get read;
   @override

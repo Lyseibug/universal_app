@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/models/warehouse_models.dart';
 import '../../core/sync/write_queue.dart';
 import '../../providers/service_providers.dart';
 
@@ -14,29 +15,32 @@ class LotRepository {
         _writeQueue = writeQueue;
 
   /// Browse lots with filters and pagination.
-  Future<List<dynamic>> browse({
+  Future<List<WarehouseLot>> browse({
     String? warehouse,
     String? zone,
     String? item,
     bool onlyOccupied = true,
-    int limit = 20,
+    int limit = 50,
     int start = 0,
   }) async {
     final data = await _api.call('lot.browse', body: {
-      if (warehouse != null) 'warehouse': warehouse,
-      if (zone != null) 'zone': zone,
-      if (item != null) 'item': item,
+      if (warehouse != null && warehouse.isNotEmpty) 'warehouse': warehouse,
+      if (zone != null && zone.isNotEmpty) 'zone': zone,
+      if (item != null && item.isNotEmpty) 'item': item,
       'only_occupied': onlyOccupied ? 1 : 0,
       'limit': limit,
       'start': start,
     });
-    return data is List ? data : const [];
+    if (data is List) {
+      return data.map((json) => WarehouseLot.fromJson(Map<String, dynamic>.from(json))).toList();
+    }
+    return const [];
   }
 
   /// Get specific details for a single Lot/Bin.
-  Future<Map<String, dynamic>> get(String lot) async {
+  Future<WarehouseLot> get(String lot) async {
     final data = await _api.call('lot.get', body: {'lot': lot});
-    return data is Map<String, dynamic> ? data : const {};
+    return WarehouseLot.fromJson(Map<String, dynamic>.from(data));
   }
 
   /// Execute a manual stock transfer between Bins/Lots via the WriteQueue.

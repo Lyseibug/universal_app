@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/models/warehouse_models.dart';
 import '../../core/sync/write_queue.dart';
 import '../../providers/service_providers.dart';
 
@@ -14,12 +15,15 @@ class PickRepository {
         _writeQueue = writeQueue;
 
   /// Fetch pick lists optionally filtered by material request or status.
-  Future<List<dynamic>> listPicks({String? materialRequest, String? status}) async {
+  Future<List<PickItem>> listPicks({String? materialRequest, String? status}) async {
     final data = await _api.call('pick.list', body: {
       if (materialRequest != null) 'material_request': materialRequest,
       if (status != null) 'status': status,
     });
-    return data is List ? data : const [];
+    if (data is List) {
+      return data.map((json) => PickItem.fromJson(Map<String, dynamic>.from(json))).toList();
+    }
+    return const [];
   }
 
   /// Claims a pick item assignment for the logged-in worker.

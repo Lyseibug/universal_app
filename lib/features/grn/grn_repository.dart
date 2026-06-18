@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/models/warehouse_models.dart';
 import '../../core/sync/write_queue.dart';
 import '../../providers/service_providers.dart';
 
@@ -14,15 +15,31 @@ class GrnRepository {
         _writeQueue = writeQueue;
 
   /// Fetches a list of pending GRN lines ready for put-away allocation.
-  Future<List<dynamic>> listPending() async {
+  Future<List<ReceivedItemLine>> listPending() async {
     final data = await _api.call('grn.list_pending');
-    return data is List ? data : const [];
+    if (data is List) {
+      return data.map((json) => ReceivedItemLine.fromJson(Map<String, dynamic>.from(json))).toList();
+    }
+    return const [];
   }
 
   /// Fetches specific details of a received GRN item line.
-  Future<Map<String, dynamic>> getReceivedItem(String receivedItem) async {
+  Future<ReceivedItemLine> getReceivedItem(String receivedItem) async {
     final data = await _api.call('grn.get', body: {'received_item': receivedItem});
-    return data is Map<String, dynamic> ? data : const {};
+    return ReceivedItemLine.fromJson(Map<String, dynamic>.from(data));
+  }
+
+  /// Fetches bin recommendation for a pending GRN line.
+  Future<LotSuggestion?> suggestLot(String receivedItemLine) async {
+    try {
+      final data = await _api.call('grn.suggest_lot', body: {'received_item_line': receivedItemLine});
+      if (data is Map<String, dynamic> && data.isNotEmpty) {
+        return LotSuggestion.fromJson(data);
+      }
+    } catch (_) {
+      // Gracefully handle if suggestions are empty/not found on server
+    }
+    return null;
   }
 
   /// Submits a put-away allocation to the server via the idempotent WriteQueue.

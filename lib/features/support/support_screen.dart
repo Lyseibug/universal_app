@@ -153,7 +153,7 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
     return Scaffold(
       backgroundColor: AppTheme.bgScaffold,
       appBar: AppBar(
-        title: const Text('Support'),
+        title: Text(widget.screen.label),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(AppTheme.horizontalPad),
