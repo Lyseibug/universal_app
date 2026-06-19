@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Internet for downloading APK -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Camera for barcode scanning -->
+    <uses-permission android:name="android.permission.CAMERA"/>
     <!-- Write to external storage (Android 9 and below) -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28"/>
