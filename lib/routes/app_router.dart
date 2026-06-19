@@ -1,36 +1,71 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../screens/dashboard/dashboard_screen.dart';
+import '../providers/auth_provider.dart';
+import '../screens/home/home_screen.dart';
 import '../screens/login/login_screen.dart';
-import '../screens/profile/profile_screen.dart';
+import '../screens/notifications/notifications_screen.dart';
 import '../screens/settings/settings_screen.dart';
 import '../screens/splash/splash_screen.dart';
+import '../screens/workspace/workspace_screen.dart';
 
-/// Application router configuration using GoRouter.
-/// Manages all navigation routes and transitions.
+/// Application router.
+///
+/// Redirect logic:
+///  - Not authenticated       → /login
+///  - Authenticated, no workspace → /workspace
+///  - Otherwise               → stays on requested route (e.g. /home)
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/',
+    redirect: (context, state) {
+      final authState = ref.read(authProvider);
+      final loc = state.uri.path;
+
+      // Public routes — no auth required
+      const publicRoutes = ['/', '/login', '/settings'];
+      if (publicRoutes.contains(loc)) return null;
+
+      // Not authenticated → login
+      if (!authState.isAuthenticated) return '/login';
+
+      return null;
+    },
     routes: [
-      // Splash screen - entry point
-      GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
-      // Login screen
-      GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
-      // Settings screen
+      // ── Splash ────────────────────────────────────────────────────────────
+      GoRoute(
+        path: '/',
+        builder: (context, state) => const SplashScreen(),
+      ),
+
+      // ── Auth ──────────────────────────────────────────────────────────────
+      GoRoute(
+        path: '/login',
+        builder: (context, state) => const LoginScreen(),
+      ),
+
+      // ── Settings (accessible pre-login for URL config) ─────────────────────
       GoRoute(
         path: '/settings',
         builder: (context, state) => const SettingsScreen(),
       ),
-      // Dashboard screen (after login)
+
+      // ── Workspace picker ───────────────────────────────────────────────────
       GoRoute(
-        path: '/dashboard',
-        builder: (context, state) => const DashboardScreen(),
+        path: '/workspace',
+        builder: (context, state) => const WorkspaceScreen(),
       ),
-      // Profile screen
+
+      // ── Home (dynamic menu) ────────────────────────────────────────────────
       GoRoute(
-        path: '/profile',
-        builder: (context, state) => const ProfileScreen(),
+        path: '/home',
+        builder: (context, state) => const HomeScreen(),
+      ),
+
+      // ── Notifications ──────────────────────────────────────────────────────
+      GoRoute(
+        path: '/notifications',
+        builder: (context, state) => const NotificationsScreen(),
       ),
     ],
   );

@@ -10,15 +10,19 @@ class NoInternetException implements Exception {
 }
 
 /// Custom exception for API errors.
+///
+/// [code] carries the PDT error code from the server envelope (e.g. `BIN_FULL`).
 class ApiException implements Exception {
+  final String code;
   final String message;
-  final int? statusCode;
-  final dynamic data;
 
-  ApiException({required this.message, this.statusCode, this.data});
+  const ApiException(this.code, this.message);
+
+  /// Helper to check if this is an authentication/session expiry error.
+  bool get isAuth => code == 'UNAUTHENTICATED';
 
   @override
-  String toString() => 'ApiException($statusCode): $message';
+  String toString() => 'ApiException($code): $message';
 }
 
 /// Custom exception for unauthorized access (401).
