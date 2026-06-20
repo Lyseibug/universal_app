@@ -25,6 +25,7 @@ _$ReceivedItemLineImpl _$$ReceivedItemLineImplFromJson(
       pendingBatchQty: (json['pending_batch_qty'] as num?)?.toDouble(),
       binAllocatedQuantity:
           (json['bin_allocated_quantity'] as num?)?.toDouble(),
+      receiptDate: json['receipt_date'] as String?,
     );
 
 Map<String, dynamic> _$$ReceivedItemLineImplToJson(
@@ -45,6 +46,7 @@ Map<String, dynamic> _$$ReceivedItemLineImplToJson(
       'batch_qty_created': instance.batchQtyCreated,
       'pending_batch_qty': instance.pendingBatchQty,
       'bin_allocated_quantity': instance.binAllocatedQuantity,
+      'receipt_date': instance.receiptDate,
     };
 
 _$GrnBatchImpl _$$GrnBatchImplFromJson(Map<String, dynamic> json) =>
@@ -66,13 +68,23 @@ Map<String, dynamic> _$$GrnBatchImplToJson(_$GrnBatchImpl instance) =>
 _$LotSuggestionImpl _$$LotSuggestionImplFromJson(Map<String, dynamic> json) =>
     _$LotSuggestionImpl(
       lot: json['lot'] as String,
-      availableQty: (json['available_qty'] as num).toDouble(),
+      availableQty: (json['available_qty'] as num?)?.toDouble() ?? 0,
+      reason: json['reason'] as String?,
+      warehouse: json['warehouse'] as String?,
+      zone: json['zone'] as String?,
+      aisle: json['aisle'] as String?,
+      level: json['level'] as String?,
     );
 
 Map<String, dynamic> _$$LotSuggestionImplToJson(_$LotSuggestionImpl instance) =>
     <String, dynamic>{
       'lot': instance.lot,
       'available_qty': instance.availableQty,
+      'reason': instance.reason,
+      'warehouse': instance.warehouse,
+      'zone': instance.zone,
+      'aisle': instance.aisle,
+      'level': instance.level,
     };
 
 _$LotStockLineImpl _$$LotStockLineImplFromJson(Map<String, dynamic> json) =>

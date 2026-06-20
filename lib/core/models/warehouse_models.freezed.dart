@@ -46,6 +46,8 @@ mixin _$ReceivedItemLine {
   double? get pendingBatchQty => throw _privateConstructorUsedError;
   @JsonKey(name: 'bin_allocated_quantity')
   double? get binAllocatedQuantity => throw _privateConstructorUsedError;
+  @JsonKey(name: 'receipt_date')
+  String? get receiptDate => throw _privateConstructorUsedError;
 
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
   @JsonKey(ignore: true)
@@ -74,7 +76,8 @@ abstract class $ReceivedItemLineCopyWith<$Res> {
       @JsonKey(name: 'received_qty') double? receivedQty,
       @JsonKey(name: 'batch_qty_created') double? batchQtyCreated,
       @JsonKey(name: 'pending_batch_qty') double? pendingBatchQty,
-      @JsonKey(name: 'bin_allocated_quantity') double? binAllocatedQuantity});
+      @JsonKey(name: 'bin_allocated_quantity') double? binAllocatedQuantity,
+      @JsonKey(name: 'receipt_date') String? receiptDate});
 }
 
 /// @nodoc
@@ -105,6 +108,7 @@ class _$ReceivedItemLineCopyWithImpl<$Res, $Val extends ReceivedItemLine>
     Object? batchQtyCreated = freezed,
     Object? pendingBatchQty = freezed,
     Object? binAllocatedQuantity = freezed,
+    Object? receiptDate = freezed,
   }) {
     return _then(_value.copyWith(
       name: null == name
@@ -167,6 +171,10 @@ class _$ReceivedItemLineCopyWithImpl<$Res, $Val extends ReceivedItemLine>
           ? _value.binAllocatedQuantity
           : binAllocatedQuantity // ignore: cast_nullable_to_non_nullable
               as double?,
+      receiptDate: freezed == receiptDate
+          ? _value.receiptDate
+          : receiptDate // ignore: cast_nullable_to_non_nullable
+              as String?,
     ) as $Val);
   }
 }
@@ -194,7 +202,8 @@ abstract class _$$ReceivedItemLineImplCopyWith<$Res>
       @JsonKey(name: 'received_qty') double? receivedQty,
       @JsonKey(name: 'batch_qty_created') double? batchQtyCreated,
       @JsonKey(name: 'pending_batch_qty') double? pendingBatchQty,
-      @JsonKey(name: 'bin_allocated_quantity') double? binAllocatedQuantity});
+      @JsonKey(name: 'bin_allocated_quantity') double? binAllocatedQuantity,
+      @JsonKey(name: 'receipt_date') String? receiptDate});
 }
 
 /// @nodoc
@@ -223,6 +232,7 @@ class __$$ReceivedItemLineImplCopyWithImpl<$Res>
     Object? batchQtyCreated = freezed,
     Object? pendingBatchQty = freezed,
     Object? binAllocatedQuantity = freezed,
+    Object? receiptDate = freezed,
   }) {
     return _then(_$ReceivedItemLineImpl(
       name: null == name
@@ -285,6 +295,10 @@ class __$$ReceivedItemLineImplCopyWithImpl<$Res>
           ? _value.binAllocatedQuantity
           : binAllocatedQuantity // ignore: cast_nullable_to_non_nullable
               as double?,
+      receiptDate: freezed == receiptDate
+          ? _value.receiptDate
+          : receiptDate // ignore: cast_nullable_to_non_nullable
+              as String?,
     ));
   }
 }
@@ -307,7 +321,8 @@ class _$ReceivedItemLineImpl implements _ReceivedItemLine {
       @JsonKey(name: 'received_qty') this.receivedQty,
       @JsonKey(name: 'batch_qty_created') this.batchQtyCreated,
       @JsonKey(name: 'pending_batch_qty') this.pendingBatchQty,
-      @JsonKey(name: 'bin_allocated_quantity') this.binAllocatedQuantity});
+      @JsonKey(name: 'bin_allocated_quantity') this.binAllocatedQuantity,
+      @JsonKey(name: 'receipt_date') this.receiptDate});
 
   factory _$ReceivedItemLineImpl.fromJson(Map<String, dynamic> json) =>
       _$$ReceivedItemLineImplFromJson(json);
@@ -353,10 +368,13 @@ class _$ReceivedItemLineImpl implements _ReceivedItemLine {
   @override
   @JsonKey(name: 'bin_allocated_quantity')
   final double? binAllocatedQuantity;
+  @override
+  @JsonKey(name: 'receipt_date')
+  final String? receiptDate;
 
   @override
   String toString() {
-    return 'ReceivedItemLine(name: $name, parent: $parent, itemCode: $itemCode, itemName: $itemName, pendingQty: $pendingQty, uom: $uom, warehouse: $warehouse, lotNo: $lotNo, productionDate: $productionDate, expiryDate: $expiryDate, batchNo: $batchNo, receivedQty: $receivedQty, batchQtyCreated: $batchQtyCreated, pendingBatchQty: $pendingBatchQty, binAllocatedQuantity: $binAllocatedQuantity)';
+    return 'ReceivedItemLine(name: $name, parent: $parent, itemCode: $itemCode, itemName: $itemName, pendingQty: $pendingQty, uom: $uom, warehouse: $warehouse, lotNo: $lotNo, productionDate: $productionDate, expiryDate: $expiryDate, batchNo: $batchNo, receivedQty: $receivedQty, batchQtyCreated: $batchQtyCreated, pendingBatchQty: $pendingBatchQty, binAllocatedQuantity: $binAllocatedQuantity, receiptDate: $receiptDate)';
   }
 
   @override
@@ -388,7 +406,9 @@ class _$ReceivedItemLineImpl implements _ReceivedItemLine {
             (identical(other.pendingBatchQty, pendingBatchQty) ||
                 other.pendingBatchQty == pendingBatchQty) &&
             (identical(other.binAllocatedQuantity, binAllocatedQuantity) ||
-                other.binAllocatedQuantity == binAllocatedQuantity));
+                other.binAllocatedQuantity == binAllocatedQuantity) &&
+            (identical(other.receiptDate, receiptDate) ||
+                other.receiptDate == receiptDate));
   }
 
   @JsonKey(ignore: true)
@@ -409,7 +429,8 @@ class _$ReceivedItemLineImpl implements _ReceivedItemLine {
       receivedQty,
       batchQtyCreated,
       pendingBatchQty,
-      binAllocatedQuantity);
+      binAllocatedQuantity,
+      receiptDate);
 
   @JsonKey(ignore: true)
   @override
@@ -443,7 +464,9 @@ abstract class _ReceivedItemLine implements ReceivedItemLine {
       @JsonKey(name: 'batch_qty_created') final double? batchQtyCreated,
       @JsonKey(name: 'pending_batch_qty') final double? pendingBatchQty,
       @JsonKey(name: 'bin_allocated_quantity')
-      final double? binAllocatedQuantity}) = _$ReceivedItemLineImpl;
+      final double? binAllocatedQuantity,
+      @JsonKey(name: 'receipt_date')
+      final String? receiptDate}) = _$ReceivedItemLineImpl;
 
   factory _ReceivedItemLine.fromJson(Map<String, dynamic> json) =
       _$ReceivedItemLineImpl.fromJson;
@@ -489,6 +512,9 @@ abstract class _ReceivedItemLine implements ReceivedItemLine {
   @override
   @JsonKey(name: 'bin_allocated_quantity')
   double? get binAllocatedQuantity;
+  @override
+  @JsonKey(name: 'receipt_date')
+  String? get receiptDate;
   @override
   @JsonKey(ignore: true)
   _$$ReceivedItemLineImplCopyWith<_$ReceivedItemLineImpl> get copyWith =>
@@ -720,6 +746,11 @@ mixin _$LotSuggestion {
   String get lot => throw _privateConstructorUsedError;
   @JsonKey(name: 'available_qty')
   double get availableQty => throw _privateConstructorUsedError;
+  String? get reason => throw _privateConstructorUsedError;
+  String? get warehouse => throw _privateConstructorUsedError;
+  String? get zone => throw _privateConstructorUsedError;
+  String? get aisle => throw _privateConstructorUsedError;
+  String? get level => throw _privateConstructorUsedError;
 
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
   @JsonKey(ignore: true)
@@ -733,7 +764,14 @@ abstract class $LotSuggestionCopyWith<$Res> {
           LotSuggestion value, $Res Function(LotSuggestion) then) =
       _$LotSuggestionCopyWithImpl<$Res, LotSuggestion>;
   @useResult
-  $Res call({String lot, @JsonKey(name: 'available_qty') double availableQty});
+  $Res call(
+      {String lot,
+      @JsonKey(name: 'available_qty') double availableQty,
+      String? reason,
+      String? warehouse,
+      String? zone,
+      String? aisle,
+      String? level});
 }
 
 /// @nodoc
@@ -751,6 +789,11 @@ class _$LotSuggestionCopyWithImpl<$Res, $Val extends LotSuggestion>
   $Res call({
     Object? lot = null,
     Object? availableQty = null,
+    Object? reason = freezed,
+    Object? warehouse = freezed,
+    Object? zone = freezed,
+    Object? aisle = freezed,
+    Object? level = freezed,
   }) {
     return _then(_value.copyWith(
       lot: null == lot
@@ -761,6 +804,26 @@ class _$LotSuggestionCopyWithImpl<$Res, $Val extends LotSuggestion>
           ? _value.availableQty
           : availableQty // ignore: cast_nullable_to_non_nullable
               as double,
+      reason: freezed == reason
+          ? _value.reason
+          : reason // ignore: cast_nullable_to_non_nullable
+              as String?,
+      warehouse: freezed == warehouse
+          ? _value.warehouse
+          : warehouse // ignore: cast_nullable_to_non_nullable
+              as String?,
+      zone: freezed == zone
+          ? _value.zone
+          : zone // ignore: cast_nullable_to_non_nullable
+              as String?,
+      aisle: freezed == aisle
+          ? _value.aisle
+          : aisle // ignore: cast_nullable_to_non_nullable
+              as String?,
+      level: freezed == level
+          ? _value.level
+          : level // ignore: cast_nullable_to_non_nullable
+              as String?,
     ) as $Val);
   }
 }
@@ -773,7 +836,14 @@ abstract class _$$LotSuggestionImplCopyWith<$Res>
       __$$LotSuggestionImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({String lot, @JsonKey(name: 'available_qty') double availableQty});
+  $Res call(
+      {String lot,
+      @JsonKey(name: 'available_qty') double availableQty,
+      String? reason,
+      String? warehouse,
+      String? zone,
+      String? aisle,
+      String? level});
 }
 
 /// @nodoc
@@ -789,6 +859,11 @@ class __$$LotSuggestionImplCopyWithImpl<$Res>
   $Res call({
     Object? lot = null,
     Object? availableQty = null,
+    Object? reason = freezed,
+    Object? warehouse = freezed,
+    Object? zone = freezed,
+    Object? aisle = freezed,
+    Object? level = freezed,
   }) {
     return _then(_$LotSuggestionImpl(
       lot: null == lot
@@ -799,6 +874,26 @@ class __$$LotSuggestionImplCopyWithImpl<$Res>
           ? _value.availableQty
           : availableQty // ignore: cast_nullable_to_non_nullable
               as double,
+      reason: freezed == reason
+          ? _value.reason
+          : reason // ignore: cast_nullable_to_non_nullable
+              as String?,
+      warehouse: freezed == warehouse
+          ? _value.warehouse
+          : warehouse // ignore: cast_nullable_to_non_nullable
+              as String?,
+      zone: freezed == zone
+          ? _value.zone
+          : zone // ignore: cast_nullable_to_non_nullable
+              as String?,
+      aisle: freezed == aisle
+          ? _value.aisle
+          : aisle // ignore: cast_nullable_to_non_nullable
+              as String?,
+      level: freezed == level
+          ? _value.level
+          : level // ignore: cast_nullable_to_non_nullable
+              as String?,
     ));
   }
 }
@@ -808,7 +903,12 @@ class __$$LotSuggestionImplCopyWithImpl<$Res>
 class _$LotSuggestionImpl implements _LotSuggestion {
   const _$LotSuggestionImpl(
       {required this.lot,
-      @JsonKey(name: 'available_qty') required this.availableQty});
+      @JsonKey(name: 'available_qty') this.availableQty = 0,
+      this.reason,
+      this.warehouse,
+      this.zone,
+      this.aisle,
+      this.level});
 
   factory _$LotSuggestionImpl.fromJson(Map<String, dynamic> json) =>
       _$$LotSuggestionImplFromJson(json);
@@ -818,10 +918,20 @@ class _$LotSuggestionImpl implements _LotSuggestion {
   @override
   @JsonKey(name: 'available_qty')
   final double availableQty;
+  @override
+  final String? reason;
+  @override
+  final String? warehouse;
+  @override
+  final String? zone;
+  @override
+  final String? aisle;
+  @override
+  final String? level;
 
   @override
   String toString() {
-    return 'LotSuggestion(lot: $lot, availableQty: $availableQty)';
+    return 'LotSuggestion(lot: $lot, availableQty: $availableQty, reason: $reason, warehouse: $warehouse, zone: $zone, aisle: $aisle, level: $level)';
   }
 
   @override
@@ -831,12 +941,19 @@ class _$LotSuggestionImpl implements _LotSuggestion {
             other is _$LotSuggestionImpl &&
             (identical(other.lot, lot) || other.lot == lot) &&
             (identical(other.availableQty, availableQty) ||
-                other.availableQty == availableQty));
+                other.availableQty == availableQty) &&
+            (identical(other.reason, reason) || other.reason == reason) &&
+            (identical(other.warehouse, warehouse) ||
+                other.warehouse == warehouse) &&
+            (identical(other.zone, zone) || other.zone == zone) &&
+            (identical(other.aisle, aisle) || other.aisle == aisle) &&
+            (identical(other.level, level) || other.level == level));
   }
 
   @JsonKey(ignore: true)
   @override
-  int get hashCode => Object.hash(runtimeType, lot, availableQty);
+  int get hashCode => Object.hash(
+      runtimeType, lot, availableQty, reason, warehouse, zone, aisle, level);
 
   @JsonKey(ignore: true)
   @override
@@ -854,9 +971,13 @@ class _$LotSuggestionImpl implements _LotSuggestion {
 
 abstract class _LotSuggestion implements LotSuggestion {
   const factory _LotSuggestion(
-          {required final String lot,
-          @JsonKey(name: 'available_qty') required final double availableQty}) =
-      _$LotSuggestionImpl;
+      {required final String lot,
+      @JsonKey(name: 'available_qty') final double availableQty,
+      final String? reason,
+      final String? warehouse,
+      final String? zone,
+      final String? aisle,
+      final String? level}) = _$LotSuggestionImpl;
 
   factory _LotSuggestion.fromJson(Map<String, dynamic> json) =
       _$LotSuggestionImpl.fromJson;
@@ -866,6 +987,16 @@ abstract class _LotSuggestion implements LotSuggestion {
   @override
   @JsonKey(name: 'available_qty')
   double get availableQty;
+  @override
+  String? get reason;
+  @override
+  String? get warehouse;
+  @override
+  String? get zone;
+  @override
+  String? get aisle;
+  @override
+  String? get level;
   @override
   @JsonKey(ignore: true)
   _$$LotSuggestionImplCopyWith<_$LotSuggestionImpl> get copyWith =>

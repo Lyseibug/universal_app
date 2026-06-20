@@ -55,14 +55,12 @@ class _GrnPutAwayScreenState extends ConsumerState<GrnPutAwayScreen> {
   bool _loadingSuggestion = false;
 
   // Form Controllers & focus nodes
-  final _binCtrl = TextEditingController();
   final _lotCtrl = TextEditingController();
   final _qtyCtrl = TextEditingController();
   final _prodDateCtrl = TextEditingController();
   final _expiryDateCtrl = TextEditingController();
   final _batchScanCtrl = TextEditingController();
   
-  final _binFocus = FocusNode();
   final _lotFocus = FocusNode();
   final _qtyFocus = FocusNode();
   final _prodDateFocus = FocusNode();
@@ -91,13 +89,11 @@ class _GrnPutAwayScreenState extends ConsumerState<GrnPutAwayScreen> {
 
   @override
   void dispose() {
-    _binCtrl.dispose();
     _lotCtrl.dispose();
     _qtyCtrl.dispose();
     _prodDateCtrl.dispose();
     _expiryDateCtrl.dispose();
     _batchScanCtrl.dispose();
-    _binFocus.dispose();
     _lotFocus.dispose();
     _qtyFocus.dispose();
     _prodDateFocus.dispose();
@@ -158,13 +154,14 @@ class _GrnPutAwayScreenState extends ConsumerState<GrnPutAwayScreen> {
 
   void _navigateToCreateBatch() {
     final remainingBatchQty = _selectedItem!.pendingBatchQty ?? _selectedItem!.pendingQty;
+    final defaultDate = _selectedItem!.receiptDate ?? DateFormat('yyyy-MM-dd').format(DateTime.now());
     setState(() {
       _qtyCtrl.text = remainingBatchQty.toString();
-      _prodDateCtrl.text = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      _prodDateCtrl.text = defaultDate;
       _expiryDateCtrl.clear();
       _currentView = PutAwayView.createBatch;
     });
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _qtyFocus.requestFocus();
     });
@@ -185,7 +182,6 @@ class _GrnPutAwayScreenState extends ConsumerState<GrnPutAwayScreen> {
     setState(() {
       _selectedBatch = batch;
       _qtyCtrl.text = batch.availableQty.toString();
-      _binCtrl.clear();
       _lotCtrl.clear();
       _overrideCapacity = false;
       _suggestion = null;
@@ -194,11 +190,14 @@ class _GrnPutAwayScreenState extends ConsumerState<GrnPutAwayScreen> {
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _binFocus.requestFocus();
+      if (mounted) _lotFocus.requestFocus();
     });
 
     try {
-      final suggest = await ref.read(grnRepositoryProvider).suggestLot(_selectedItem!.name);
+      final suggest = await ref.read(grnRepositoryProvider).suggestLot(
+        _selectedItem!.name,
+        qty: double.tryParse(_qtyCtrl.text) ?? _selectedItem!.pendingQty,
+      );
       if (mounted && _selectedBatch?.batchNo == batch.batchNo) {
         setState(() {
           _suggestion = suggest;
@@ -319,13 +318,12 @@ class _GrnPutAwayScreenState extends ConsumerState<GrnPutAwayScreen> {
   Future<void> _submitAllocateBin() async {
     if (_selectedItem == null || _selectedBatch == null) return;
 
-    final bin = _binCtrl.text.trim();
     final lot = _lotCtrl.text.trim();
     final qty = double.tryParse(_qtyCtrl.text) ?? 0.0;
 
-    if (bin.isEmpty || lot.isEmpty || qty <= 0 || qty > _selectedBatch!.availableQty) {
+    if (lot.isEmpty || qty <= 0 || qty > _selectedBatch!.availableQty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please scan a valid Bin, Lot, and enter quantity <= ${_selectedBatch!.availableQty}.')),
+        SnackBar(content: Text('Please scan a valid Bin/LOT and enter quantity <= ${_selectedBatch!.availableQty}.')),
       );
       return;
     }
@@ -1132,7 +1130,9 @@ class _GrnPutAwayScreenState extends ConsumerState<GrnPutAwayScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text('Recommended Bin: ${_suggestion!.lot}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                    Text('Available Qty in Bin: ${_suggestion!.availableQty}'),
+                    if (_suggestion!.reason != null)
+                      Text(_suggestion!.reason!, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                    Text('Free capacity: ${_suggestion!.availableQty} KG'),
                     const SizedBox(height: 12),
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
@@ -1142,9 +1142,9 @@ class _GrnPutAwayScreenState extends ConsumerState<GrnPutAwayScreen> {
                       ),
                       onPressed: () {
                         setState(() {
-                          _binCtrl.text = _suggestion!.lot;
+                          _lotCtrl.text = _suggestion!.lot;
                         });
-                        _lotFocus.requestFocus();
+                        _qtyFocus.requestFocus();
                       },
                       icon: const Icon(Icons.check, size: 16),
                       label: const Text('Use Suggested Bin'),
@@ -1157,22 +1157,11 @@ class _GrnPutAwayScreenState extends ConsumerState<GrnPutAwayScreen> {
 
           // Inputs
           ScanInputField(
-            controller: _binCtrl,
-            focusNode: _binFocus,
-            labelText: 'Scan Bin',
-            hintText: 'Scan target bin location',
-            prefixIcon: Icons.place_outlined,
-            textInputAction: TextInputAction.next,
-            onSubmitted: (_) => _lotFocus.requestFocus(),
-          ),
-          const SizedBox(height: 14),
-
-          ScanInputField(
             controller: _lotCtrl,
             focusNode: _lotFocus,
-            labelText: 'Scan Lot',
-            hintText: 'Scan item Lot number',
-            prefixIcon: Icons.qr_code_scanner,
+            labelText: 'Scan Bin / LOT',
+            hintText: 'Scan target bin barcode',
+            prefixIcon: Icons.place_outlined,
             textInputAction: TextInputAction.next,
             onSubmitted: (_) => _qtyFocus.requestFocus(),
           ),

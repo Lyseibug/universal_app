@@ -31,10 +31,12 @@ class GrnRepository {
   }
 
   /// Fetches bin recommendation for a pending GRN line.
-  Future<LotSuggestion?> suggestLot(String receivedItemLine) async {
+  Future<LotSuggestion?> suggestLot(String receivedItemLine, {double? qty}) async {
     try {
-      final data = await _api.call('grn.suggest_lot', body: {'received_item_line': receivedItemLine});
-      if (data is Map<String, dynamic> && data.isNotEmpty) {
+      final body = <String, dynamic>{'received_item_line': receivedItemLine};
+      if (qty != null) body['qty'] = qty;
+      final data = await _api.call('grn.suggest_lot', body: body);
+      if (data is Map<String, dynamic> && data.isNotEmpty && data['lot'] != null) {
         return LotSuggestion.fromJson(data);
       }
     } catch (_) {

@@ -21,6 +21,7 @@ class ReceivedItemLine with _$ReceivedItemLine {
     @JsonKey(name: 'batch_qty_created') double? batchQtyCreated,
     @JsonKey(name: 'pending_batch_qty') double? pendingBatchQty,
     @JsonKey(name: 'bin_allocated_quantity') double? binAllocatedQuantity,
+    @JsonKey(name: 'receipt_date') String? receiptDate,
   }) = _ReceivedItemLine;
 
   factory ReceivedItemLine.fromJson(Map<String, dynamic> json) =>
@@ -44,7 +45,12 @@ class GrnBatch with _$GrnBatch {
 class LotSuggestion with _$LotSuggestion {
   const factory LotSuggestion({
     required String lot,
-    @JsonKey(name: 'available_qty') required double availableQty,
+    @Default(0) @JsonKey(name: 'available_qty') double availableQty,
+    String? reason,
+    String? warehouse,
+    String? zone,
+    String? aisle,
+    String? level,
   }) = _LotSuggestion;
 
   factory LotSuggestion.fromJson(Map<String, dynamic> json) =>
