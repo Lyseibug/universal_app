@@ -16,10 +16,28 @@ class ReceivedItemLine with _$ReceivedItemLine {
     @JsonKey(name: 'lot_no') String? lotNo,
     @JsonKey(name: 'production_date') String? productionDate,
     @JsonKey(name: 'expiry_date') String? expiryDate,
+    @JsonKey(name: 'batch_no') String? batchNo,
+    @JsonKey(name: 'received_qty') double? receivedQty,
+    @JsonKey(name: 'batch_qty_created') double? batchQtyCreated,
+    @JsonKey(name: 'pending_batch_qty') double? pendingBatchQty,
+    @JsonKey(name: 'bin_allocated_quantity') double? binAllocatedQuantity,
   }) = _ReceivedItemLine;
 
   factory ReceivedItemLine.fromJson(Map<String, dynamic> json) =>
       _$ReceivedItemLineFromJson(json);
+}
+
+@freezed
+class GrnBatch with _$GrnBatch {
+  const factory GrnBatch({
+    @JsonKey(name: 'batch_no') required String batchNo,
+    @JsonKey(name: 'production_date') String? productionDate,
+    @JsonKey(name: 'expiry_date') String? expiryDate,
+    @JsonKey(name: 'available_qty') required double availableQty,
+  }) = _GrnBatch;
+
+  factory GrnBatch.fromJson(Map<String, dynamic> json) =>
+      _$GrnBatchFromJson(json);
 }
 
 @freezed

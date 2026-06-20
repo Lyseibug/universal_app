@@ -118,7 +118,7 @@ class ApiClient {
             
             final apiException = ApiException(code, message);
 
-            if (apiException.isAuth) {
+            if (apiException.isAuth && method != 'session.logout') {
               AppLogger.warning('Received UNAUTHENTICATED error. Triggering global logout.', tag: 'ApiClient');
               onUnauthenticated?.call();
             }
@@ -148,7 +148,7 @@ class ApiClient {
 
       final apiException = ApiException(errorCode, errorMessage);
 
-      if (apiException.isAuth || statusCode == 401 || statusCode == 403) {
+      if ((apiException.isAuth || statusCode == 401 || statusCode == 403) && method != 'session.logout') {
         AppLogger.warning('Received unauthorized error ($statusCode). Triggering global logout.', tag: 'ApiClient');
         onUnauthenticated?.call();
       }

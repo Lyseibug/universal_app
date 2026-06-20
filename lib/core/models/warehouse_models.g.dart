@@ -19,6 +19,12 @@ _$ReceivedItemLineImpl _$$ReceivedItemLineImplFromJson(
       lotNo: json['lot_no'] as String?,
       productionDate: json['production_date'] as String?,
       expiryDate: json['expiry_date'] as String?,
+      batchNo: json['batch_no'] as String?,
+      receivedQty: (json['received_qty'] as num?)?.toDouble(),
+      batchQtyCreated: (json['batch_qty_created'] as num?)?.toDouble(),
+      pendingBatchQty: (json['pending_batch_qty'] as num?)?.toDouble(),
+      binAllocatedQuantity:
+          (json['bin_allocated_quantity'] as num?)?.toDouble(),
     );
 
 Map<String, dynamic> _$$ReceivedItemLineImplToJson(
@@ -34,6 +40,27 @@ Map<String, dynamic> _$$ReceivedItemLineImplToJson(
       'lot_no': instance.lotNo,
       'production_date': instance.productionDate,
       'expiry_date': instance.expiryDate,
+      'batch_no': instance.batchNo,
+      'received_qty': instance.receivedQty,
+      'batch_qty_created': instance.batchQtyCreated,
+      'pending_batch_qty': instance.pendingBatchQty,
+      'bin_allocated_quantity': instance.binAllocatedQuantity,
+    };
+
+_$GrnBatchImpl _$$GrnBatchImplFromJson(Map<String, dynamic> json) =>
+    _$GrnBatchImpl(
+      batchNo: json['batch_no'] as String,
+      productionDate: json['production_date'] as String?,
+      expiryDate: json['expiry_date'] as String?,
+      availableQty: (json['available_qty'] as num).toDouble(),
+    );
+
+Map<String, dynamic> _$$GrnBatchImplToJson(_$GrnBatchImpl instance) =>
+    <String, dynamic>{
+      'batch_no': instance.batchNo,
+      'production_date': instance.productionDate,
+      'expiry_date': instance.expiryDate,
+      'available_qty': instance.availableQty,
     };
 
 _$LotSuggestionImpl _$$LotSuggestionImplFromJson(Map<String, dynamic> json) =>

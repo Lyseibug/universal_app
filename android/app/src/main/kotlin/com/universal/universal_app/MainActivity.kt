@@ -8,6 +8,7 @@ import android.content.IntentFilter
 import android.content.pm.PackageInstaller
 import android.net.Uri
 import android.os.Build
+import android.content.pm.PackageManager
 import android.provider.Settings
 import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
@@ -84,6 +85,39 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+
+        // Kiosk / launcher helper channel (fallback non-MDM flow)
+        val KIOSK_CHANNEL = "app.kiosk/mode"
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, KIOSK_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "openHomeSettings" -> {
+                        openHomeSettings()
+                        result.success(true)
+                    }
+                    "isDefaultLauncher" -> {
+                        result.success(isDefaultLauncher())
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+    }
+
+    private fun openHomeSettings() {
+        try {
+            val intent = Intent(Settings.ACTION_HOME_SETTINGS)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to open home settings", e)
+        }
+    }
+
+    private fun isDefaultLauncher(): Boolean {
+        val intent = Intent(Intent.ACTION_MAIN)
+        intent.addCategory(Intent.CATEGORY_HOME)
+        val resolveInfo = packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
+        return resolveInfo?.activityInfo?.packageName == packageName
     }
 
     // ─── "Install unknown apps" permission ───────────────────────────────────

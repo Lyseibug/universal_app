@@ -36,6 +36,16 @@ mixin _$ReceivedItemLine {
   String? get productionDate => throw _privateConstructorUsedError;
   @JsonKey(name: 'expiry_date')
   String? get expiryDate => throw _privateConstructorUsedError;
+  @JsonKey(name: 'batch_no')
+  String? get batchNo => throw _privateConstructorUsedError;
+  @JsonKey(name: 'received_qty')
+  double? get receivedQty => throw _privateConstructorUsedError;
+  @JsonKey(name: 'batch_qty_created')
+  double? get batchQtyCreated => throw _privateConstructorUsedError;
+  @JsonKey(name: 'pending_batch_qty')
+  double? get pendingBatchQty => throw _privateConstructorUsedError;
+  @JsonKey(name: 'bin_allocated_quantity')
+  double? get binAllocatedQuantity => throw _privateConstructorUsedError;
 
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
   @JsonKey(ignore: true)
@@ -59,7 +69,12 @@ abstract class $ReceivedItemLineCopyWith<$Res> {
       String? warehouse,
       @JsonKey(name: 'lot_no') String? lotNo,
       @JsonKey(name: 'production_date') String? productionDate,
-      @JsonKey(name: 'expiry_date') String? expiryDate});
+      @JsonKey(name: 'expiry_date') String? expiryDate,
+      @JsonKey(name: 'batch_no') String? batchNo,
+      @JsonKey(name: 'received_qty') double? receivedQty,
+      @JsonKey(name: 'batch_qty_created') double? batchQtyCreated,
+      @JsonKey(name: 'pending_batch_qty') double? pendingBatchQty,
+      @JsonKey(name: 'bin_allocated_quantity') double? binAllocatedQuantity});
 }
 
 /// @nodoc
@@ -85,6 +100,11 @@ class _$ReceivedItemLineCopyWithImpl<$Res, $Val extends ReceivedItemLine>
     Object? lotNo = freezed,
     Object? productionDate = freezed,
     Object? expiryDate = freezed,
+    Object? batchNo = freezed,
+    Object? receivedQty = freezed,
+    Object? batchQtyCreated = freezed,
+    Object? pendingBatchQty = freezed,
+    Object? binAllocatedQuantity = freezed,
   }) {
     return _then(_value.copyWith(
       name: null == name
@@ -127,6 +147,26 @@ class _$ReceivedItemLineCopyWithImpl<$Res, $Val extends ReceivedItemLine>
           ? _value.expiryDate
           : expiryDate // ignore: cast_nullable_to_non_nullable
               as String?,
+      batchNo: freezed == batchNo
+          ? _value.batchNo
+          : batchNo // ignore: cast_nullable_to_non_nullable
+              as String?,
+      receivedQty: freezed == receivedQty
+          ? _value.receivedQty
+          : receivedQty // ignore: cast_nullable_to_non_nullable
+              as double?,
+      batchQtyCreated: freezed == batchQtyCreated
+          ? _value.batchQtyCreated
+          : batchQtyCreated // ignore: cast_nullable_to_non_nullable
+              as double?,
+      pendingBatchQty: freezed == pendingBatchQty
+          ? _value.pendingBatchQty
+          : pendingBatchQty // ignore: cast_nullable_to_non_nullable
+              as double?,
+      binAllocatedQuantity: freezed == binAllocatedQuantity
+          ? _value.binAllocatedQuantity
+          : binAllocatedQuantity // ignore: cast_nullable_to_non_nullable
+              as double?,
     ) as $Val);
   }
 }
@@ -149,7 +189,12 @@ abstract class _$$ReceivedItemLineImplCopyWith<$Res>
       String? warehouse,
       @JsonKey(name: 'lot_no') String? lotNo,
       @JsonKey(name: 'production_date') String? productionDate,
-      @JsonKey(name: 'expiry_date') String? expiryDate});
+      @JsonKey(name: 'expiry_date') String? expiryDate,
+      @JsonKey(name: 'batch_no') String? batchNo,
+      @JsonKey(name: 'received_qty') double? receivedQty,
+      @JsonKey(name: 'batch_qty_created') double? batchQtyCreated,
+      @JsonKey(name: 'pending_batch_qty') double? pendingBatchQty,
+      @JsonKey(name: 'bin_allocated_quantity') double? binAllocatedQuantity});
 }
 
 /// @nodoc
@@ -173,6 +218,11 @@ class __$$ReceivedItemLineImplCopyWithImpl<$Res>
     Object? lotNo = freezed,
     Object? productionDate = freezed,
     Object? expiryDate = freezed,
+    Object? batchNo = freezed,
+    Object? receivedQty = freezed,
+    Object? batchQtyCreated = freezed,
+    Object? pendingBatchQty = freezed,
+    Object? binAllocatedQuantity = freezed,
   }) {
     return _then(_$ReceivedItemLineImpl(
       name: null == name
@@ -215,6 +265,26 @@ class __$$ReceivedItemLineImplCopyWithImpl<$Res>
           ? _value.expiryDate
           : expiryDate // ignore: cast_nullable_to_non_nullable
               as String?,
+      batchNo: freezed == batchNo
+          ? _value.batchNo
+          : batchNo // ignore: cast_nullable_to_non_nullable
+              as String?,
+      receivedQty: freezed == receivedQty
+          ? _value.receivedQty
+          : receivedQty // ignore: cast_nullable_to_non_nullable
+              as double?,
+      batchQtyCreated: freezed == batchQtyCreated
+          ? _value.batchQtyCreated
+          : batchQtyCreated // ignore: cast_nullable_to_non_nullable
+              as double?,
+      pendingBatchQty: freezed == pendingBatchQty
+          ? _value.pendingBatchQty
+          : pendingBatchQty // ignore: cast_nullable_to_non_nullable
+              as double?,
+      binAllocatedQuantity: freezed == binAllocatedQuantity
+          ? _value.binAllocatedQuantity
+          : binAllocatedQuantity // ignore: cast_nullable_to_non_nullable
+              as double?,
     ));
   }
 }
@@ -232,7 +302,12 @@ class _$ReceivedItemLineImpl implements _ReceivedItemLine {
       this.warehouse,
       @JsonKey(name: 'lot_no') this.lotNo,
       @JsonKey(name: 'production_date') this.productionDate,
-      @JsonKey(name: 'expiry_date') this.expiryDate});
+      @JsonKey(name: 'expiry_date') this.expiryDate,
+      @JsonKey(name: 'batch_no') this.batchNo,
+      @JsonKey(name: 'received_qty') this.receivedQty,
+      @JsonKey(name: 'batch_qty_created') this.batchQtyCreated,
+      @JsonKey(name: 'pending_batch_qty') this.pendingBatchQty,
+      @JsonKey(name: 'bin_allocated_quantity') this.binAllocatedQuantity});
 
   factory _$ReceivedItemLineImpl.fromJson(Map<String, dynamic> json) =>
       _$$ReceivedItemLineImplFromJson(json);
@@ -263,10 +338,25 @@ class _$ReceivedItemLineImpl implements _ReceivedItemLine {
   @override
   @JsonKey(name: 'expiry_date')
   final String? expiryDate;
+  @override
+  @JsonKey(name: 'batch_no')
+  final String? batchNo;
+  @override
+  @JsonKey(name: 'received_qty')
+  final double? receivedQty;
+  @override
+  @JsonKey(name: 'batch_qty_created')
+  final double? batchQtyCreated;
+  @override
+  @JsonKey(name: 'pending_batch_qty')
+  final double? pendingBatchQty;
+  @override
+  @JsonKey(name: 'bin_allocated_quantity')
+  final double? binAllocatedQuantity;
 
   @override
   String toString() {
-    return 'ReceivedItemLine(name: $name, parent: $parent, itemCode: $itemCode, itemName: $itemName, pendingQty: $pendingQty, uom: $uom, warehouse: $warehouse, lotNo: $lotNo, productionDate: $productionDate, expiryDate: $expiryDate)';
+    return 'ReceivedItemLine(name: $name, parent: $parent, itemCode: $itemCode, itemName: $itemName, pendingQty: $pendingQty, uom: $uom, warehouse: $warehouse, lotNo: $lotNo, productionDate: $productionDate, expiryDate: $expiryDate, batchNo: $batchNo, receivedQty: $receivedQty, batchQtyCreated: $batchQtyCreated, pendingBatchQty: $pendingBatchQty, binAllocatedQuantity: $binAllocatedQuantity)';
   }
 
   @override
@@ -289,13 +379,37 @@ class _$ReceivedItemLineImpl implements _ReceivedItemLine {
             (identical(other.productionDate, productionDate) ||
                 other.productionDate == productionDate) &&
             (identical(other.expiryDate, expiryDate) ||
-                other.expiryDate == expiryDate));
+                other.expiryDate == expiryDate) &&
+            (identical(other.batchNo, batchNo) || other.batchNo == batchNo) &&
+            (identical(other.receivedQty, receivedQty) ||
+                other.receivedQty == receivedQty) &&
+            (identical(other.batchQtyCreated, batchQtyCreated) ||
+                other.batchQtyCreated == batchQtyCreated) &&
+            (identical(other.pendingBatchQty, pendingBatchQty) ||
+                other.pendingBatchQty == pendingBatchQty) &&
+            (identical(other.binAllocatedQuantity, binAllocatedQuantity) ||
+                other.binAllocatedQuantity == binAllocatedQuantity));
   }
 
   @JsonKey(ignore: true)
   @override
-  int get hashCode => Object.hash(runtimeType, name, parent, itemCode, itemName,
-      pendingQty, uom, warehouse, lotNo, productionDate, expiryDate);
+  int get hashCode => Object.hash(
+      runtimeType,
+      name,
+      parent,
+      itemCode,
+      itemName,
+      pendingQty,
+      uom,
+      warehouse,
+      lotNo,
+      productionDate,
+      expiryDate,
+      batchNo,
+      receivedQty,
+      batchQtyCreated,
+      pendingBatchQty,
+      binAllocatedQuantity);
 
   @JsonKey(ignore: true)
   @override
@@ -314,17 +428,22 @@ class _$ReceivedItemLineImpl implements _ReceivedItemLine {
 
 abstract class _ReceivedItemLine implements ReceivedItemLine {
   const factory _ReceivedItemLine(
-          {required final String name,
-          required final String parent,
-          @JsonKey(name: 'item_code') required final String itemCode,
-          @JsonKey(name: 'item_name') final String? itemName,
-          @JsonKey(name: 'pending_qty') required final double pendingQty,
-          final String? uom,
-          final String? warehouse,
-          @JsonKey(name: 'lot_no') final String? lotNo,
-          @JsonKey(name: 'production_date') final String? productionDate,
-          @JsonKey(name: 'expiry_date') final String? expiryDate}) =
-      _$ReceivedItemLineImpl;
+      {required final String name,
+      required final String parent,
+      @JsonKey(name: 'item_code') required final String itemCode,
+      @JsonKey(name: 'item_name') final String? itemName,
+      @JsonKey(name: 'pending_qty') required final double pendingQty,
+      final String? uom,
+      final String? warehouse,
+      @JsonKey(name: 'lot_no') final String? lotNo,
+      @JsonKey(name: 'production_date') final String? productionDate,
+      @JsonKey(name: 'expiry_date') final String? expiryDate,
+      @JsonKey(name: 'batch_no') final String? batchNo,
+      @JsonKey(name: 'received_qty') final double? receivedQty,
+      @JsonKey(name: 'batch_qty_created') final double? batchQtyCreated,
+      @JsonKey(name: 'pending_batch_qty') final double? pendingBatchQty,
+      @JsonKey(name: 'bin_allocated_quantity')
+      final double? binAllocatedQuantity}) = _$ReceivedItemLineImpl;
 
   factory _ReceivedItemLine.fromJson(Map<String, dynamic> json) =
       _$ReceivedItemLineImpl.fromJson;
@@ -356,8 +475,239 @@ abstract class _ReceivedItemLine implements ReceivedItemLine {
   @JsonKey(name: 'expiry_date')
   String? get expiryDate;
   @override
+  @JsonKey(name: 'batch_no')
+  String? get batchNo;
+  @override
+  @JsonKey(name: 'received_qty')
+  double? get receivedQty;
+  @override
+  @JsonKey(name: 'batch_qty_created')
+  double? get batchQtyCreated;
+  @override
+  @JsonKey(name: 'pending_batch_qty')
+  double? get pendingBatchQty;
+  @override
+  @JsonKey(name: 'bin_allocated_quantity')
+  double? get binAllocatedQuantity;
+  @override
   @JsonKey(ignore: true)
   _$$ReceivedItemLineImplCopyWith<_$ReceivedItemLineImpl> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+GrnBatch _$GrnBatchFromJson(Map<String, dynamic> json) {
+  return _GrnBatch.fromJson(json);
+}
+
+/// @nodoc
+mixin _$GrnBatch {
+  @JsonKey(name: 'batch_no')
+  String get batchNo => throw _privateConstructorUsedError;
+  @JsonKey(name: 'production_date')
+  String? get productionDate => throw _privateConstructorUsedError;
+  @JsonKey(name: 'expiry_date')
+  String? get expiryDate => throw _privateConstructorUsedError;
+  @JsonKey(name: 'available_qty')
+  double get availableQty => throw _privateConstructorUsedError;
+
+  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
+  @JsonKey(ignore: true)
+  $GrnBatchCopyWith<GrnBatch> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class $GrnBatchCopyWith<$Res> {
+  factory $GrnBatchCopyWith(GrnBatch value, $Res Function(GrnBatch) then) =
+      _$GrnBatchCopyWithImpl<$Res, GrnBatch>;
+  @useResult
+  $Res call(
+      {@JsonKey(name: 'batch_no') String batchNo,
+      @JsonKey(name: 'production_date') String? productionDate,
+      @JsonKey(name: 'expiry_date') String? expiryDate,
+      @JsonKey(name: 'available_qty') double availableQty});
+}
+
+/// @nodoc
+class _$GrnBatchCopyWithImpl<$Res, $Val extends GrnBatch>
+    implements $GrnBatchCopyWith<$Res> {
+  _$GrnBatchCopyWithImpl(this._value, this._then);
+
+  // ignore: unused_field
+  final $Val _value;
+  // ignore: unused_field
+  final $Res Function($Val) _then;
+
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? batchNo = null,
+    Object? productionDate = freezed,
+    Object? expiryDate = freezed,
+    Object? availableQty = null,
+  }) {
+    return _then(_value.copyWith(
+      batchNo: null == batchNo
+          ? _value.batchNo
+          : batchNo // ignore: cast_nullable_to_non_nullable
+              as String,
+      productionDate: freezed == productionDate
+          ? _value.productionDate
+          : productionDate // ignore: cast_nullable_to_non_nullable
+              as String?,
+      expiryDate: freezed == expiryDate
+          ? _value.expiryDate
+          : expiryDate // ignore: cast_nullable_to_non_nullable
+              as String?,
+      availableQty: null == availableQty
+          ? _value.availableQty
+          : availableQty // ignore: cast_nullable_to_non_nullable
+              as double,
+    ) as $Val);
+  }
+}
+
+/// @nodoc
+abstract class _$$GrnBatchImplCopyWith<$Res>
+    implements $GrnBatchCopyWith<$Res> {
+  factory _$$GrnBatchImplCopyWith(
+          _$GrnBatchImpl value, $Res Function(_$GrnBatchImpl) then) =
+      __$$GrnBatchImplCopyWithImpl<$Res>;
+  @override
+  @useResult
+  $Res call(
+      {@JsonKey(name: 'batch_no') String batchNo,
+      @JsonKey(name: 'production_date') String? productionDate,
+      @JsonKey(name: 'expiry_date') String? expiryDate,
+      @JsonKey(name: 'available_qty') double availableQty});
+}
+
+/// @nodoc
+class __$$GrnBatchImplCopyWithImpl<$Res>
+    extends _$GrnBatchCopyWithImpl<$Res, _$GrnBatchImpl>
+    implements _$$GrnBatchImplCopyWith<$Res> {
+  __$$GrnBatchImplCopyWithImpl(
+      _$GrnBatchImpl _value, $Res Function(_$GrnBatchImpl) _then)
+      : super(_value, _then);
+
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? batchNo = null,
+    Object? productionDate = freezed,
+    Object? expiryDate = freezed,
+    Object? availableQty = null,
+  }) {
+    return _then(_$GrnBatchImpl(
+      batchNo: null == batchNo
+          ? _value.batchNo
+          : batchNo // ignore: cast_nullable_to_non_nullable
+              as String,
+      productionDate: freezed == productionDate
+          ? _value.productionDate
+          : productionDate // ignore: cast_nullable_to_non_nullable
+              as String?,
+      expiryDate: freezed == expiryDate
+          ? _value.expiryDate
+          : expiryDate // ignore: cast_nullable_to_non_nullable
+              as String?,
+      availableQty: null == availableQty
+          ? _value.availableQty
+          : availableQty // ignore: cast_nullable_to_non_nullable
+              as double,
+    ));
+  }
+}
+
+/// @nodoc
+@JsonSerializable()
+class _$GrnBatchImpl implements _GrnBatch {
+  const _$GrnBatchImpl(
+      {@JsonKey(name: 'batch_no') required this.batchNo,
+      @JsonKey(name: 'production_date') this.productionDate,
+      @JsonKey(name: 'expiry_date') this.expiryDate,
+      @JsonKey(name: 'available_qty') required this.availableQty});
+
+  factory _$GrnBatchImpl.fromJson(Map<String, dynamic> json) =>
+      _$$GrnBatchImplFromJson(json);
+
+  @override
+  @JsonKey(name: 'batch_no')
+  final String batchNo;
+  @override
+  @JsonKey(name: 'production_date')
+  final String? productionDate;
+  @override
+  @JsonKey(name: 'expiry_date')
+  final String? expiryDate;
+  @override
+  @JsonKey(name: 'available_qty')
+  final double availableQty;
+
+  @override
+  String toString() {
+    return 'GrnBatch(batchNo: $batchNo, productionDate: $productionDate, expiryDate: $expiryDate, availableQty: $availableQty)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$GrnBatchImpl &&
+            (identical(other.batchNo, batchNo) || other.batchNo == batchNo) &&
+            (identical(other.productionDate, productionDate) ||
+                other.productionDate == productionDate) &&
+            (identical(other.expiryDate, expiryDate) ||
+                other.expiryDate == expiryDate) &&
+            (identical(other.availableQty, availableQty) ||
+                other.availableQty == availableQty));
+  }
+
+  @JsonKey(ignore: true)
+  @override
+  int get hashCode => Object.hash(
+      runtimeType, batchNo, productionDate, expiryDate, availableQty);
+
+  @JsonKey(ignore: true)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$GrnBatchImplCopyWith<_$GrnBatchImpl> get copyWith =>
+      __$$GrnBatchImplCopyWithImpl<_$GrnBatchImpl>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$$GrnBatchImplToJson(
+      this,
+    );
+  }
+}
+
+abstract class _GrnBatch implements GrnBatch {
+  const factory _GrnBatch(
+          {@JsonKey(name: 'batch_no') required final String batchNo,
+          @JsonKey(name: 'production_date') final String? productionDate,
+          @JsonKey(name: 'expiry_date') final String? expiryDate,
+          @JsonKey(name: 'available_qty') required final double availableQty}) =
+      _$GrnBatchImpl;
+
+  factory _GrnBatch.fromJson(Map<String, dynamic> json) =
+      _$GrnBatchImpl.fromJson;
+
+  @override
+  @JsonKey(name: 'batch_no')
+  String get batchNo;
+  @override
+  @JsonKey(name: 'production_date')
+  String? get productionDate;
+  @override
+  @JsonKey(name: 'expiry_date')
+  String? get expiryDate;
+  @override
+  @JsonKey(name: 'available_qty')
+  double get availableQty;
+  @override
+  @JsonKey(ignore: true)
+  _$$GrnBatchImplCopyWith<_$GrnBatchImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }
 

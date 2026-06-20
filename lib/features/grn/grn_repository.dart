@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/api/api_exceptions.dart';
 import '../../core/models/warehouse_models.dart';
 import '../../core/sync/write_queue.dart';
 import '../../providers/service_providers.dart';
@@ -42,21 +43,64 @@ class GrnRepository {
     return null;
   }
 
-  /// Submits a put-away allocation to the server via the idempotent WriteQueue.
-  Future<dynamic> putAway({
+  /// Creates a new production batch for a received item line.
+  Future<Map<String, dynamic>> createBatch({
+    required String receivedItemLine,
+    required double qty,
+    required String productionDate,
+    String? expiryDate,
+  }) async {
+    final response = await _writeQueue.run('grn.create_batch', {
+      'received_item_line': receivedItemLine,
+      'qty': qty,
+      'production_date': productionDate,
+      if (expiryDate != null) 'expiry_date': expiryDate,
+    });
+    if (response is Map) {
+      return Map<String, dynamic>.from(response);
+    }
+    throw const ApiException('VALIDATION', 'Invalid response from server');
+  }
+
+  /// Queues a label print job on the ERPNext server.
+  Future<dynamic> printLabel({
+    required String referenceDoctype,
+    required String referenceName,
+    required String printFormat,
+    String? printer,
+  }) async {
+    return _writeQueue.run('grn.print_label', {
+      'reference_doctype': referenceDoctype,
+      'reference_name': referenceName,
+      'print_format': printFormat,
+      if (printer != null && printer.isNotEmpty) 'printer': printer,
+    });
+  }
+
+  /// Fetches a list of created batches for a received item line.
+  Future<List<GrnBatch>> listCreatedBatches(String receivedItemLine) async {
+    final data = await _api.call('grn.list_created_batches', body: {
+      'received_item_line': receivedItemLine,
+    });
+    if (data is List) {
+      return data.map((json) => GrnBatch.fromJson(Map<String, dynamic>.from(json))).toList();
+    }
+    return const [];
+  }
+
+  /// Allocates a batch to a bin location.
+  Future<dynamic> allocateToBin({
     required String receivedItemLine,
     required String lot,
     required double qty,
-    String? productionDate,
-    String? expiryDate,
+    required String batchNo,
     bool forceCapacity = false,
   }) async {
-    return _writeQueue.run('grn.put_away', {
+    return _writeQueue.run('grn.allocate_to_bin', {
       'received_item_line': receivedItemLine,
       'lot': lot,
       'qty': qty,
-      'production_date': productionDate,
-      'expiry_date': expiryDate,
+      'batch_no': batchNo,
       'force_capacity': forceCapacity ? 1 : 0,
     });
   }
