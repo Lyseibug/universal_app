@@ -337,6 +337,7 @@ class _GrnPutAwayScreenState extends ConsumerState<GrnPutAwayScreen> {
         qty: qty,
         batchNo: _selectedBatch!.batchNo,
         forceCapacity: _overrideCapacity,
+        suggestedLot: _suggestion?.lot,
       );
 
       ScaffoldMessenger.of(context).showSnackBar(

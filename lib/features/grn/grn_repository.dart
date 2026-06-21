@@ -97,6 +97,7 @@ class GrnRepository {
     required double qty,
     required String batchNo,
     bool forceCapacity = false,
+    String? suggestedLot,
   }) async {
     return _writeQueue.run('grn.allocate_to_bin', {
       'received_item_line': receivedItemLine,
@@ -104,6 +105,7 @@ class GrnRepository {
       'qty': qty,
       'batch_no': batchNo,
       'force_capacity': forceCapacity ? 1 : 0,
+      if (suggestedLot != null) 'suggested_lot': suggestedLot,
     });
   }
 }
