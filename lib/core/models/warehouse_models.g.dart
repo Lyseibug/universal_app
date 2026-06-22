@@ -26,6 +26,7 @@ _$ReceivedItemLineImpl _$$ReceivedItemLineImplFromJson(
       binAllocatedQuantity:
           (json['bin_allocated_quantity'] as num?)?.toDouble(),
       receiptDate: json['receipt_date'] as String?,
+      upcCode: json['upc_code'] as String?,
     );
 
 Map<String, dynamic> _$$ReceivedItemLineImplToJson(
@@ -47,6 +48,7 @@ Map<String, dynamic> _$$ReceivedItemLineImplToJson(
       'pending_batch_qty': instance.pendingBatchQty,
       'bin_allocated_quantity': instance.binAllocatedQuantity,
       'receipt_date': instance.receiptDate,
+      'upc_code': instance.upcCode,
     };
 
 _$GrnBatchImpl _$$GrnBatchImplFromJson(Map<String, dynamic> json) =>
@@ -90,8 +92,12 @@ Map<String, dynamic> _$$LotSuggestionImplToJson(_$LotSuggestionImpl instance) =>
 _$LotStockLineImpl _$$LotStockLineImplFromJson(Map<String, dynamic> json) =>
     _$LotStockLineImpl(
       itemCode: json['item_code'] as String,
+      itemName: json['item_name'] as String?,
+      upcCode: json['upc_code'] as String?,
       batchNo: json['batch_no'] as String?,
       fifoDate: json['fifo_date'] as String?,
+      productionDate: json['production_date'] as String?,
+      expiryDate: json['expiry_date'] as String?,
       qty: (json['qty'] as num).toDouble(),
       uom: json['uom'] as String?,
     );
@@ -99,8 +105,12 @@ _$LotStockLineImpl _$$LotStockLineImplFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$$LotStockLineImplToJson(_$LotStockLineImpl instance) =>
     <String, dynamic>{
       'item_code': instance.itemCode,
+      'item_name': instance.itemName,
+      'upc_code': instance.upcCode,
       'batch_no': instance.batchNo,
       'fifo_date': instance.fifoDate,
+      'production_date': instance.productionDate,
+      'expiry_date': instance.expiryDate,
       'qty': instance.qty,
       'uom': instance.uom,
     };

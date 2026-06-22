@@ -370,20 +370,38 @@ class _LotDetailSheetState extends ConsumerState<_LotDetailSheet> {
                                   final item = _detail!.items[i];
                                   return Card(
                                     margin: const EdgeInsets.only(bottom: 8),
-                                    child: ListTile(
-                                      title: Text(item.itemCode, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                      subtitle: Column(
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(12),
+                                      child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  '${item.itemCode} (${item.itemName ?? ''})',
+                                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                                ),
+                                              ),
+                                              Text(
+                                                '${item.qty} ${item.uom ?? ''}',
+                                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primary),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 6),
+                                          if (item.upcCode != null && item.upcCode!.isNotEmpty)
+                                            Text('UPC: ${item.upcCode}', style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
                                           if (item.batchNo != null && item.batchNo!.isNotEmpty)
-                                            Text('Batch/Lot: ${item.batchNo}'),
+                                            Text('Batch: ${item.batchNo}', style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                                          if (item.productionDate != null)
+                                            Text('Production Date: ${item.productionDate}', style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                                          if (item.expiryDate != null)
+                                            Text('Expiry Date: ${item.expiryDate}', style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
                                           if (item.fifoDate != null)
-                                            Text('FIFO Date: ${item.fifoDate}'),
+                                            Text('FIFO Date: ${item.fifoDate}', style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
                                         ],
-                                      ),
-                                      trailing: Text(
-                                        '${item.qty} ${item.uom ?? ''}',
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primary),
                                       ),
                                     ),
                                   );

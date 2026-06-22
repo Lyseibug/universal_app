@@ -48,6 +48,8 @@ mixin _$ReceivedItemLine {
   double? get binAllocatedQuantity => throw _privateConstructorUsedError;
   @JsonKey(name: 'receipt_date')
   String? get receiptDate => throw _privateConstructorUsedError;
+  @JsonKey(name: 'upc_code')
+  String? get upcCode => throw _privateConstructorUsedError;
 
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
   @JsonKey(ignore: true)
@@ -77,7 +79,8 @@ abstract class $ReceivedItemLineCopyWith<$Res> {
       @JsonKey(name: 'batch_qty_created') double? batchQtyCreated,
       @JsonKey(name: 'pending_batch_qty') double? pendingBatchQty,
       @JsonKey(name: 'bin_allocated_quantity') double? binAllocatedQuantity,
-      @JsonKey(name: 'receipt_date') String? receiptDate});
+      @JsonKey(name: 'receipt_date') String? receiptDate,
+      @JsonKey(name: 'upc_code') String? upcCode});
 }
 
 /// @nodoc
@@ -109,6 +112,7 @@ class _$ReceivedItemLineCopyWithImpl<$Res, $Val extends ReceivedItemLine>
     Object? pendingBatchQty = freezed,
     Object? binAllocatedQuantity = freezed,
     Object? receiptDate = freezed,
+    Object? upcCode = freezed,
   }) {
     return _then(_value.copyWith(
       name: null == name
@@ -175,6 +179,10 @@ class _$ReceivedItemLineCopyWithImpl<$Res, $Val extends ReceivedItemLine>
           ? _value.receiptDate
           : receiptDate // ignore: cast_nullable_to_non_nullable
               as String?,
+      upcCode: freezed == upcCode
+          ? _value.upcCode
+          : upcCode // ignore: cast_nullable_to_non_nullable
+              as String?,
     ) as $Val);
   }
 }
@@ -203,7 +211,8 @@ abstract class _$$ReceivedItemLineImplCopyWith<$Res>
       @JsonKey(name: 'batch_qty_created') double? batchQtyCreated,
       @JsonKey(name: 'pending_batch_qty') double? pendingBatchQty,
       @JsonKey(name: 'bin_allocated_quantity') double? binAllocatedQuantity,
-      @JsonKey(name: 'receipt_date') String? receiptDate});
+      @JsonKey(name: 'receipt_date') String? receiptDate,
+      @JsonKey(name: 'upc_code') String? upcCode});
 }
 
 /// @nodoc
@@ -233,6 +242,7 @@ class __$$ReceivedItemLineImplCopyWithImpl<$Res>
     Object? pendingBatchQty = freezed,
     Object? binAllocatedQuantity = freezed,
     Object? receiptDate = freezed,
+    Object? upcCode = freezed,
   }) {
     return _then(_$ReceivedItemLineImpl(
       name: null == name
@@ -299,6 +309,10 @@ class __$$ReceivedItemLineImplCopyWithImpl<$Res>
           ? _value.receiptDate
           : receiptDate // ignore: cast_nullable_to_non_nullable
               as String?,
+      upcCode: freezed == upcCode
+          ? _value.upcCode
+          : upcCode // ignore: cast_nullable_to_non_nullable
+              as String?,
     ));
   }
 }
@@ -322,7 +336,8 @@ class _$ReceivedItemLineImpl implements _ReceivedItemLine {
       @JsonKey(name: 'batch_qty_created') this.batchQtyCreated,
       @JsonKey(name: 'pending_batch_qty') this.pendingBatchQty,
       @JsonKey(name: 'bin_allocated_quantity') this.binAllocatedQuantity,
-      @JsonKey(name: 'receipt_date') this.receiptDate});
+      @JsonKey(name: 'receipt_date') this.receiptDate,
+      @JsonKey(name: 'upc_code') this.upcCode});
 
   factory _$ReceivedItemLineImpl.fromJson(Map<String, dynamic> json) =>
       _$$ReceivedItemLineImplFromJson(json);
@@ -371,10 +386,13 @@ class _$ReceivedItemLineImpl implements _ReceivedItemLine {
   @override
   @JsonKey(name: 'receipt_date')
   final String? receiptDate;
+  @override
+  @JsonKey(name: 'upc_code')
+  final String? upcCode;
 
   @override
   String toString() {
-    return 'ReceivedItemLine(name: $name, parent: $parent, itemCode: $itemCode, itemName: $itemName, pendingQty: $pendingQty, uom: $uom, warehouse: $warehouse, lotNo: $lotNo, productionDate: $productionDate, expiryDate: $expiryDate, batchNo: $batchNo, receivedQty: $receivedQty, batchQtyCreated: $batchQtyCreated, pendingBatchQty: $pendingBatchQty, binAllocatedQuantity: $binAllocatedQuantity, receiptDate: $receiptDate)';
+    return 'ReceivedItemLine(name: $name, parent: $parent, itemCode: $itemCode, itemName: $itemName, pendingQty: $pendingQty, uom: $uom, warehouse: $warehouse, lotNo: $lotNo, productionDate: $productionDate, expiryDate: $expiryDate, batchNo: $batchNo, receivedQty: $receivedQty, batchQtyCreated: $batchQtyCreated, pendingBatchQty: $pendingBatchQty, binAllocatedQuantity: $binAllocatedQuantity, receiptDate: $receiptDate, upcCode: $upcCode)';
   }
 
   @override
@@ -408,7 +426,9 @@ class _$ReceivedItemLineImpl implements _ReceivedItemLine {
             (identical(other.binAllocatedQuantity, binAllocatedQuantity) ||
                 other.binAllocatedQuantity == binAllocatedQuantity) &&
             (identical(other.receiptDate, receiptDate) ||
-                other.receiptDate == receiptDate));
+                other.receiptDate == receiptDate) &&
+            (identical(other.upcCode, upcCode) ||
+                other.upcCode == upcCode));
   }
 
   @JsonKey(ignore: true)
@@ -430,7 +450,8 @@ class _$ReceivedItemLineImpl implements _ReceivedItemLine {
       batchQtyCreated,
       pendingBatchQty,
       binAllocatedQuantity,
-      receiptDate);
+      receiptDate,
+      upcCode);
 
   @JsonKey(ignore: true)
   @override
@@ -466,7 +487,9 @@ abstract class _ReceivedItemLine implements ReceivedItemLine {
       @JsonKey(name: 'bin_allocated_quantity')
       final double? binAllocatedQuantity,
       @JsonKey(name: 'receipt_date')
-      final String? receiptDate}) = _$ReceivedItemLineImpl;
+      final String? receiptDate,
+      @JsonKey(name: 'upc_code')
+      final String? upcCode}) = _$ReceivedItemLineImpl;
 
   factory _ReceivedItemLine.fromJson(Map<String, dynamic> json) =
       _$ReceivedItemLineImpl.fromJson;
@@ -515,6 +538,9 @@ abstract class _ReceivedItemLine implements ReceivedItemLine {
   @override
   @JsonKey(name: 'receipt_date')
   String? get receiptDate;
+  @override
+  @JsonKey(name: 'upc_code')
+  String? get upcCode;
   @override
   @JsonKey(ignore: true)
   _$$ReceivedItemLineImplCopyWith<_$ReceivedItemLineImpl> get copyWith =>
@@ -1011,10 +1037,18 @@ LotStockLine _$LotStockLineFromJson(Map<String, dynamic> json) {
 mixin _$LotStockLine {
   @JsonKey(name: 'item_code')
   String get itemCode => throw _privateConstructorUsedError;
+  @JsonKey(name: 'item_name')
+  String? get itemName => throw _privateConstructorUsedError;
+  @JsonKey(name: 'upc_code')
+  String? get upcCode => throw _privateConstructorUsedError;
   @JsonKey(name: 'batch_no')
   String? get batchNo => throw _privateConstructorUsedError;
   @JsonKey(name: 'fifo_date')
   String? get fifoDate => throw _privateConstructorUsedError;
+  @JsonKey(name: 'production_date')
+  String? get productionDate => throw _privateConstructorUsedError;
+  @JsonKey(name: 'expiry_date')
+  String? get expiryDate => throw _privateConstructorUsedError;
   double get qty => throw _privateConstructorUsedError;
   String? get uom => throw _privateConstructorUsedError;
 
@@ -1032,8 +1066,12 @@ abstract class $LotStockLineCopyWith<$Res> {
   @useResult
   $Res call(
       {@JsonKey(name: 'item_code') String itemCode,
+      @JsonKey(name: 'item_name') String? itemName,
+      @JsonKey(name: 'upc_code') String? upcCode,
       @JsonKey(name: 'batch_no') String? batchNo,
       @JsonKey(name: 'fifo_date') String? fifoDate,
+      @JsonKey(name: 'production_date') String? productionDate,
+      @JsonKey(name: 'expiry_date') String? expiryDate,
       double qty,
       String? uom});
 }
@@ -1052,8 +1090,12 @@ class _$LotStockLineCopyWithImpl<$Res, $Val extends LotStockLine>
   @override
   $Res call({
     Object? itemCode = null,
+    Object? itemName = freezed,
+    Object? upcCode = freezed,
     Object? batchNo = freezed,
     Object? fifoDate = freezed,
+    Object? productionDate = freezed,
+    Object? expiryDate = freezed,
     Object? qty = null,
     Object? uom = freezed,
   }) {
@@ -1062,6 +1104,14 @@ class _$LotStockLineCopyWithImpl<$Res, $Val extends LotStockLine>
           ? _value.itemCode
           : itemCode // ignore: cast_nullable_to_non_nullable
               as String,
+      itemName: freezed == itemName
+          ? _value.itemName
+          : itemName // ignore: cast_nullable_to_non_nullable
+              as String?,
+      upcCode: freezed == upcCode
+          ? _value.upcCode
+          : upcCode // ignore: cast_nullable_to_non_nullable
+              as String?,
       batchNo: freezed == batchNo
           ? _value.batchNo
           : batchNo // ignore: cast_nullable_to_non_nullable
@@ -1069,6 +1119,14 @@ class _$LotStockLineCopyWithImpl<$Res, $Val extends LotStockLine>
       fifoDate: freezed == fifoDate
           ? _value.fifoDate
           : fifoDate // ignore: cast_nullable_to_non_nullable
+              as String?,
+      productionDate: freezed == productionDate
+          ? _value.productionDate
+          : productionDate // ignore: cast_nullable_to_non_nullable
+              as String?,
+      expiryDate: freezed == expiryDate
+          ? _value.expiryDate
+          : expiryDate // ignore: cast_nullable_to_non_nullable
               as String?,
       qty: null == qty
           ? _value.qty
@@ -1092,8 +1150,12 @@ abstract class _$$LotStockLineImplCopyWith<$Res>
   @useResult
   $Res call(
       {@JsonKey(name: 'item_code') String itemCode,
+      @JsonKey(name: 'item_name') String? itemName,
+      @JsonKey(name: 'upc_code') String? upcCode,
       @JsonKey(name: 'batch_no') String? batchNo,
       @JsonKey(name: 'fifo_date') String? fifoDate,
+      @JsonKey(name: 'production_date') String? productionDate,
+      @JsonKey(name: 'expiry_date') String? expiryDate,
       double qty,
       String? uom});
 }
@@ -1110,8 +1172,12 @@ class __$$LotStockLineImplCopyWithImpl<$Res>
   @override
   $Res call({
     Object? itemCode = null,
+    Object? itemName = freezed,
+    Object? upcCode = freezed,
     Object? batchNo = freezed,
     Object? fifoDate = freezed,
+    Object? productionDate = freezed,
+    Object? expiryDate = freezed,
     Object? qty = null,
     Object? uom = freezed,
   }) {
@@ -1120,6 +1186,14 @@ class __$$LotStockLineImplCopyWithImpl<$Res>
           ? _value.itemCode
           : itemCode // ignore: cast_nullable_to_non_nullable
               as String,
+      itemName: freezed == itemName
+          ? _value.itemName
+          : itemName // ignore: cast_nullable_to_non_nullable
+              as String?,
+      upcCode: freezed == upcCode
+          ? _value.upcCode
+          : upcCode // ignore: cast_nullable_to_non_nullable
+              as String?,
       batchNo: freezed == batchNo
           ? _value.batchNo
           : batchNo // ignore: cast_nullable_to_non_nullable
@@ -1127,6 +1201,14 @@ class __$$LotStockLineImplCopyWithImpl<$Res>
       fifoDate: freezed == fifoDate
           ? _value.fifoDate
           : fifoDate // ignore: cast_nullable_to_non_nullable
+              as String?,
+      productionDate: freezed == productionDate
+          ? _value.productionDate
+          : productionDate // ignore: cast_nullable_to_non_nullable
+              as String?,
+      expiryDate: freezed == expiryDate
+          ? _value.expiryDate
+          : expiryDate // ignore: cast_nullable_to_non_nullable
               as String?,
       qty: null == qty
           ? _value.qty
@@ -1145,8 +1227,12 @@ class __$$LotStockLineImplCopyWithImpl<$Res>
 class _$LotStockLineImpl implements _LotStockLine {
   const _$LotStockLineImpl(
       {@JsonKey(name: 'item_code') required this.itemCode,
+      @JsonKey(name: 'item_name') this.itemName,
+      @JsonKey(name: 'upc_code') this.upcCode,
       @JsonKey(name: 'batch_no') this.batchNo,
       @JsonKey(name: 'fifo_date') this.fifoDate,
+      @JsonKey(name: 'production_date') this.productionDate,
+      @JsonKey(name: 'expiry_date') this.expiryDate,
       required this.qty,
       this.uom});
 
@@ -1157,11 +1243,23 @@ class _$LotStockLineImpl implements _LotStockLine {
   @JsonKey(name: 'item_code')
   final String itemCode;
   @override
+  @JsonKey(name: 'item_name')
+  final String? itemName;
+  @override
+  @JsonKey(name: 'upc_code')
+  final String? upcCode;
+  @override
   @JsonKey(name: 'batch_no')
   final String? batchNo;
   @override
   @JsonKey(name: 'fifo_date')
   final String? fifoDate;
+  @override
+  @JsonKey(name: 'production_date')
+  final String? productionDate;
+  @override
+  @JsonKey(name: 'expiry_date')
+  final String? expiryDate;
   @override
   final double qty;
   @override
@@ -1169,7 +1267,7 @@ class _$LotStockLineImpl implements _LotStockLine {
 
   @override
   String toString() {
-    return 'LotStockLine(itemCode: $itemCode, batchNo: $batchNo, fifoDate: $fifoDate, qty: $qty, uom: $uom)';
+    return 'LotStockLine(itemCode: $itemCode, itemName: $itemName, upcCode: $upcCode, batchNo: $batchNo, fifoDate: $fifoDate, productionDate: $productionDate, expiryDate: $expiryDate, qty: $qty, uom: $uom)';
   }
 
   @override
@@ -1179,9 +1277,17 @@ class _$LotStockLineImpl implements _LotStockLine {
             other is _$LotStockLineImpl &&
             (identical(other.itemCode, itemCode) ||
                 other.itemCode == itemCode) &&
+            (identical(other.itemName, itemName) ||
+                other.itemName == itemName) &&
+            (identical(other.upcCode, upcCode) ||
+                other.upcCode == upcCode) &&
             (identical(other.batchNo, batchNo) || other.batchNo == batchNo) &&
             (identical(other.fifoDate, fifoDate) ||
                 other.fifoDate == fifoDate) &&
+            (identical(other.productionDate, productionDate) ||
+                other.productionDate == productionDate) &&
+            (identical(other.expiryDate, expiryDate) ||
+                other.expiryDate == expiryDate) &&
             (identical(other.qty, qty) || other.qty == qty) &&
             (identical(other.uom, uom) || other.uom == uom));
   }
@@ -1189,7 +1295,7 @@ class _$LotStockLineImpl implements _LotStockLine {
   @JsonKey(ignore: true)
   @override
   int get hashCode =>
-      Object.hash(runtimeType, itemCode, batchNo, fifoDate, qty, uom);
+      Object.hash(runtimeType, itemCode, itemName, upcCode, batchNo, fifoDate, productionDate, expiryDate, qty, uom);
 
   @JsonKey(ignore: true)
   @override
@@ -1208,8 +1314,12 @@ class _$LotStockLineImpl implements _LotStockLine {
 abstract class _LotStockLine implements LotStockLine {
   const factory _LotStockLine(
       {@JsonKey(name: 'item_code') required final String itemCode,
+      @JsonKey(name: 'item_name') final String? itemName,
+      @JsonKey(name: 'upc_code') final String? upcCode,
       @JsonKey(name: 'batch_no') final String? batchNo,
       @JsonKey(name: 'fifo_date') final String? fifoDate,
+      @JsonKey(name: 'production_date') final String? productionDate,
+      @JsonKey(name: 'expiry_date') final String? expiryDate,
       required final double qty,
       final String? uom}) = _$LotStockLineImpl;
 
@@ -1220,11 +1330,23 @@ abstract class _LotStockLine implements LotStockLine {
   @JsonKey(name: 'item_code')
   String get itemCode;
   @override
+  @JsonKey(name: 'item_name')
+  String? get itemName;
+  @override
+  @JsonKey(name: 'upc_code')
+  String? get upcCode;
+  @override
   @JsonKey(name: 'batch_no')
   String? get batchNo;
   @override
   @JsonKey(name: 'fifo_date')
   String? get fifoDate;
+  @override
+  @JsonKey(name: 'production_date')
+  String? get productionDate;
+  @override
+  @JsonKey(name: 'expiry_date')
+  String? get expiryDate;
   @override
   double get qty;
   @override

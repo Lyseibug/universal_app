@@ -736,14 +736,16 @@ class _GrnPutAwayScreenState extends ConsumerState<GrnPutAwayScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    item.itemCode,
+                    '${item.itemCode} (${item.itemName ?? ''})',
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.primary),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    item.itemName ?? '',
-                    style: const TextStyle(fontSize: 14, color: AppTheme.textSecondary),
-                  ),
+                  if (item.upcCode != null && item.upcCode!.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'UPC: ${item.upcCode}',
+                      style: const TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -914,7 +916,7 @@ class _GrnPutAwayScreenState extends ConsumerState<GrnPutAwayScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.itemCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  Text('${item.itemCode} (${item.itemName ?? ''})', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: 4),
                   Text('Staging Batch: ${item.batchNo ?? 'N/A'}'),
                   Text('Remaining to split: $remainingBatchQty ${item.uom ?? 'Units'}'),
@@ -1090,7 +1092,7 @@ class _GrnPutAwayScreenState extends ConsumerState<GrnPutAwayScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.itemCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primary)),
+                  Text('${item.itemCode} (${item.itemName ?? ''})', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primary)),
                   const SizedBox(height: 4),
                   Text('Batch: ${batch.batchNo}'),
                   Text('Available in WH-A: ${batch.availableQty} ${item.uom ?? 'Units'}'),
