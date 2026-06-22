@@ -162,7 +162,7 @@ class _LotBrowserScreenState extends ConsumerState<LotBrowserScreen> {
                               }
 
                               final lot = _lots[i];
-                              final status = lot.isEmptyFlag == 1 ? 'open' : 'completed';
+                              final isOccupied = lot.isEmptyFlag == 0 || lot.items.isNotEmpty;
 
                               return Padding(
                                 padding: const EdgeInsets.only(bottom: 10),
@@ -170,7 +170,7 @@ class _LotBrowserScreenState extends ConsumerState<LotBrowserScreen> {
                                   lotName: lot.name,
                                   warehouse: lot.warehouse,
                                   zone: lot.zone,
-                                  status: status == 'open' ? 'Empty' : 'Occupied',
+                                  status: isOccupied ? 'Occupied' : 'Empty',
                                   onTap: () => _showLotDetail(lot),
                                 ),
                               );

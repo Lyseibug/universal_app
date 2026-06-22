@@ -31,7 +31,7 @@ class MockGrnRepository implements GrnRepository {
   }
 
   @override
-  Future<LotSuggestion?> suggestLot(String receivedItemLine) async {
+  Future<LotSuggestion?> suggestLot(String receivedItemLine, {double? qty}) async {
     return const LotSuggestion(lot: 'F-CA-1', availableQty: 80.0);
   }
 
@@ -67,6 +67,7 @@ class MockGrnRepository implements GrnRepository {
     required double qty,
     required String batchNo,
     bool forceCapacity = false,
+    String? suggestedLot,
   }) async {
     return allocateToBinResponse;
   }
@@ -183,7 +184,8 @@ void main() {
 
       // 1. Verify pending line in List View
       expect(find.text('P-POLYMER-001 (Polymer Grade A)'), findsOneWidget);
-      expect(find.text('GRN: RI-MAT-REC-00001 | Line: line-1'), findsOneWidget);
+      expect(find.text('GRN: RI-MAT-REC-00001'), findsOneWidget);
+      expect(find.text('Line: line-1'), findsOneWidget);
 
       // Tap the pending line
       await tester.tap(find.text('P-POLYMER-001 (Polymer Grade A)'));
@@ -266,15 +268,12 @@ void main() {
       expect(find.text('Batch: BATCH-00457'), findsOneWidget);
       
       // Enter allocation details
-      final binInput = find.widgetWithText(TextFormField, 'Scan Bin');
-      final lotInput = find.widgetWithText(TextFormField, 'Scan Lot');
+      final lotInput = find.widgetWithText(TextFormField, 'Scan Bin / LOT');
       final allocQtyInput = find.widgetWithText(TextFormField, 'Allocation Qty');
       
-      expect(binInput, findsOneWidget);
       expect(lotInput, findsOneWidget);
       expect(allocQtyInput, findsOneWidget);
 
-      await tester.enterText(binInput, 'BIN-01');
       await tester.enterText(lotInput, 'LOT-01');
       await tester.enterText(allocQtyInput, '40.0');
 
