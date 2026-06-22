@@ -110,6 +110,7 @@ _$WarehouseLotImpl _$$WarehouseLotImplFromJson(Map<String, dynamic> json) =>
       name: json['name'] as String,
       warehouse: json['warehouse'] as String?,
       zone: json['zone'] as String?,
+      isEmptyFlag: (json['is_empty'] as num?)?.toInt() ?? 1,
       items: (json['items'] as List<dynamic>?)
               ?.map((e) => LotStockLine.fromJson(e as Map<String, dynamic>))
               .toList() ??
@@ -121,6 +122,7 @@ Map<String, dynamic> _$$WarehouseLotImplToJson(_$WarehouseLotImpl instance) =>
       'name': instance.name,
       'warehouse': instance.warehouse,
       'zone': instance.zone,
+      'is_empty': instance.isEmptyFlag,
       'items': instance.items,
     };
 

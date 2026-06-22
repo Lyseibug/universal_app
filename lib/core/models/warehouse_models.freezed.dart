@@ -1244,6 +1244,8 @@ mixin _$WarehouseLot {
   String get name => throw _privateConstructorUsedError;
   String? get warehouse => throw _privateConstructorUsedError;
   String? get zone => throw _privateConstructorUsedError;
+  @JsonKey(name: 'is_empty')
+  int get isEmptyFlag => throw _privateConstructorUsedError;
   List<LotStockLine> get items => throw _privateConstructorUsedError;
 
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -1259,7 +1261,7 @@ abstract class $WarehouseLotCopyWith<$Res> {
       _$WarehouseLotCopyWithImpl<$Res, WarehouseLot>;
   @useResult
   $Res call(
-      {String name, String? warehouse, String? zone, List<LotStockLine> items});
+      {String name, String? warehouse, String? zone, @JsonKey(name: 'is_empty') int isEmptyFlag, List<LotStockLine> items});
 }
 
 /// @nodoc
@@ -1278,6 +1280,7 @@ class _$WarehouseLotCopyWithImpl<$Res, $Val extends WarehouseLot>
     Object? name = null,
     Object? warehouse = freezed,
     Object? zone = freezed,
+    Object? isEmptyFlag = null,
     Object? items = null,
   }) {
     return _then(_value.copyWith(
@@ -1293,6 +1296,10 @@ class _$WarehouseLotCopyWithImpl<$Res, $Val extends WarehouseLot>
           ? _value.zone
           : zone // ignore: cast_nullable_to_non_nullable
               as String?,
+      isEmptyFlag: null == isEmptyFlag
+          ? _value.isEmptyFlag
+          : isEmptyFlag // ignore: cast_nullable_to_non_nullable
+              as int,
       items: null == items
           ? _value.items
           : items // ignore: cast_nullable_to_non_nullable
@@ -1310,7 +1317,7 @@ abstract class _$$WarehouseLotImplCopyWith<$Res>
   @override
   @useResult
   $Res call(
-      {String name, String? warehouse, String? zone, List<LotStockLine> items});
+      {String name, String? warehouse, String? zone, @JsonKey(name: 'is_empty') int isEmptyFlag, List<LotStockLine> items});
 }
 
 /// @nodoc
@@ -1327,6 +1334,7 @@ class __$$WarehouseLotImplCopyWithImpl<$Res>
     Object? name = null,
     Object? warehouse = freezed,
     Object? zone = freezed,
+    Object? isEmptyFlag = null,
     Object? items = null,
   }) {
     return _then(_$WarehouseLotImpl(
@@ -1342,6 +1350,10 @@ class __$$WarehouseLotImplCopyWithImpl<$Res>
           ? _value.zone
           : zone // ignore: cast_nullable_to_non_nullable
               as String?,
+      isEmptyFlag: null == isEmptyFlag
+          ? _value.isEmptyFlag
+          : isEmptyFlag // ignore: cast_nullable_to_non_nullable
+              as int,
       items: null == items
           ? _value._items
           : items // ignore: cast_nullable_to_non_nullable
@@ -1357,6 +1369,7 @@ class _$WarehouseLotImpl implements _WarehouseLot {
       {required this.name,
       this.warehouse,
       this.zone,
+      @JsonKey(name: 'is_empty') this.isEmptyFlag = 1,
       final List<LotStockLine> items = const []})
       : _items = items;
 
@@ -1369,6 +1382,9 @@ class _$WarehouseLotImpl implements _WarehouseLot {
   final String? warehouse;
   @override
   final String? zone;
+  @override
+  @JsonKey(name: 'is_empty')
+  final int isEmptyFlag;
   final List<LotStockLine> _items;
   @override
   @JsonKey()
@@ -1380,7 +1396,7 @@ class _$WarehouseLotImpl implements _WarehouseLot {
 
   @override
   String toString() {
-    return 'WarehouseLot(name: $name, warehouse: $warehouse, zone: $zone, items: $items)';
+    return 'WarehouseLot(name: $name, warehouse: $warehouse, zone: $zone, isEmptyFlag: $isEmptyFlag, items: $items)';
   }
 
   @override

@@ -204,7 +204,8 @@ class _GrnPutAwayScreenState extends ConsumerState<GrnPutAwayScreen> {
           _loadingSuggestion = false;
         });
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('suggest_lot error: $e');
       if (mounted) {
         setState(() => _loadingSuggestion = false);
       }

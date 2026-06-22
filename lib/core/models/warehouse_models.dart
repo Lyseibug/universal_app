@@ -77,6 +77,7 @@ class WarehouseLot with _$WarehouseLot {
     required String name,
     String? warehouse,
     String? zone,
+    @JsonKey(name: 'is_empty') @Default(1) int isEmptyFlag,
     @Default([]) List<LotStockLine> items,
   }) = _WarehouseLot;
 
