@@ -1435,6 +1435,7 @@ abstract class _WarehouseLot implements WarehouseLot {
       {required final String name,
       final String? warehouse,
       final String? zone,
+      @JsonKey(name: 'is_empty') final int isEmptyFlag,
       final List<LotStockLine> items}) = _$WarehouseLotImpl;
 
   factory _WarehouseLot.fromJson(Map<String, dynamic> json) =
@@ -1446,6 +1447,9 @@ abstract class _WarehouseLot implements WarehouseLot {
   String? get warehouse;
   @override
   String? get zone;
+  @override
+  @JsonKey(name: 'is_empty')
+  int get isEmptyFlag;
   @override
   List<LotStockLine> get items;
   @override
