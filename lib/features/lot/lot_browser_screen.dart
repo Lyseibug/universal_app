@@ -162,8 +162,7 @@ class _LotBrowserScreenState extends ConsumerState<LotBrowserScreen> {
                               }
 
                               final lot = _lots[i];
-                              // Simple empty/occupied detection
-                              final status = lot.items.isEmpty ? 'open' : 'completed';
+                              final status = lot.isEmptyFlag == 1 ? 'open' : 'completed';
 
                               return Padding(
                                 padding: const EdgeInsets.only(bottom: 10),
