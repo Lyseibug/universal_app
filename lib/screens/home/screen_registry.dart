@@ -6,6 +6,7 @@ import '../../features/lot/lot_browser_screen.dart';
 import '../../features/lot/manual_transfer_screen.dart';
 import '../../features/physical_inventory/physical_inventory_screen.dart';
 import '../../features/pick/pick_list_screen.dart';
+import '../../features/manufacturing_mr/manufacturing_mr_screen.dart';
 import '../../features/support/support_screen.dart';
 
 /// Function type for building a WMS screen from its [MenuScreen] config.
@@ -23,4 +24,5 @@ final Map<String, ScreenBuilder> screenRegistry = {
   'lot_browser':        (s) => LotBrowserScreen(screen: s),
   'manual_transfer':    (s) => ManualTransferScreen(screen: s),
   'support':            (s) => SupportScreen(screen: s),
+  'manufacturing_mr':   (s) => ManufacturingMRScreen(screen: s),
 };

@@ -14,11 +14,16 @@ class PickRepository {
       : _api = api,
         _writeQueue = writeQueue;
 
-  /// Fetch pick lists optionally filtered by material request or status.
-  Future<List<PickItem>> listPicks({String? materialRequest, String? status}) async {
+  /// Fetch pick lists optionally filtered by material request, status, or picking type.
+  Future<List<PickItem>> listPicks({
+    String? materialRequest,
+    String? status,
+    String? pickingType,
+  }) async {
     final data = await _api.call('pick.list', body: {
       if (materialRequest != null) 'material_request': materialRequest,
       if (status != null) 'status': status,
+      if (pickingType != null) 'picking_type': pickingType,
     });
     if (data is List) {
       return data.map((json) => PickItem.fromJson(Map<String, dynamic>.from(json))).toList();

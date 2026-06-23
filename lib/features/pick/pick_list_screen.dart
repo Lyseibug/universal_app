@@ -16,8 +16,15 @@ import 'pick_repository.dart';
 
 class PickListScreen extends ConsumerStatefulWidget {
   final MenuScreen screen;
+  final String? pickingType;
+  final String? materialRequestFilter;
 
-  const PickListScreen({required this.screen, super.key});
+  const PickListScreen({
+    required this.screen,
+    this.pickingType,
+    this.materialRequestFilter,
+    super.key,
+  });
 
   @override
   ConsumerState<PickListScreen> createState() => _PickListScreenState();
@@ -66,9 +73,12 @@ class _PickListScreenState extends ConsumerState<PickListScreen> with SingleTick
       _error = null;
     });
     try {
-      final filter = _mrFilterCtrl.text.trim();
+      final filter = _mrFilterCtrl.text.trim().isNotEmpty
+          ? _mrFilterCtrl.text.trim()
+          : widget.materialRequestFilter;
       final data = await ref.read(pickRepositoryProvider).listPicks(
-            materialRequest: filter.isNotEmpty ? filter : null,
+            materialRequest: filter,
+            pickingType: widget.pickingType,
           );
       setState(() {
         _picks = data;
