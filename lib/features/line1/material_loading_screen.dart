@@ -242,7 +242,7 @@ class _MaterialLoadingScreenState extends ConsumerState<MaterialLoadingScreen> {
     final stream = _resolvedStream ?? '';
     return Card(
       elevation: 3,
-      color: _streamColor(stream).withValues(alpha: 0.08),
+      color: _streamColor(stream).withAlpha(20),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -315,7 +315,7 @@ class _MaterialLoadingScreenState extends ConsumerState<MaterialLoadingScreen> {
               child: ListTile(
                 leading: stream != null
                     ? CircleAvatar(
-                        backgroundColor: _streamColor(stream).withValues(alpha: 0.15),
+                        backgroundColor: _streamColor(stream).withAlpha(38),
                         radius: 18,
                         child: Icon(_streamIcon(stream), size: 18, color: _streamColor(stream)),
                       )
