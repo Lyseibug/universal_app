@@ -64,32 +64,36 @@ class _MaterialLoadingScreenState extends ConsumerState<MaterialLoadingScreen> {
     }
   }
 
-  Future<void> _onScanned(String barcode) async {
+  void _onScanned(String barcode) {
     final trimmed = barcode.trim();
     if (trimmed.isEmpty) return;
+    _doResolve(trimmed);
+  }
 
+  Future<void> _doResolve(String itemCode) async {
     setState(() { _resolving = true; _resolvedItem = null; _resolvedStream = null; _qtyError = null; });
 
     try {
-      final resolved = await ref.read(line1RepositoryProvider).resolveItem(trimmed);
+      final resolved = await ref.read(line1RepositoryProvider).resolveItem(itemCode);
+      if (!mounted) return;
       setState(() {
         _resolvedItem = StockItem(
           itemCode: resolved['item_code'] as String,
           itemName: resolved['item_name'] as String?,
           qty: (resolved['qty'] as num).toDouble(),
+          stream: resolved['stream'] as String?,
         );
         _resolvedStream = resolved['stream'] as String?;
         _qtyCtrl.text = _resolvedItem!.qty.toStringAsFixed(2);
         _resolving = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _resolving = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('$e'),
-          backgroundColor: AppTheme.danger,
-        ));
-      }
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('$e'),
+        backgroundColor: AppTheme.danger,
+      ));
     }
   }
 
@@ -238,7 +242,7 @@ class _MaterialLoadingScreenState extends ConsumerState<MaterialLoadingScreen> {
     final stream = _resolvedStream ?? '';
     return Card(
       elevation: 3,
-      color: _streamColor(stream).withOpacity(0.08),
+      color: _streamColor(stream).withValues(alpha: 0.08),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -311,7 +315,7 @@ class _MaterialLoadingScreenState extends ConsumerState<MaterialLoadingScreen> {
               child: ListTile(
                 leading: stream != null
                     ? CircleAvatar(
-                        backgroundColor: _streamColor(stream).withOpacity(0.15),
+                        backgroundColor: _streamColor(stream).withValues(alpha: 0.15),
                         radius: 18,
                         child: Icon(_streamIcon(stream), size: 18, color: _streamColor(stream)),
                       )
