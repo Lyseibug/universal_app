@@ -88,7 +88,7 @@ _$ManufacturingMRItemImpl _$$ManufacturingMRItemImplFromJson(
       targetStream: json['target_stream'] as String,
       targetWarehouse: json['target_warehouse'] as String?,
       uom: json['uom'] as String?,
-      isCompleted: json['is_completed'] as bool? ?? false,
+      isCompleted: json['is_completed'] == 1 || json['is_completed'] == true,
     );
 
 Map<String, dynamic> _$$ManufacturingMRItemImplToJson(
