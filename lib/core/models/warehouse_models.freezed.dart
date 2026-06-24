@@ -427,8 +427,7 @@ class _$ReceivedItemLineImpl implements _ReceivedItemLine {
                 other.binAllocatedQuantity == binAllocatedQuantity) &&
             (identical(other.receiptDate, receiptDate) ||
                 other.receiptDate == receiptDate) &&
-            (identical(other.upcCode, upcCode) ||
-                other.upcCode == upcCode));
+            (identical(other.upcCode, upcCode) || other.upcCode == upcCode));
   }
 
   @JsonKey(ignore: true)
@@ -470,26 +469,25 @@ class _$ReceivedItemLineImpl implements _ReceivedItemLine {
 
 abstract class _ReceivedItemLine implements ReceivedItemLine {
   const factory _ReceivedItemLine(
-      {required final String name,
-      required final String parent,
-      @JsonKey(name: 'item_code') required final String itemCode,
-      @JsonKey(name: 'item_name') final String? itemName,
-      @JsonKey(name: 'pending_qty') required final double pendingQty,
-      final String? uom,
-      final String? warehouse,
-      @JsonKey(name: 'lot_no') final String? lotNo,
-      @JsonKey(name: 'production_date') final String? productionDate,
-      @JsonKey(name: 'expiry_date') final String? expiryDate,
-      @JsonKey(name: 'batch_no') final String? batchNo,
-      @JsonKey(name: 'received_qty') final double? receivedQty,
-      @JsonKey(name: 'batch_qty_created') final double? batchQtyCreated,
-      @JsonKey(name: 'pending_batch_qty') final double? pendingBatchQty,
-      @JsonKey(name: 'bin_allocated_quantity')
-      final double? binAllocatedQuantity,
-      @JsonKey(name: 'receipt_date')
-      final String? receiptDate,
-      @JsonKey(name: 'upc_code')
-      final String? upcCode}) = _$ReceivedItemLineImpl;
+          {required final String name,
+          required final String parent,
+          @JsonKey(name: 'item_code') required final String itemCode,
+          @JsonKey(name: 'item_name') final String? itemName,
+          @JsonKey(name: 'pending_qty') required final double pendingQty,
+          final String? uom,
+          final String? warehouse,
+          @JsonKey(name: 'lot_no') final String? lotNo,
+          @JsonKey(name: 'production_date') final String? productionDate,
+          @JsonKey(name: 'expiry_date') final String? expiryDate,
+          @JsonKey(name: 'batch_no') final String? batchNo,
+          @JsonKey(name: 'received_qty') final double? receivedQty,
+          @JsonKey(name: 'batch_qty_created') final double? batchQtyCreated,
+          @JsonKey(name: 'pending_batch_qty') final double? pendingBatchQty,
+          @JsonKey(name: 'bin_allocated_quantity')
+          final double? binAllocatedQuantity,
+          @JsonKey(name: 'receipt_date') final String? receiptDate,
+          @JsonKey(name: 'upc_code') final String? upcCode}) =
+      _$ReceivedItemLineImpl;
 
   factory _ReceivedItemLine.fromJson(Map<String, dynamic> json) =
       _$ReceivedItemLineImpl.fromJson;
@@ -1279,8 +1277,7 @@ class _$LotStockLineImpl implements _LotStockLine {
                 other.itemCode == itemCode) &&
             (identical(other.itemName, itemName) ||
                 other.itemName == itemName) &&
-            (identical(other.upcCode, upcCode) ||
-                other.upcCode == upcCode) &&
+            (identical(other.upcCode, upcCode) || other.upcCode == upcCode) &&
             (identical(other.batchNo, batchNo) || other.batchNo == batchNo) &&
             (identical(other.fifoDate, fifoDate) ||
                 other.fifoDate == fifoDate) &&
@@ -1294,8 +1291,8 @@ class _$LotStockLineImpl implements _LotStockLine {
 
   @JsonKey(ignore: true)
   @override
-  int get hashCode =>
-      Object.hash(runtimeType, itemCode, itemName, upcCode, batchNo, fifoDate, productionDate, expiryDate, qty, uom);
+  int get hashCode => Object.hash(runtimeType, itemCode, itemName, upcCode,
+      batchNo, fifoDate, productionDate, expiryDate, qty, uom);
 
   @JsonKey(ignore: true)
   @override
@@ -1383,7 +1380,11 @@ abstract class $WarehouseLotCopyWith<$Res> {
       _$WarehouseLotCopyWithImpl<$Res, WarehouseLot>;
   @useResult
   $Res call(
-      {String name, String? warehouse, String? zone, @JsonKey(name: 'is_empty') int isEmptyFlag, List<LotStockLine> items});
+      {String name,
+      String? warehouse,
+      String? zone,
+      @JsonKey(name: 'is_empty') int isEmptyFlag,
+      List<LotStockLine> items});
 }
 
 /// @nodoc
@@ -1439,7 +1440,11 @@ abstract class _$$WarehouseLotImplCopyWith<$Res>
   @override
   @useResult
   $Res call(
-      {String name, String? warehouse, String? zone, @JsonKey(name: 'is_empty') int isEmptyFlag, List<LotStockLine> items});
+      {String name,
+      String? warehouse,
+      String? zone,
+      @JsonKey(name: 'is_empty') int isEmptyFlag,
+      List<LotStockLine> items});
 }
 
 /// @nodoc
@@ -1530,13 +1535,15 @@ class _$WarehouseLotImpl implements _WarehouseLot {
             (identical(other.warehouse, warehouse) ||
                 other.warehouse == warehouse) &&
             (identical(other.zone, zone) || other.zone == zone) &&
+            (identical(other.isEmptyFlag, isEmptyFlag) ||
+                other.isEmptyFlag == isEmptyFlag) &&
             const DeepCollectionEquality().equals(other._items, _items));
   }
 
   @JsonKey(ignore: true)
   @override
   int get hashCode => Object.hash(runtimeType, name, warehouse, zone,
-      const DeepCollectionEquality().hash(_items));
+      isEmptyFlag, const DeepCollectionEquality().hash(_items));
 
   @JsonKey(ignore: true)
   @override
