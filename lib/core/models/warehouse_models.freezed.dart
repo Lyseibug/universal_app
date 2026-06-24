@@ -1599,7 +1599,10 @@ mixin _$PickItem {
   @JsonKey(name: 'item_name')
   String? get itemName => throw _privateConstructorUsedError;
   String? get warehouse => throw _privateConstructorUsedError;
-  double get qty => throw _privateConstructorUsedError;
+  @JsonKey(name: 'required_qty')
+  double get requiredQty => throw _privateConstructorUsedError;
+  @JsonKey(name: 'picked_qty')
+  double get pickedQty => throw _privateConstructorUsedError;
   @JsonKey(name: 'suggested_lot')
   String? get suggestedLot => throw _privateConstructorUsedError;
   String get status => throw _privateConstructorUsedError;
@@ -1620,7 +1623,8 @@ abstract class $PickItemCopyWith<$Res> {
       @JsonKey(name: 'item_code') String itemCode,
       @JsonKey(name: 'item_name') String? itemName,
       String? warehouse,
-      double qty,
+      @JsonKey(name: 'required_qty') double requiredQty,
+      @JsonKey(name: 'picked_qty') double pickedQty,
       @JsonKey(name: 'suggested_lot') String? suggestedLot,
       String status});
 }
@@ -1642,39 +1646,20 @@ class _$PickItemCopyWithImpl<$Res, $Val extends PickItem>
     Object? itemCode = null,
     Object? itemName = freezed,
     Object? warehouse = freezed,
-    Object? qty = null,
+    Object? requiredQty = null,
+    Object? pickedQty = null,
     Object? suggestedLot = freezed,
     Object? status = null,
   }) {
     return _then(_value.copyWith(
-      name: null == name
-          ? _value.name
-          : name // ignore: cast_nullable_to_non_nullable
-              as String,
-      itemCode: null == itemCode
-          ? _value.itemCode
-          : itemCode // ignore: cast_nullable_to_non_nullable
-              as String,
-      itemName: freezed == itemName
-          ? _value.itemName
-          : itemName // ignore: cast_nullable_to_non_nullable
-              as String?,
-      warehouse: freezed == warehouse
-          ? _value.warehouse
-          : warehouse // ignore: cast_nullable_to_non_nullable
-              as String?,
-      qty: null == qty
-          ? _value.qty
-          : qty // ignore: cast_nullable_to_non_nullable
-              as double,
-      suggestedLot: freezed == suggestedLot
-          ? _value.suggestedLot
-          : suggestedLot // ignore: cast_nullable_to_non_nullable
-              as String?,
-      status: null == status
-          ? _value.status
-          : status // ignore: cast_nullable_to_non_nullable
-              as String,
+      name: null == name ? _value.name : name as String,
+      itemCode: null == itemCode ? _value.itemCode : itemCode as String,
+      itemName: freezed == itemName ? _value.itemName : itemName as String?,
+      warehouse: freezed == warehouse ? _value.warehouse : warehouse as String?,
+      requiredQty: null == requiredQty ? _value.requiredQty : requiredQty as double,
+      pickedQty: null == pickedQty ? _value.pickedQty : pickedQty as double,
+      suggestedLot: freezed == suggestedLot ? _value.suggestedLot : suggestedLot as String?,
+      status: null == status ? _value.status : status as String,
     ) as $Val);
   }
 }
@@ -1692,7 +1677,8 @@ abstract class _$$PickItemImplCopyWith<$Res>
       @JsonKey(name: 'item_code') String itemCode,
       @JsonKey(name: 'item_name') String? itemName,
       String? warehouse,
-      double qty,
+      @JsonKey(name: 'required_qty') double requiredQty,
+      @JsonKey(name: 'picked_qty') double pickedQty,
       @JsonKey(name: 'suggested_lot') String? suggestedLot,
       String status});
 }
@@ -1712,39 +1698,20 @@ class __$$PickItemImplCopyWithImpl<$Res>
     Object? itemCode = null,
     Object? itemName = freezed,
     Object? warehouse = freezed,
-    Object? qty = null,
+    Object? requiredQty = null,
+    Object? pickedQty = null,
     Object? suggestedLot = freezed,
     Object? status = null,
   }) {
     return _then(_$PickItemImpl(
-      name: null == name
-          ? _value.name
-          : name // ignore: cast_nullable_to_non_nullable
-              as String,
-      itemCode: null == itemCode
-          ? _value.itemCode
-          : itemCode // ignore: cast_nullable_to_non_nullable
-              as String,
-      itemName: freezed == itemName
-          ? _value.itemName
-          : itemName // ignore: cast_nullable_to_non_nullable
-              as String?,
-      warehouse: freezed == warehouse
-          ? _value.warehouse
-          : warehouse // ignore: cast_nullable_to_non_nullable
-              as String?,
-      qty: null == qty
-          ? _value.qty
-          : qty // ignore: cast_nullable_to_non_nullable
-              as double,
-      suggestedLot: freezed == suggestedLot
-          ? _value.suggestedLot
-          : suggestedLot // ignore: cast_nullable_to_non_nullable
-              as String?,
-      status: null == status
-          ? _value.status
-          : status // ignore: cast_nullable_to_non_nullable
-              as String,
+      name: null == name ? _value.name : name as String,
+      itemCode: null == itemCode ? _value.itemCode : itemCode as String,
+      itemName: freezed == itemName ? _value.itemName : itemName as String?,
+      warehouse: freezed == warehouse ? _value.warehouse : warehouse as String?,
+      requiredQty: null == requiredQty ? _value.requiredQty : requiredQty as double,
+      pickedQty: null == pickedQty ? _value.pickedQty : pickedQty as double,
+      suggestedLot: freezed == suggestedLot ? _value.suggestedLot : suggestedLot as String?,
+      status: null == status ? _value.status : status as String,
     ));
   }
 }
@@ -1757,7 +1724,8 @@ class _$PickItemImpl implements _PickItem {
       @JsonKey(name: 'item_code') required this.itemCode,
       @JsonKey(name: 'item_name') this.itemName,
       this.warehouse,
-      required this.qty,
+      @JsonKey(name: 'required_qty') this.requiredQty = 0,
+      @JsonKey(name: 'picked_qty') this.pickedQty = 0,
       @JsonKey(name: 'suggested_lot') this.suggestedLot,
       required this.status});
 
@@ -1775,7 +1743,11 @@ class _$PickItemImpl implements _PickItem {
   @override
   final String? warehouse;
   @override
-  final double qty;
+  @JsonKey(name: 'required_qty')
+  final double requiredQty;
+  @override
+  @JsonKey(name: 'picked_qty')
+  final double pickedQty;
   @override
   @JsonKey(name: 'suggested_lot')
   final String? suggestedLot;
@@ -1784,7 +1756,7 @@ class _$PickItemImpl implements _PickItem {
 
   @override
   String toString() {
-    return 'PickItem(name: $name, itemCode: $itemCode, itemName: $itemName, warehouse: $warehouse, qty: $qty, suggestedLot: $suggestedLot, status: $status)';
+    return 'PickItem(name: $name, itemCode: $itemCode, requiredQty: $requiredQty, pickedQty: $pickedQty, status: $status)';
   }
 
   @override
@@ -1793,22 +1765,14 @@ class _$PickItemImpl implements _PickItem {
         (other.runtimeType == runtimeType &&
             other is _$PickItemImpl &&
             (identical(other.name, name) || other.name == name) &&
-            (identical(other.itemCode, itemCode) ||
-                other.itemCode == itemCode) &&
-            (identical(other.itemName, itemName) ||
-                other.itemName == itemName) &&
-            (identical(other.warehouse, warehouse) ||
-                other.warehouse == warehouse) &&
-            (identical(other.qty, qty) || other.qty == qty) &&
-            (identical(other.suggestedLot, suggestedLot) ||
-                other.suggestedLot == suggestedLot) &&
+            (identical(other.itemCode, itemCode) || other.itemCode == itemCode) &&
+            (identical(other.requiredQty, requiredQty) || other.requiredQty == requiredQty) &&
             (identical(other.status, status) || other.status == status));
   }
 
   @JsonKey(ignore: true)
   @override
-  int get hashCode => Object.hash(runtimeType, name, itemCode, itemName,
-      warehouse, qty, suggestedLot, status);
+  int get hashCode => Object.hash(runtimeType, name, itemCode, requiredQty, status);
 
   @JsonKey(ignore: true)
   @override
@@ -1818,9 +1782,7 @@ class _$PickItemImpl implements _PickItem {
 
   @override
   Map<String, dynamic> toJson() {
-    return _$$PickItemImplToJson(
-      this,
-    );
+    return _$$PickItemImplToJson(this);
   }
 }
 
@@ -1830,32 +1792,23 @@ abstract class _PickItem implements PickItem {
       @JsonKey(name: 'item_code') required final String itemCode,
       @JsonKey(name: 'item_name') final String? itemName,
       final String? warehouse,
-      required final double qty,
+      @JsonKey(name: 'required_qty') final double requiredQty,
+      @JsonKey(name: 'picked_qty') final double pickedQty,
       @JsonKey(name: 'suggested_lot') final String? suggestedLot,
       required final String status}) = _$PickItemImpl;
 
   factory _PickItem.fromJson(Map<String, dynamic> json) =
       _$PickItemImpl.fromJson;
 
-  @override
-  String get name;
-  @override
-  @JsonKey(name: 'item_code')
-  String get itemCode;
-  @override
-  @JsonKey(name: 'item_name')
-  String? get itemName;
-  @override
-  String? get warehouse;
-  @override
-  double get qty;
-  @override
-  @JsonKey(name: 'suggested_lot')
-  String? get suggestedLot;
-  @override
-  String get status;
-  @override
-  @JsonKey(ignore: true)
+  @override String get name;
+  @override @JsonKey(name: 'item_code') String get itemCode;
+  @override @JsonKey(name: 'item_name') String? get itemName;
+  @override String? get warehouse;
+  @override @JsonKey(name: 'required_qty') double get requiredQty;
+  @override @JsonKey(name: 'picked_qty') double get pickedQty;
+  @override @JsonKey(name: 'suggested_lot') String? get suggestedLot;
+  @override String get status;
+  @override @JsonKey(ignore: true)
   _$$PickItemImplCopyWith<_$PickItemImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }

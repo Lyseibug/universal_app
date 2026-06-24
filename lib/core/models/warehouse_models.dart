@@ -97,7 +97,8 @@ class PickItem with _$PickItem {
     @JsonKey(name: 'item_code') required String itemCode,
     @JsonKey(name: 'item_name') String? itemName,
     String? warehouse,
-    required double qty,
+    @JsonKey(name: 'required_qty') @Default(0) double requiredQty,
+    @JsonKey(name: 'picked_qty') @Default(0) double pickedQty,
     @JsonKey(name: 'suggested_lot') String? suggestedLot,
     required String status,
   }) = _PickItem;

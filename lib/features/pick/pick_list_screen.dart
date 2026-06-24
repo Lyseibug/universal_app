@@ -156,17 +156,16 @@ class _PickListScreenState extends ConsumerState<PickListScreen> with SingleTick
       );
 
       final currentItem = _selectedPick!;
+      final remaining = currentItem.requiredQty - currentItem.pickedQty;
       setState(() {
-        if (currentItem.qty > pickedQty) {
-          // Decrement local items
+        if (remaining > pickedQty) {
           _picks = _picks.map((e) {
             if (e.name == currentItem.name) {
-              return e.copyWith(qty: e.qty - pickedQty);
+              return e.copyWith(pickedQty: e.pickedQty + pickedQty);
             }
             return e;
           }).toList();
         } else {
-          // Remove from list local items
           _picks = _picks.where((e) => e.name != currentItem.name).toList();
         }
         _selectedItemDismiss();
@@ -194,7 +193,8 @@ class _PickListScreenState extends ConsumerState<PickListScreen> with SingleTick
     setState(() {
       _selectedPick = pick;
       _lotCtrl.clear();
-      _qtyCtrl.text = pick.qty.toString();
+      final remaining = pick.requiredQty - pick.pickedQty;
+      _qtyCtrl.text = remaining.toStringAsFixed(remaining.truncateToDouble() == remaining ? 0 : 2);
     });
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -349,7 +349,7 @@ class _PickListScreenState extends ConsumerState<PickListScreen> with SingleTick
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 4),
-                    Text('From Bin: ${item.warehouse ?? ''} | Qty: ${item.qty}'),
+                    Text('Qty: ${item.requiredQty} | Picked: ${item.pickedQty}'),
                     const SizedBox(height: 2),
                     Text('Suggested Lot: ${item.suggestedLot ?? 'N/A'}'),
                   ],
@@ -443,7 +443,7 @@ class _PickListScreenState extends ConsumerState<PickListScreen> with SingleTick
                       ],
                     ),
                     const SizedBox(height: 4),
-                    Text('Target Quantity: ${item.qty}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                    Text('Required: ${item.requiredQty}  |  Picked: ${item.pickedQty}', style: const TextStyle(fontWeight: FontWeight.w600)),
                   ],
                 ),
               ),

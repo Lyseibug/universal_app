@@ -142,7 +142,8 @@ _$PickItemImpl _$$PickItemImplFromJson(Map<String, dynamic> json) =>
       itemCode: json['item_code'] as String,
       itemName: json['item_name'] as String?,
       warehouse: json['warehouse'] as String?,
-      qty: (json['qty'] as num).toDouble(),
+      requiredQty: (json['required_qty'] as num?)?.toDouble() ?? 0,
+      pickedQty: (json['picked_qty'] as num?)?.toDouble() ?? 0,
       suggestedLot: json['suggested_lot'] as String?,
       status: json['status'] as String,
     );
@@ -153,7 +154,8 @@ Map<String, dynamic> _$$PickItemImplToJson(_$PickItemImpl instance) =>
       'item_code': instance.itemCode,
       'item_name': instance.itemName,
       'warehouse': instance.warehouse,
-      'qty': instance.qty,
+      'required_qty': instance.requiredQty,
+      'picked_qty': instance.pickedQty,
       'suggested_lot': instance.suggestedLot,
       'status': instance.status,
     };
