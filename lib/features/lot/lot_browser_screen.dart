@@ -31,7 +31,8 @@ class _LotBrowserScreenState extends ConsumerState<LotBrowserScreen> {
   bool _showFilterPanel = false;
 
   // Pagination states
-  List<WarehouseLot> _lots = [];
+  List<WarehouseLot> _allLots = []; // Full data loaded from API
+  List<WarehouseLot> _lots = []; // Filtered view displayed in UI
   bool _loadingList = false;
   bool _loadingMore = false;
   bool _hasMore = true;
@@ -55,8 +56,58 @@ class _LotBrowserScreenState extends ConsumerState<LotBrowserScreen> {
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
       _loadLots();
+    }
+  }
+
+  /// Whether any local filter is currently active.
+  bool get _isFilterActive =>
+      _warehouseCtrl.text.trim().isNotEmpty ||
+      _zoneCtrl.text.trim().isNotEmpty ||
+      _itemCtrl.text.trim().isNotEmpty;
+
+  /// Filters `_allLots` locally based on the filter panel fields.
+  /// Matches against lot name, warehouse, zone, and item fields.
+  /// Case-insensitive, partial matching.
+  void _applyLocalFilter() {
+    final warehouseQuery = _warehouseCtrl.text.trim().toLowerCase();
+    final zoneQuery = _zoneCtrl.text.trim().toLowerCase();
+    final itemQuery = _itemCtrl.text.trim().toLowerCase();
+
+    if (warehouseQuery.isEmpty && zoneQuery.isEmpty && itemQuery.isEmpty) {
+      setState(() {
+        _lots = List.from(_allLots);
+      });
+    } else {
+      setState(() {
+        _lots = _allLots.where((lot) {
+          final warehouse = (lot.warehouse ?? '').toLowerCase();
+          final zone = (lot.zone ?? '').toLowerCase();
+          final name = lot.name.toLowerCase();
+
+          bool matches = true;
+          if (warehouseQuery.isNotEmpty) {
+            matches = matches && warehouse.contains(warehouseQuery);
+          }
+          if (zoneQuery.isNotEmpty) {
+            matches =
+                matches &&
+                (zone.contains(zoneQuery) || name.contains(zoneQuery));
+          }
+          if (itemQuery.isNotEmpty) {
+            // Search item codes/names within the lot's items
+            final hasItem = lot.items.any((item) {
+              final code = (item.itemCode).toLowerCase();
+              final itemName = (item.itemName ?? '').toLowerCase();
+              return code.contains(itemQuery) || itemName.contains(itemQuery);
+            });
+            matches = matches && hasItem;
+          }
+          return matches;
+        }).toList();
+      });
     }
   }
 
@@ -66,6 +117,7 @@ class _LotBrowserScreenState extends ConsumerState<LotBrowserScreen> {
       setState(() {
         _start = 0;
         _hasMore = true;
+        _allLots = [];
         _lots = [];
         _loadingList = true;
       });
@@ -77,27 +129,23 @@ class _LotBrowserScreenState extends ConsumerState<LotBrowserScreen> {
     }
 
     try {
-      final data = await ref.read(lotRepositoryProvider).browse(
-            warehouse: _warehouseCtrl.text.trim(),
-            zone: _zoneCtrl.text.trim(),
-            item: _itemCtrl.text.trim(),
-            onlyOccupied: _onlyOccupied,
-            limit: _limit,
-            start: _start,
-          );
+      final data = await ref
+          .read(lotRepositoryProvider)
+          .browse(onlyOccupied: _onlyOccupied, limit: _limit, start: _start);
 
       if (mounted) {
         setState(() {
           if (refresh) {
-            _lots = data;
+            _allLots = data;
           } else {
-            _lots.addAll(data);
+            _allLots.addAll(data);
           }
           _start += data.length;
           _hasMore = data.length == _limit;
           _loadingList = false;
           _loadingMore = false;
         });
+        _applyLocalFilter();
       }
     } catch (e) {
       if (mounted) {
@@ -106,7 +154,10 @@ class _LotBrowserScreenState extends ConsumerState<LotBrowserScreen> {
           _loadingMore = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading bins: $e'), backgroundColor: AppTheme.danger),
+          SnackBar(
+            content: Text('Error loading bins: $e'),
+            backgroundColor: AppTheme.danger,
+          ),
         );
       }
     }
@@ -126,7 +177,9 @@ class _LotBrowserScreenState extends ConsumerState<LotBrowserScreen> {
       title: widget.screen.label,
       actions: [
         IconButton(
-          icon: Icon(_showFilterPanel ? Icons.filter_list_off : Icons.filter_list),
+          icon: Icon(
+            _showFilterPanel ? Icons.filter_list_off : Icons.filter_list,
+          ),
           onPressed: () {
             setState(() {
               _showFilterPanel = !_showFilterPanel;
@@ -149,20 +202,27 @@ class _LotBrowserScreenState extends ConsumerState<LotBrowserScreen> {
                         ? _buildEmptyView()
                         : ListView.builder(
                             controller: _scrollController,
-                            padding: const EdgeInsets.all(AppTheme.horizontalPad),
-                            itemCount: _lots.length + (_hasMore ? 1 : 0),
+                            padding: const EdgeInsets.all(
+                              AppTheme.horizontalPad,
+                            ),
+                            itemCount:
+                                _lots.length +
+                                (_hasMore && !_isFilterActive ? 1 : 0),
                             itemBuilder: (context, i) {
                               if (i == _lots.length) {
                                 return const Center(
                                   child: Padding(
-                                    padding: EdgeInsets.symmetric(vertical: 16.0),
+                                    padding: EdgeInsets.symmetric(
+                                      vertical: 16.0,
+                                    ),
                                     child: CircularProgressIndicator(),
                                   ),
                                 );
                               }
 
                               final lot = _lots[i];
-                              final isOccupied = lot.isEmptyFlag == 0 || lot.items.isNotEmpty;
+                              final isOccupied =
+                                  lot.isEmptyFlag == 0 || lot.items.isNotEmpty;
 
                               return Padding(
                                 padding: const EdgeInsets.only(bottom: 10),
@@ -232,7 +292,10 @@ class _LotBrowserScreenState extends ConsumerState<LotBrowserScreen> {
                   }
                 },
               ),
-              const Text('Show Occupied Lots Only', style: TextStyle(fontWeight: FontWeight.w500)),
+              const Text(
+                'Show Occupied Lots Only',
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -247,7 +310,7 @@ class _LotBrowserScreenState extends ConsumerState<LotBrowserScreen> {
                     setState(() {
                       _onlyOccupied = true;
                     });
-                    _loadLots(refresh: true);
+                    _applyLocalFilter();
                   },
                   child: const Text('Reset'),
                 ),
@@ -256,7 +319,9 @@ class _LotBrowserScreenState extends ConsumerState<LotBrowserScreen> {
               Expanded(
                 child: CustomButton(
                   text: 'Apply Filters',
-                  onPressed: () => _loadLots(refresh: true),
+                  onPressed: () {
+                    _applyLocalFilter();
+                  },
                 ),
               ),
             ],
@@ -273,12 +338,20 @@ class _LotBrowserScreenState extends ConsumerState<LotBrowserScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(32),
         children: [
-          Icon(Icons.inventory_2_outlined, size: 72, color: AppTheme.textDisabled.withValues(alpha: 0.5)),
+          Icon(
+            Icons.inventory_2_outlined,
+            size: 72,
+            color: AppTheme.textDisabled.withValues(alpha: 0.5),
+          ),
           const SizedBox(height: 16),
           const Text(
             'No Bins Found',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.textSecondary,
+            ),
           ),
           const SizedBox(height: 8),
           const Text(
@@ -344,72 +417,131 @@ class _LotDetailSheetState extends ConsumerState<_LotDetailSheet> {
         child: _loading
             ? const Center(child: CircularProgressIndicator())
             : _error != null
-                ? Center(child: Text(_error!, style: const TextStyle(color: AppTheme.danger)))
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        'Bin: ${_detail!.name}',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: AppTheme.primary),
-                      ),
-                      const SizedBox(height: 4),
-                      Text('Warehouse: ${_detail!.warehouse ?? 'N/A'}'),
-                      Text('Zone: ${_detail!.zone ?? 'N/A'}'),
-                      const Divider(height: 24),
-                      const Text(
-                        'OCCUPIED ITEMS',
-                        style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textSecondary, fontSize: 12, letterSpacing: 1.0),
-                      ),
-                      const SizedBox(height: 8),
-                      Expanded(
-                        child: _detail!.items.isEmpty
-                            ? const Center(child: Text('No items in this location', style: TextStyle(fontStyle: FontStyle.italic)))
-                            : ListView.builder(
-                                itemCount: _detail!.items.length,
-                                itemBuilder: (context, i) {
-                                  final item = _detail!.items[i];
-                                  return Card(
-                                    margin: const EdgeInsets.only(bottom: 8),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(12),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+            ? Center(
+                child: Text(
+                  _error!,
+                  style: const TextStyle(color: AppTheme.danger),
+                ),
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Bin: ${_detail!.name}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                      color: AppTheme.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text('Warehouse: ${_detail!.warehouse ?? 'N/A'}'),
+                  Text('Zone: ${_detail!.zone ?? 'N/A'}'),
+                  const Divider(height: 24),
+                  const Text(
+                    'OCCUPIED ITEMS',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textSecondary,
+                      fontSize: 12,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: _detail!.items.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'No items in this location',
+                              style: TextStyle(fontStyle: FontStyle.italic),
+                            ),
+                          )
+                        : ListView.builder(
+                            itemCount: _detail!.items.length,
+                            itemBuilder: (context, i) {
+                              final item = _detail!.items[i];
+                              return Card(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
                                         children: [
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Expanded(
-                                                child: Text(
-                                                  '${item.itemCode} (${item.itemName ?? ''})',
-                                                  style: const TextStyle(fontWeight: FontWeight.bold),
-                                                ),
+                                          Expanded(
+                                            child: Text(
+                                              '${item.itemCode} (${item.itemName ?? ''})',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
                                               ),
-                                              Text(
-                                                '${item.qty} ${item.uom ?? ''}',
-                                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primary),
-                                              ),
-                                            ],
+                                            ),
                                           ),
-                                          const SizedBox(height: 6),
-                                          if (item.upcCode != null && item.upcCode!.isNotEmpty)
-                                            Text('UPC: ${item.upcCode}', style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-                                          if (item.batchNo != null && item.batchNo!.isNotEmpty)
-                                            Text('Batch: ${item.batchNo}', style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-                                          if (item.productionDate != null)
-                                            Text('Production Date: ${item.productionDate}', style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-                                          if (item.expiryDate != null)
-                                            Text('Expiry Date: ${item.expiryDate}', style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-                                          if (item.fifoDate != null)
-                                            Text('FIFO Date: ${item.fifoDate}', style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                                          Text(
+                                            '${item.qty} ${item.uom ?? ''}',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
+                                              color: AppTheme.primary,
+                                            ),
+                                          ),
                                         ],
                                       ),
-                                    ),
-                                  );
-                                },
-                              ),
-                      ),
-                    ],
+                                      const SizedBox(height: 6),
+                                      if (item.upcCode != null &&
+                                          item.upcCode!.isNotEmpty)
+                                        Text(
+                                          'UPC: ${item.upcCode}',
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            color: AppTheme.textSecondary,
+                                          ),
+                                        ),
+                                      if (item.batchNo != null &&
+                                          item.batchNo!.isNotEmpty)
+                                        Text(
+                                          'Batch: ${item.batchNo}',
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            color: AppTheme.textSecondary,
+                                          ),
+                                        ),
+                                      if (item.productionDate != null)
+                                        Text(
+                                          'Production Date: ${item.productionDate}',
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            color: AppTheme.textSecondary,
+                                          ),
+                                        ),
+                                      if (item.expiryDate != null)
+                                        Text(
+                                          'Expiry Date: ${item.expiryDate}',
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            color: AppTheme.textSecondary,
+                                          ),
+                                        ),
+                                      if (item.fifoDate != null)
+                                        Text(
+                                          'FIFO Date: ${item.fifoDate}',
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            color: AppTheme.textSecondary,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                   ),
+                ],
+              ),
       ),
     );
   }
