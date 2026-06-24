@@ -48,7 +48,7 @@ class _BagViewerScreenState extends ConsumerState<BagViewerScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Error: $e'),
-          backgroundColor: AppTheme.error,
+          backgroundColor: AppTheme.danger,
         ));
       }
     }
@@ -64,7 +64,7 @@ class _BagViewerScreenState extends ConsumerState<BagViewerScreen> {
               ? Center(child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(_error!, style: const TextStyle(color: AppTheme.error)),
+                    Text(_error!, style: const TextStyle(color: AppTheme.danger)),
                     const SizedBox(height: 16),
                     ElevatedButton(onPressed: _loadBags, child: const Text('Retry')),
                   ],

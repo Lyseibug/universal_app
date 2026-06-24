@@ -70,7 +70,7 @@ class _WeighingScreenState extends ConsumerState<WeighingScreen> {
     if (match.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('No stock for "$trimmed" in Outside Weighing'),
-        backgroundColor: AppTheme.error,
+        backgroundColor: AppTheme.danger,
       ));
       return;
     }
@@ -141,7 +141,7 @@ class _WeighingScreenState extends ConsumerState<WeighingScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('$e'),
-          backgroundColor: AppTheme.error,
+          backgroundColor: AppTheme.danger,
         ));
       }
     } finally {
@@ -159,7 +159,7 @@ class _WeighingScreenState extends ConsumerState<WeighingScreen> {
               ? Center(child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(_error!, style: const TextStyle(color: AppTheme.error)),
+                    Text(_error!, style: const TextStyle(color: AppTheme.danger)),
                     const SizedBox(height: 16),
                     ElevatedButton(onPressed: _loadData, child: const Text('Retry')),
                   ],

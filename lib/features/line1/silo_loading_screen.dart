@@ -69,7 +69,7 @@ class _SiloLoadingScreenState extends ConsumerState<SiloLoadingScreen> {
     if (match.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('No stock for "$trimmed" in Outside Silo'),
-        backgroundColor: AppTheme.error,
+        backgroundColor: AppTheme.danger,
       ));
       return;
     }
@@ -138,7 +138,7 @@ class _SiloLoadingScreenState extends ConsumerState<SiloLoadingScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('$e'),
-          backgroundColor: AppTheme.error,
+          backgroundColor: AppTheme.danger,
         ));
       }
     } finally {
@@ -156,7 +156,7 @@ class _SiloLoadingScreenState extends ConsumerState<SiloLoadingScreen> {
               ? Center(child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(_error!, style: const TextStyle(color: AppTheme.error)),
+                    Text(_error!, style: const TextStyle(color: AppTheme.danger)),
                     const SizedBox(height: 16),
                     ElevatedButton(onPressed: _loadData, child: const Text('Retry')),
                   ],

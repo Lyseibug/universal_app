@@ -92,7 +92,7 @@ class _CompoundLabTestScreenState extends ConsumerState<CompoundLabTestScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Error: $e'),
-          backgroundColor: AppTheme.error,
+          backgroundColor: AppTheme.danger,
         ));
       }
     }
@@ -107,7 +107,7 @@ class _CompoundLabTestScreenState extends ConsumerState<CompoundLabTestScreen> {
       if (val == null) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Enter a value for $p'),
-          backgroundColor: AppTheme.error,
+          backgroundColor: AppTheme.danger,
         ));
         return;
       }
@@ -141,7 +141,7 @@ class _CompoundLabTestScreenState extends ConsumerState<CompoundLabTestScreen> {
                   const SizedBox(width: 8),
                   Icon(
                     p.isPass ? Icons.check_circle : Icons.cancel,
-                    color: p.isPass ? AppTheme.success : AppTheme.error,
+                    color: p.isPass ? AppTheme.success : AppTheme.danger,
                     size: 20,
                   ),
                 ],
@@ -164,7 +164,7 @@ class _CompoundLabTestScreenState extends ConsumerState<CompoundLabTestScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Error: $e'),
-          backgroundColor: AppTheme.error,
+          backgroundColor: AppTheme.danger,
         ));
       }
     } finally {
@@ -186,7 +186,7 @@ class _CompoundLabTestScreenState extends ConsumerState<CompoundLabTestScreen> {
       return Center(child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(_error!, style: const TextStyle(color: AppTheme.error)),
+          Text(_error!, style: const TextStyle(color: AppTheme.danger)),
           const SizedBox(height: 16),
           ElevatedButton(onPressed: _loadList, child: const Text('Retry')),
         ],
@@ -267,7 +267,7 @@ class _CompoundLabTestScreenState extends ConsumerState<CompoundLabTestScreen> {
       case 'Pass':
         return const CircleAvatar(backgroundColor: AppTheme.success, radius: 16, child: Icon(Icons.check, color: Colors.white, size: 18));
       case 'Fail':
-        return const CircleAvatar(backgroundColor: AppTheme.error, radius: 16, child: Icon(Icons.close, color: Colors.white, size: 18));
+        return const CircleAvatar(backgroundColor: AppTheme.danger, radius: 16, child: Icon(Icons.close, color: Colors.white, size: 18));
       case 'Conditional Pass':
         return const CircleAvatar(backgroundColor: Colors.orange, radius: 16, child: Icon(Icons.warning, color: Colors.white, size: 18));
       default:
@@ -358,7 +358,7 @@ class _CompoundLabTestScreenState extends ConsumerState<CompoundLabTestScreen> {
                         ? AppTheme.success
                         : detail.labStatus == 'Conditional Pass'
                             ? Colors.orange
-                            : AppTheme.error,
+                            : AppTheme.danger,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -393,7 +393,7 @@ class _CompoundLabTestScreenState extends ConsumerState<CompoundLabTestScreen> {
                 if (hasValue)
                   Icon(
                     inRange ? Icons.check_circle : Icons.cancel,
-                    color: inRange ? AppTheme.success : AppTheme.error,
+                    color: inRange ? AppTheme.success : AppTheme.danger,
                     size: 22,
                   ),
               ],
