@@ -6,6 +6,7 @@ import '../../core/errors/error_mapper.dart';
 import '../../core/menu/menu_models.dart';
 import '../../core/models/manufacturing_mr_models.dart';
 import '../../core/theme/app_theme.dart';
+import '../../providers/service_providers.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
 import '../../widgets/pdt_scaffold.dart';
@@ -187,9 +188,32 @@ class _ManufacturingMRScreenState
 
   void _goToPickList() {
     if (_detail?.pickList == null) return;
+
+    final menuAsync = ref.read(menuProvider);
+    MenuScreen? pickScreen;
+    menuAsync.whenData((menu) {
+      if (menu == null) return;
+      for (final mod in menu.menu) {
+        for (final s in mod.screens) {
+          if (s.screenKey == 'pick_list') {
+            pickScreen = s;
+            return;
+          }
+        }
+      }
+    });
+
+    pickScreen ??= const MenuScreen(
+      screenKey: 'pick_list',
+      label: 'Pick List',
+      route: '/pick-list',
+      apiModule: 'pick',
+      actions: ['claim', 'pick', 'override_suggested_lot'],
+    );
+
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => PickListScreen(
-        screen: widget.screen,
+        screen: pickScreen!,
         pickingType: 'Compound',
       ),
     ));
