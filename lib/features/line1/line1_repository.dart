@@ -13,60 +13,33 @@ class Line1Repository {
       : _api = api,
         _writeQueue = writeQueue;
 
-  // ── Silo / Oil ──────────────────────────────────────────────────────────
+  // ── Unified Material Loading ─────────────────────────────────────────────
 
-  Future<List<StockItem>> listOutsideStock(String warehouseType) async {
-    final data = await _api.call('line1_silo.list_outside_stock',
-        body: {'warehouse_type': warehouseType});
+  Future<Map<String, dynamic>> resolveItem(String itemCode) async {
+    final data = await _api.call('line1_loading.resolve',
+        body: {'item_code': itemCode});
+    return Map<String, dynamic>.from(data);
+  }
+
+  Future<List<StockItem>> listAllOutsideStock() async {
+    final data = await _api.call('line1_loading.list_outside_stock');
     return _parseStockList(data);
   }
 
-  Future<List<StockItem>> listInsideStock(String warehouseType) async {
-    final data = await _api.call('line1_silo.list_inside_stock',
-        body: {'warehouse_type': warehouseType});
+  Future<List<StockItem>> listAllInsideStock() async {
+    final data = await _api.call('line1_loading.list_inside_stock');
     return _parseStockList(data);
   }
 
-  Future<LoadResult> siloLoad({
+  Future<LoadResult> loadMaterial({
     required String itemCode,
     required double qty,
   }) async {
-    final result = await _writeQueue.run('line1_silo.silo_load', {
+    final result = await _writeQueue.run('line1_loading.load', {
       'item_code': itemCode,
       'qty': qty,
     });
     return LoadResult.fromJson(Map<String, dynamic>.from(result));
-  }
-
-  Future<LoadResult> oilLoad({
-    required String itemCode,
-    required double qty,
-  }) async {
-    final result = await _writeQueue.run('line1_silo.oil_load', {
-      'item_code': itemCode,
-      'qty': qty,
-    });
-    return LoadResult.fromJson(Map<String, dynamic>.from(result));
-  }
-
-  // ── Weighing ────────────────────────────────────────────────────────────
-
-  Future<LoadResult> weighingLoad({
-    required String boxBarcode,
-    required String itemCode,
-    required double qty,
-  }) async {
-    final result = await _writeQueue.run('line1_weighing.weighing_load', {
-      'box_barcode': boxBarcode,
-      'item_code': itemCode,
-      'qty': qty,
-    });
-    return LoadResult.fromJson(Map<String, dynamic>.from(result));
-  }
-
-  Future<List<StockItem>> listBoxes() async {
-    final data = await _api.call('line1_weighing.list_boxes');
-    return _parseStockList(data);
   }
 
   // ── Bags ────────────────────────────────────────────────────────────────

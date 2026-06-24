@@ -18,6 +18,7 @@ class StockItem with _$StockItem {
     @JsonKey(name: 'batch_no') String? batchNo,
     @Default(0) double qty,
     @JsonKey(name: 'production_date') String? productionDate,
+    String? stream,
   }) = _StockItem;
 
   factory StockItem.fromJson(Map<String, dynamic> json) =>
@@ -31,6 +32,7 @@ class LoadResult with _$LoadResult {
     @Default(0) double qty,
     @JsonKey(name: 'batch_no') String? batchNo,
     @JsonKey(name: 'box_barcode') String? boxBarcode,
+    String? stream,
   }) = _LoadResult;
 
   factory LoadResult.fromJson(Map<String, dynamic> json) =>
