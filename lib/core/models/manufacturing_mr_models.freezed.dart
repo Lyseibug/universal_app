@@ -757,6 +757,7 @@ class _$ManufacturingMRDetailImpl implements _ManufacturingMRDetail {
   @JsonKey(name: 'requested_compound_qty')
   final double requestedCompoundQty;
   @override
+  @JsonKey()
   final int docstatus;
   @override
   final String? remarks;
@@ -853,7 +854,8 @@ abstract class _ManufacturingMRDetail implements ManufacturingMRDetail {
       @JsonKey(name: 'pick_list') final String? pickList,
       @JsonKey(name: 'material_request') final String? materialRequest,
       final String? bom,
-      @JsonKey(name: 'requested_compound_qty') final double requestedCompoundQty,
+      @JsonKey(name: 'requested_compound_qty')
+      final double requestedCompoundQty,
       final int docstatus,
       final String? remarks,
       final String? creation,

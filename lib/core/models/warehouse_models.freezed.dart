@@ -1652,14 +1652,38 @@ class _$PickItemCopyWithImpl<$Res, $Val extends PickItem>
     Object? status = null,
   }) {
     return _then(_value.copyWith(
-      name: null == name ? _value.name : name as String,
-      itemCode: null == itemCode ? _value.itemCode : itemCode as String,
-      itemName: freezed == itemName ? _value.itemName : itemName as String?,
-      warehouse: freezed == warehouse ? _value.warehouse : warehouse as String?,
-      requiredQty: null == requiredQty ? _value.requiredQty : requiredQty as double,
-      pickedQty: null == pickedQty ? _value.pickedQty : pickedQty as double,
-      suggestedLot: freezed == suggestedLot ? _value.suggestedLot : suggestedLot as String?,
-      status: null == status ? _value.status : status as String,
+      name: null == name
+          ? _value.name
+          : name // ignore: cast_nullable_to_non_nullable
+              as String,
+      itemCode: null == itemCode
+          ? _value.itemCode
+          : itemCode // ignore: cast_nullable_to_non_nullable
+              as String,
+      itemName: freezed == itemName
+          ? _value.itemName
+          : itemName // ignore: cast_nullable_to_non_nullable
+              as String?,
+      warehouse: freezed == warehouse
+          ? _value.warehouse
+          : warehouse // ignore: cast_nullable_to_non_nullable
+              as String?,
+      requiredQty: null == requiredQty
+          ? _value.requiredQty
+          : requiredQty // ignore: cast_nullable_to_non_nullable
+              as double,
+      pickedQty: null == pickedQty
+          ? _value.pickedQty
+          : pickedQty // ignore: cast_nullable_to_non_nullable
+              as double,
+      suggestedLot: freezed == suggestedLot
+          ? _value.suggestedLot
+          : suggestedLot // ignore: cast_nullable_to_non_nullable
+              as String?,
+      status: null == status
+          ? _value.status
+          : status // ignore: cast_nullable_to_non_nullable
+              as String,
     ) as $Val);
   }
 }
@@ -1704,14 +1728,38 @@ class __$$PickItemImplCopyWithImpl<$Res>
     Object? status = null,
   }) {
     return _then(_$PickItemImpl(
-      name: null == name ? _value.name : name as String,
-      itemCode: null == itemCode ? _value.itemCode : itemCode as String,
-      itemName: freezed == itemName ? _value.itemName : itemName as String?,
-      warehouse: freezed == warehouse ? _value.warehouse : warehouse as String?,
-      requiredQty: null == requiredQty ? _value.requiredQty : requiredQty as double,
-      pickedQty: null == pickedQty ? _value.pickedQty : pickedQty as double,
-      suggestedLot: freezed == suggestedLot ? _value.suggestedLot : suggestedLot as String?,
-      status: null == status ? _value.status : status as String,
+      name: null == name
+          ? _value.name
+          : name // ignore: cast_nullable_to_non_nullable
+              as String,
+      itemCode: null == itemCode
+          ? _value.itemCode
+          : itemCode // ignore: cast_nullable_to_non_nullable
+              as String,
+      itemName: freezed == itemName
+          ? _value.itemName
+          : itemName // ignore: cast_nullable_to_non_nullable
+              as String?,
+      warehouse: freezed == warehouse
+          ? _value.warehouse
+          : warehouse // ignore: cast_nullable_to_non_nullable
+              as String?,
+      requiredQty: null == requiredQty
+          ? _value.requiredQty
+          : requiredQty // ignore: cast_nullable_to_non_nullable
+              as double,
+      pickedQty: null == pickedQty
+          ? _value.pickedQty
+          : pickedQty // ignore: cast_nullable_to_non_nullable
+              as double,
+      suggestedLot: freezed == suggestedLot
+          ? _value.suggestedLot
+          : suggestedLot // ignore: cast_nullable_to_non_nullable
+              as String?,
+      status: null == status
+          ? _value.status
+          : status // ignore: cast_nullable_to_non_nullable
+              as String,
     ));
   }
 }
@@ -1756,7 +1804,7 @@ class _$PickItemImpl implements _PickItem {
 
   @override
   String toString() {
-    return 'PickItem(name: $name, itemCode: $itemCode, requiredQty: $requiredQty, pickedQty: $pickedQty, status: $status)';
+    return 'PickItem(name: $name, itemCode: $itemCode, itemName: $itemName, warehouse: $warehouse, requiredQty: $requiredQty, pickedQty: $pickedQty, suggestedLot: $suggestedLot, status: $status)';
   }
 
   @override
@@ -1765,14 +1813,25 @@ class _$PickItemImpl implements _PickItem {
         (other.runtimeType == runtimeType &&
             other is _$PickItemImpl &&
             (identical(other.name, name) || other.name == name) &&
-            (identical(other.itemCode, itemCode) || other.itemCode == itemCode) &&
-            (identical(other.requiredQty, requiredQty) || other.requiredQty == requiredQty) &&
+            (identical(other.itemCode, itemCode) ||
+                other.itemCode == itemCode) &&
+            (identical(other.itemName, itemName) ||
+                other.itemName == itemName) &&
+            (identical(other.warehouse, warehouse) ||
+                other.warehouse == warehouse) &&
+            (identical(other.requiredQty, requiredQty) ||
+                other.requiredQty == requiredQty) &&
+            (identical(other.pickedQty, pickedQty) ||
+                other.pickedQty == pickedQty) &&
+            (identical(other.suggestedLot, suggestedLot) ||
+                other.suggestedLot == suggestedLot) &&
             (identical(other.status, status) || other.status == status));
   }
 
   @JsonKey(ignore: true)
   @override
-  int get hashCode => Object.hash(runtimeType, name, itemCode, requiredQty, status);
+  int get hashCode => Object.hash(runtimeType, name, itemCode, itemName,
+      warehouse, requiredQty, pickedQty, suggestedLot, status);
 
   @JsonKey(ignore: true)
   @override
@@ -1782,7 +1841,9 @@ class _$PickItemImpl implements _PickItem {
 
   @override
   Map<String, dynamic> toJson() {
-    return _$$PickItemImplToJson(this);
+    return _$$PickItemImplToJson(
+      this,
+    );
   }
 }
 
@@ -1800,15 +1861,29 @@ abstract class _PickItem implements PickItem {
   factory _PickItem.fromJson(Map<String, dynamic> json) =
       _$PickItemImpl.fromJson;
 
-  @override String get name;
-  @override @JsonKey(name: 'item_code') String get itemCode;
-  @override @JsonKey(name: 'item_name') String? get itemName;
-  @override String? get warehouse;
-  @override @JsonKey(name: 'required_qty') double get requiredQty;
-  @override @JsonKey(name: 'picked_qty') double get pickedQty;
-  @override @JsonKey(name: 'suggested_lot') String? get suggestedLot;
-  @override String get status;
-  @override @JsonKey(ignore: true)
+  @override
+  String get name;
+  @override
+  @JsonKey(name: 'item_code')
+  String get itemCode;
+  @override
+  @JsonKey(name: 'item_name')
+  String? get itemName;
+  @override
+  String? get warehouse;
+  @override
+  @JsonKey(name: 'required_qty')
+  double get requiredQty;
+  @override
+  @JsonKey(name: 'picked_qty')
+  double get pickedQty;
+  @override
+  @JsonKey(name: 'suggested_lot')
+  String? get suggestedLot;
+  @override
+  String get status;
+  @override
+  @JsonKey(ignore: true)
   _$$PickItemImplCopyWith<_$PickItemImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }
