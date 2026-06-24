@@ -45,6 +45,18 @@ class _ManufacturingMRScreenState
   final _remarksCtrl = TextEditingController();
   bool _submitting = false;
 
+  // ── Edit (Draft detail) ──
+  bool _editing = false;
+  final List<_ItemRow> _editItems = [];
+  final _editRemarksCtrl = TextEditingController();
+  final _editFormulaCodeCtrl = TextEditingController();
+  final _editBomCtrl = TextEditingController();
+  final _editReqQtyCtrl = TextEditingController();
+  String _editCompoundType = 'CMB';
+  String _editRequestType = 'Manual';
+  bool _saving = false;
+  bool _submittingMR = false;
+
   @override
   void initState() {
     super.initState();
@@ -55,6 +67,13 @@ class _ManufacturingMRScreenState
   void dispose() {
     _remarksCtrl.dispose();
     for (final r in _newItems) {
+      r.dispose();
+    }
+    _editRemarksCtrl.dispose();
+    _editFormulaCodeCtrl.dispose();
+    _editBomCtrl.dispose();
+    _editReqQtyCtrl.dispose();
+    for (final r in _editItems) {
       r.dispose();
     }
     super.dispose();
@@ -84,6 +103,7 @@ class _ManufacturingMRScreenState
     setState(() {
       _loadingDetail = true;
       _view = _View.detail;
+      _editing = false;
     });
     try {
       _detail =
@@ -128,18 +148,16 @@ class _ManufacturingMRScreenState
       if (!mounted) return;
 
       final mrName = result is Map ? (result['name'] ?? '') : '';
-      final pickCount = result is Map ? (result['pick_item_count'] ?? 0) : 0;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Created $mrName with $pickCount pick items'),
+          content: Text('Created $mrName'),
           backgroundColor: AppTheme.success,
         ),
       );
 
       _clearCreateForm();
-      setState(() => _view = _View.list);
-      _loadList();
+      _loadDetail(mrName.toString());
     } on ApiException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -168,21 +186,155 @@ class _ManufacturingMRScreenState
     _remarksCtrl.clear();
   }
 
-  void _addItemRow() {
-    setState(() => _newItems.add(_ItemRow()));
+  void _addItemRow(List<_ItemRow> list) {
+    setState(() => list.add(_ItemRow()));
   }
 
-  void _removeItemRow(int index) {
+  void _removeItemRow(List<_ItemRow> list, int index) {
     setState(() {
-      _newItems[index].dispose();
-      _newItems.removeAt(index);
+      list[index].dispose();
+      list.removeAt(index);
     });
+  }
+
+  // ─── Edit Mode ─────────────────────────────────────────────────────────────
+
+  void _initEditMode() {
+    final d = _detail!;
+    _editRemarksCtrl.text = d.remarks ?? '';
+    _editCompoundType = d.compoundType ?? 'CMB';
+    _editFormulaCodeCtrl.text = d.formulaCode ?? '';
+    _editBomCtrl.text = d.bom ?? '';
+    _editReqQtyCtrl.text =
+        d.requestedCompoundQty > 0 ? d.requestedCompoundQty.toString() : '';
+    _editRequestType = d.requestType ?? 'Manual';
+
+    for (final r in _editItems) {
+      r.dispose();
+    }
+    _editItems.clear();
+    for (final item in d.items) {
+      final row = _ItemRow();
+      row.itemCtrl.text = item.itemCode;
+      row.qtyCtrl.text = item.requiredQty.toStringAsFixed(1);
+      row.targetStream = item.targetStream;
+      _editItems.add(row);
+    }
+
+    setState(() => _editing = true);
+  }
+
+  Future<void> _saveEdit() async {
+    final valid = _editItems
+        .where((r) => r.itemCode.isNotEmpty && r.qty > 0)
+        .toList();
+    if (valid.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Add at least one item with qty > 0.')),
+      );
+      return;
+    }
+
+    setState(() => _saving = true);
+    try {
+      final updated =
+          await ref.read(manufacturingMRRepositoryProvider).update(
+                name: _detail!.name,
+                items: valid.map((r) => r.toJson()).toList(),
+                remarks: _editRemarksCtrl.text.trim(),
+                compoundType: _editCompoundType,
+                formulaCode: _editFormulaCodeCtrl.text.trim(),
+                bom: _editBomCtrl.text.trim(),
+                requestedCompoundQty:
+                    double.tryParse(_editReqQtyCtrl.text) ?? 0,
+                requestType: _editRequestType,
+              );
+
+      if (!mounted) return;
+      setState(() {
+        _detail = updated;
+        _editing = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Saved'), backgroundColor: AppTheme.success),
+      );
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(messageFor(e)),
+              backgroundColor: AppTheme.danger),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Error: $e'), backgroundColor: AppTheme.danger),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _submitMR() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Submit Material Request'),
+        content: const Text(
+            'This will create the Material Request and Pick List. You will not be able to edit after submitting.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Submit')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _submittingMR = true);
+    try {
+      await ref
+          .read(manufacturingMRRepositoryProvider)
+          .submitMR(_detail!.name);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Submitted successfully'),
+            backgroundColor: AppTheme.success),
+      );
+      _loadDetail(_detail!.name);
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(messageFor(e)),
+              backgroundColor: AppTheme.danger),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Error: $e'), backgroundColor: AppTheme.danger),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _submittingMR = false);
+    }
   }
 
   // ─── Navigation ────────────────────────────────────────────────────────────
 
   void _openCreate() {
-    if (_newItems.isEmpty) _addItemRow();
+    if (_newItems.isEmpty) _addItemRow(_newItems);
     setState(() => _view = _View.create);
   }
 
@@ -229,7 +381,9 @@ class _ManufacturingMRScreenState
         title = widget.screen.label;
         break;
       case _View.detail:
-        title = _detail?.name ?? 'Detail';
+        title = _editing
+            ? 'Edit ${_detail?.name ?? ''}'
+            : (_detail?.name ?? 'Detail');
         break;
       case _View.create:
         title = 'New Material Request';
@@ -242,6 +396,8 @@ class _ManufacturingMRScreenState
         if (!didPop) {
           if (_view == _View.create) {
             setState(() => _view = _View.list);
+          } else if (_view == _View.detail && _editing) {
+            setState(() => _editing = false);
           } else if (_view == _View.detail) {
             setState(() {
               _view = _View.list;
@@ -284,7 +440,6 @@ class _ManufacturingMRScreenState
   Widget _buildListBody() {
     return Column(
       children: [
-        // Status filter chips
         SizedBox(
           height: 48,
           child: ListView(
@@ -293,10 +448,10 @@ class _ManufacturingMRScreenState
                 const EdgeInsets.symmetric(horizontal: AppTheme.horizontalPad),
             children: [
               _filterChip('All', null),
+              _filterChip('Draft', 'Draft'),
               _filterChip('Picking', 'Picking'),
               _filterChip('Picked', 'Picked'),
               _filterChip('Completed', 'Completed'),
-              _filterChip('Draft', 'Draft'),
             ],
           ),
         ),
@@ -445,6 +600,12 @@ class _ManufacturingMRScreenState
     }
 
     final d = _detail!;
+    final isDraft = d.status == 'Draft';
+
+    if (isDraft && _editing) {
+      return _buildEditBody();
+    }
+
     final totalReq =
         d.items.fold<double>(0, (s, i) => s + i.requiredQty);
     final totalPicked =
@@ -477,35 +638,43 @@ class _ManufacturingMRScreenState
                       StatusChip(status: d.status),
                     ],
                   ),
-                  if (d.remarks != null && d.remarks!.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Text(d.remarks!,
-                        style: const TextStyle(
-                            color: AppTheme.textSecondary, fontSize: 13)),
-                  ],
                   const SizedBox(height: 12),
-                  Text(
-                    '$pickedCount / ${d.items.length} items picked',
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                  const SizedBox(height: 6),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: progress.clamp(0.0, 1.0),
-                      minHeight: 8,
-                      backgroundColor: AppTheme.bgBorder,
-                      color: progress >= 1.0
-                          ? AppTheme.success
-                          : AppTheme.primary,
+                  _detailField('Request Type', d.requestType),
+                  _detailField('Compound Type', d.compoundType),
+                  _detailField('Formula Code', d.formulaCode),
+                  _detailField('BOM', d.bom),
+                  if (d.requestedCompoundQty > 0)
+                    _detailField('Requested Qty',
+                        d.requestedCompoundQty.toStringAsFixed(1)),
+                  if (d.materialRequest != null)
+                    _detailField('Material Request', d.materialRequest),
+                  if (d.remarks != null && d.remarks!.isNotEmpty)
+                    _detailField('Remarks', d.remarks),
+                  if (!isDraft) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      '$pickedCount / ${d.items.length} items picked',
+                      style: const TextStyle(fontSize: 13),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${totalPicked.toStringAsFixed(1)} / ${totalReq.toStringAsFixed(1)} KG',
-                    style: const TextStyle(
-                        fontSize: 12, color: AppTheme.textSecondary),
-                  ),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: progress.clamp(0.0, 1.0),
+                        minHeight: 8,
+                        backgroundColor: AppTheme.bgBorder,
+                        color: progress >= 1.0
+                            ? AppTheme.success
+                            : AppTheme.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${totalPicked.toStringAsFixed(1)} / ${totalReq.toStringAsFixed(1)} KG',
+                      style: const TextStyle(
+                          fontSize: 12, color: AppTheme.textSecondary),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -516,14 +685,52 @@ class _ManufacturingMRScreenState
           ...d.items.map(_buildDetailItemCard),
           const SizedBox(height: 16),
 
+          // Draft actions
+          if (isDraft) ...[
+            CustomButton(
+              text: 'Edit',
+              icon: Icons.edit,
+              onPressed: _initEditMode,
+              outlined: true,
+            ),
+            const SizedBox(height: 12),
+            CustomButton(
+              text: 'Submit',
+              icon: Icons.send,
+              isLoading: _submittingMR,
+              onPressed: _submitMR,
+            ),
+          ],
+
           // Pick list button
-          if (d.pickList != null && d.status == 'Picking')
+          if (!isDraft && d.pickList != null && d.status == 'Picking')
             CustomButton(
               text: 'Go to Pick List',
               icon: Icons.assignment_outlined,
               onPressed: _goToPickList,
             ),
           const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _detailField(String label, String? value) {
+    if (value == null || value.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(label,
+                style: const TextStyle(
+                    color: AppTheme.textSecondary, fontSize: 13)),
+          ),
+          Expanded(
+            child: Text(value, style: const TextStyle(fontSize: 13)),
+          ),
         ],
       ),
     );
@@ -604,6 +811,148 @@ class _ManufacturingMRScreenState
     }
   }
 
+  // ─── Edit Body (Draft) ─────────────────────────────────────────────────────
+
+  Widget _buildEditBody() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppTheme.horizontalPad),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header fields
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Details',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: AppTheme.textSecondary)),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          value: _editRequestType,
+                          decoration: const InputDecoration(
+                            labelText: 'Request Type',
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 16),
+                          ),
+                          items: const [
+                            DropdownMenuItem(
+                                value: 'Manual', child: Text('Manual')),
+                            DropdownMenuItem(
+                                value: 'Formula Based',
+                                child: Text('Formula Based')),
+                          ],
+                          onChanged: (v) {
+                            if (v != null) {
+                              setState(() => _editRequestType = v);
+                            }
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          value: _editCompoundType,
+                          decoration: const InputDecoration(
+                            labelText: 'Compound Type',
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 16),
+                          ),
+                          items: const [
+                            DropdownMenuItem(
+                                value: 'CMB', child: Text('CMB')),
+                            DropdownMenuItem(
+                                value: 'FMB', child: Text('FMB')),
+                          ],
+                          onChanged: (v) {
+                            if (v != null) {
+                              setState(() => _editCompoundType = v);
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: CustomTextField(
+                          controller: _editFormulaCodeCtrl,
+                          labelText: 'Formula Code',
+                          hintText: 'e.g. F-001',
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: CustomTextField(
+                          controller: _editBomCtrl,
+                          labelText: 'BOM',
+                          hintText: 'BOM reference',
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  CustomTextField(
+                    controller: _editReqQtyCtrl,
+                    labelText: 'Requested Compound Qty',
+                    hintText: '0',
+                    keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: 10),
+                  CustomTextField(
+                    controller: _editRemarksCtrl,
+                    labelText: 'Remarks',
+                    hintText: 'Notes for this request...',
+                    maxLines: 2,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Item rows
+          ..._editItems.asMap().entries.map(
+              (e) => _buildItemRowCard(e.key, e.value, _editItems)),
+          const SizedBox(height: 8),
+
+          OutlinedButton.icon(
+            onPressed: () => _addItemRow(_editItems),
+            icon: const Icon(Icons.add),
+            label: const Text('Add Item'),
+          ),
+          const SizedBox(height: 24),
+
+          // Save & Submit buttons
+          CustomButton(
+            text: 'Save',
+            icon: Icons.save,
+            isLoading: _saving,
+            onPressed: _saveEdit,
+            outlined: true,
+          ),
+          const SizedBox(height: 12),
+          CustomButton(
+            text: 'Submit',
+            icon: Icons.send,
+            isLoading: _submittingMR,
+            onPressed: _submitMR,
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
   // ─── Create View ───────────────────────────────────────────────────────────
 
   Widget _buildCreateBody() {
@@ -613,13 +962,13 @@ class _ManufacturingMRScreenState
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Item rows
-          ..._newItems.asMap().entries.map((e) =>
-              _buildItemRowCard(e.key, e.value)),
+          ..._newItems.asMap().entries.map(
+              (e) => _buildItemRowCard(e.key, e.value, _newItems)),
           const SizedBox(height: 8),
 
           // Add item button
           OutlinedButton.icon(
-            onPressed: _addItemRow,
+            onPressed: () => _addItemRow(_newItems),
             icon: const Icon(Icons.add),
             label: const Text('Add Item'),
           ),
@@ -636,8 +985,8 @@ class _ManufacturingMRScreenState
 
           // Submit
           CustomButton(
-            text: 'Submit Material Request',
-            icon: Icons.send,
+            text: 'Create Material Request',
+            icon: Icons.add_circle_outline,
             isLoading: _submitting,
             onPressed: _submitCreate,
           ),
@@ -647,7 +996,7 @@ class _ManufacturingMRScreenState
     );
   }
 
-  Widget _buildItemRowCard(int index, _ItemRow row) {
+  Widget _buildItemRowCard(int index, _ItemRow row, List<_ItemRow> itemList) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Card(
@@ -664,11 +1013,11 @@ class _ManufacturingMRScreenState
                           fontSize: 13,
                           color: AppTheme.textSecondary)),
                   const Spacer(),
-                  if (_newItems.length > 1)
+                  if (itemList.length > 1)
                     IconButton(
                       icon: const Icon(Icons.delete_outline,
                           color: AppTheme.danger, size: 20),
-                      onPressed: () => _removeItemRow(index),
+                      onPressed: () => _removeItemRow(itemList, index),
                       constraints: const BoxConstraints(),
                       padding: EdgeInsets.zero,
                     ),
@@ -733,7 +1082,7 @@ class _ManufacturingMRScreenState
   }
 }
 
-// ─── Mutable item row for the create form ────────────────────────────────────
+// ─── Mutable item row for create / edit forms ────────────────────────────────
 
 class _ItemRow {
   final itemCtrl = TextEditingController();

@@ -464,6 +464,12 @@ mixin _$ManufacturingMRDetail {
   String get status => throw _privateConstructorUsedError;
   @JsonKey(name: 'pick_list')
   String? get pickList => throw _privateConstructorUsedError;
+  @JsonKey(name: 'material_request')
+  String? get materialRequest => throw _privateConstructorUsedError;
+  String? get bom => throw _privateConstructorUsedError;
+  @JsonKey(name: 'requested_compound_qty')
+  double get requestedCompoundQty => throw _privateConstructorUsedError;
+  int get docstatus => throw _privateConstructorUsedError;
   String? get remarks => throw _privateConstructorUsedError;
   String? get creation => throw _privateConstructorUsedError;
   @JsonKey(name: 'created_by_user')
@@ -489,6 +495,10 @@ abstract class $ManufacturingMRDetailCopyWith<$Res> {
       @JsonKey(name: 'formula_code') String? formulaCode,
       String status,
       @JsonKey(name: 'pick_list') String? pickList,
+      @JsonKey(name: 'material_request') String? materialRequest,
+      String? bom,
+      @JsonKey(name: 'requested_compound_qty') double requestedCompoundQty,
+      int docstatus,
       String? remarks,
       String? creation,
       @JsonKey(name: 'created_by_user') String? createdByUser,
@@ -515,6 +525,10 @@ class _$ManufacturingMRDetailCopyWithImpl<$Res,
     Object? formulaCode = freezed,
     Object? status = null,
     Object? pickList = freezed,
+    Object? materialRequest = freezed,
+    Object? bom = freezed,
+    Object? requestedCompoundQty = null,
+    Object? docstatus = null,
     Object? remarks = freezed,
     Object? creation = freezed,
     Object? createdByUser = freezed,
@@ -545,6 +559,22 @@ class _$ManufacturingMRDetailCopyWithImpl<$Res,
           ? _value.pickList
           : pickList // ignore: cast_nullable_to_non_nullable
               as String?,
+      materialRequest: freezed == materialRequest
+          ? _value.materialRequest
+          : materialRequest // ignore: cast_nullable_to_non_nullable
+              as String?,
+      bom: freezed == bom
+          ? _value.bom
+          : bom // ignore: cast_nullable_to_non_nullable
+              as String?,
+      requestedCompoundQty: null == requestedCompoundQty
+          ? _value.requestedCompoundQty
+          : requestedCompoundQty // ignore: cast_nullable_to_non_nullable
+              as double,
+      docstatus: null == docstatus
+          ? _value.docstatus
+          : docstatus // ignore: cast_nullable_to_non_nullable
+              as int,
       remarks: freezed == remarks
           ? _value.remarks
           : remarks // ignore: cast_nullable_to_non_nullable
@@ -581,6 +611,10 @@ abstract class _$$ManufacturingMRDetailImplCopyWith<$Res>
       @JsonKey(name: 'formula_code') String? formulaCode,
       String status,
       @JsonKey(name: 'pick_list') String? pickList,
+      @JsonKey(name: 'material_request') String? materialRequest,
+      String? bom,
+      @JsonKey(name: 'requested_compound_qty') double requestedCompoundQty,
+      int docstatus,
       String? remarks,
       String? creation,
       @JsonKey(name: 'created_by_user') String? createdByUser,
@@ -605,6 +639,10 @@ class __$$ManufacturingMRDetailImplCopyWithImpl<$Res>
     Object? formulaCode = freezed,
     Object? status = null,
     Object? pickList = freezed,
+    Object? materialRequest = freezed,
+    Object? bom = freezed,
+    Object? requestedCompoundQty = null,
+    Object? docstatus = null,
     Object? remarks = freezed,
     Object? creation = freezed,
     Object? createdByUser = freezed,
@@ -635,6 +673,22 @@ class __$$ManufacturingMRDetailImplCopyWithImpl<$Res>
           ? _value.pickList
           : pickList // ignore: cast_nullable_to_non_nullable
               as String?,
+      materialRequest: freezed == materialRequest
+          ? _value.materialRequest
+          : materialRequest // ignore: cast_nullable_to_non_nullable
+              as String?,
+      bom: freezed == bom
+          ? _value.bom
+          : bom // ignore: cast_nullable_to_non_nullable
+              as String?,
+      requestedCompoundQty: null == requestedCompoundQty
+          ? _value.requestedCompoundQty
+          : requestedCompoundQty // ignore: cast_nullable_to_non_nullable
+              as double,
+      docstatus: null == docstatus
+          ? _value.docstatus
+          : docstatus // ignore: cast_nullable_to_non_nullable
+              as int,
       remarks: freezed == remarks
           ? _value.remarks
           : remarks // ignore: cast_nullable_to_non_nullable
@@ -665,6 +719,10 @@ class _$ManufacturingMRDetailImpl implements _ManufacturingMRDetail {
       @JsonKey(name: 'formula_code') this.formulaCode,
       required this.status,
       @JsonKey(name: 'pick_list') this.pickList,
+      @JsonKey(name: 'material_request') this.materialRequest,
+      this.bom,
+      @JsonKey(name: 'requested_compound_qty') this.requestedCompoundQty = 0,
+      this.docstatus = 0,
       this.remarks,
       this.creation,
       @JsonKey(name: 'created_by_user') this.createdByUser,
@@ -691,6 +749,16 @@ class _$ManufacturingMRDetailImpl implements _ManufacturingMRDetail {
   @JsonKey(name: 'pick_list')
   final String? pickList;
   @override
+  @JsonKey(name: 'material_request')
+  final String? materialRequest;
+  @override
+  final String? bom;
+  @override
+  @JsonKey(name: 'requested_compound_qty')
+  final double requestedCompoundQty;
+  @override
+  final int docstatus;
+  @override
   final String? remarks;
   @override
   final String? creation;
@@ -708,7 +776,7 @@ class _$ManufacturingMRDetailImpl implements _ManufacturingMRDetail {
 
   @override
   String toString() {
-    return 'ManufacturingMRDetail(name: $name, requestType: $requestType, compoundType: $compoundType, formulaCode: $formulaCode, status: $status, pickList: $pickList, remarks: $remarks, creation: $creation, createdByUser: $createdByUser, items: $items)';
+    return 'ManufacturingMRDetail(name: $name, requestType: $requestType, compoundType: $compoundType, formulaCode: $formulaCode, status: $status, pickList: $pickList, materialRequest: $materialRequest, bom: $bom, requestedCompoundQty: $requestedCompoundQty, docstatus: $docstatus, remarks: $remarks, creation: $creation, createdByUser: $createdByUser, items: $items)';
   }
 
   @override
@@ -726,6 +794,13 @@ class _$ManufacturingMRDetailImpl implements _ManufacturingMRDetail {
             (identical(other.status, status) || other.status == status) &&
             (identical(other.pickList, pickList) ||
                 other.pickList == pickList) &&
+            (identical(other.materialRequest, materialRequest) ||
+                other.materialRequest == materialRequest) &&
+            (identical(other.bom, bom) || other.bom == bom) &&
+            (identical(other.requestedCompoundQty, requestedCompoundQty) ||
+                other.requestedCompoundQty == requestedCompoundQty) &&
+            (identical(other.docstatus, docstatus) ||
+                other.docstatus == docstatus) &&
             (identical(other.remarks, remarks) || other.remarks == remarks) &&
             (identical(other.creation, creation) ||
                 other.creation == creation) &&
@@ -744,6 +819,10 @@ class _$ManufacturingMRDetailImpl implements _ManufacturingMRDetail {
       formulaCode,
       status,
       pickList,
+      materialRequest,
+      bom,
+      requestedCompoundQty,
+      docstatus,
       remarks,
       creation,
       createdByUser,
@@ -772,6 +851,10 @@ abstract class _ManufacturingMRDetail implements ManufacturingMRDetail {
       @JsonKey(name: 'formula_code') final String? formulaCode,
       required final String status,
       @JsonKey(name: 'pick_list') final String? pickList,
+      @JsonKey(name: 'material_request') final String? materialRequest,
+      final String? bom,
+      @JsonKey(name: 'requested_compound_qty') final double requestedCompoundQty,
+      final int docstatus,
       final String? remarks,
       final String? creation,
       @JsonKey(name: 'created_by_user') final String? createdByUser,
@@ -796,6 +879,16 @@ abstract class _ManufacturingMRDetail implements ManufacturingMRDetail {
   @override
   @JsonKey(name: 'pick_list')
   String? get pickList;
+  @override
+  @JsonKey(name: 'material_request')
+  String? get materialRequest;
+  @override
+  String? get bom;
+  @override
+  @JsonKey(name: 'requested_compound_qty')
+  double get requestedCompoundQty;
+  @override
+  int get docstatus;
   @override
   String? get remarks;
   @override
