@@ -277,9 +277,9 @@ class _PickListScreenState extends ConsumerState<PickListScreen> with SingleTick
                   : TabBarView(
                       controller: _tabController,
                       children: [
-                        _buildPickListSection('open', isClaimable: true),
-                        _buildPickListSection('claiming', isPickable: true),
-                        _buildPickListSection('completed'),
+                        _buildPickListSection('Pending', isClaimable: true),
+                        _buildPickListSection('In Progress', isPickable: true),
+                        _buildPickListSection('Completed'),
                       ],
                     ),
         ),
