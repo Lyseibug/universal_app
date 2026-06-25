@@ -11,6 +11,7 @@ import '../../features/support/support_screen.dart';
 import '../../features/line1/material_loading_screen.dart';
 import '../../features/line1/bag_viewer_screen.dart';
 import '../../features/line1/compound_lab_test_screen.dart';
+import '../../features/po_reception/po_reception_screen.dart';
 
 /// Function type for building a WMS screen from its [MenuScreen] config.
 typedef ScreenBuilder = Widget Function(MenuScreen screen);
@@ -31,4 +32,5 @@ final Map<String, ScreenBuilder> screenRegistry = {
   'material_loading':   (s) => MaterialLoadingScreen(screen: s),
   'bag_view':           (s) => BagViewerScreen(screen: s),
   'compound_lab_test':  (s) => CompoundLabTestScreen(screen: s),
+  'po_reception':       (s) => PoReceptionScreen(screen: s),
 };

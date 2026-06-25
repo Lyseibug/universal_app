@@ -33,4 +33,7 @@ abstract class PdtErrorCode {
 
   /// Insufficient quantity available for the operation.
   static const String insufficientQty      = 'INSUFFICIENT_QTY';
+
+  /// PO status does not allow reception.
+  static const String poNotReceivable      = 'PO_NOT_RECEIVABLE';
 }

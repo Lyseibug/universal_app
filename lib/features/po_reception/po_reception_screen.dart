@@ -1,0 +1,690 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/api/api_exceptions.dart';
+import '../../core/errors/error_mapper.dart';
+import '../../core/menu/menu_models.dart';
+import '../../core/theme/app_theme.dart';
+import '../../widgets/custom_button.dart';
+import '../../widgets/custom_text_field.dart';
+import '../../widgets/pdt_scaffold.dart';
+import '../../widgets/scan_input_field.dart';
+import 'po_reception_models.dart';
+import 'po_reception_repository.dart';
+
+enum _View { list, detail }
+
+class PoReceptionScreen extends ConsumerStatefulWidget {
+  final MenuScreen screen;
+
+  const PoReceptionScreen({required this.screen, super.key});
+
+  @override
+  ConsumerState<PoReceptionScreen> createState() => _PoReceptionScreenState();
+}
+
+class _PoReceptionScreenState extends ConsumerState<PoReceptionScreen> {
+  // ── List state ──
+  bool _loadingList = true;
+  List<PurchaseOrderSummary> _poList = [];
+  String? _listError;
+
+  // ── Search / scan ──
+  final _searchCtrl = TextEditingController();
+  final _searchFocus = FocusNode();
+  bool _showSearch = false;
+  bool _searching = false;
+
+  // ── Detail state ──
+  _View _currentView = _View.list;
+  PurchaseOrderDetail? _poDetail;
+  bool _loadingDetail = false;
+  String? _detailError;
+
+  // Editable receive quantities keyed by PO Item row name
+  final Map<String, TextEditingController> _qtyControllers = {};
+  bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPending();
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    _searchFocus.dispose();
+    _disposeQtyControllers();
+    super.dispose();
+  }
+
+  void _disposeQtyControllers() {
+    for (final c in _qtyControllers.values) {
+      c.dispose();
+    }
+    _qtyControllers.clear();
+  }
+
+  // ── Data loading ──
+
+  Future<void> _loadPending() async {
+    setState(() {
+      _loadingList = true;
+      _listError = null;
+    });
+    try {
+      final list = await ref.read(poReceptionRepositoryProvider).listPending();
+      if (mounted) {
+        setState(() {
+          _poList = list;
+          _loadingList = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _listError = 'Failed to load pending Purchase Orders.';
+          _loadingList = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _handleSearch(String query) async {
+    final q = query.trim();
+    if (q.isEmpty) {
+      _loadPending();
+      return;
+    }
+    setState(() {
+      _searching = true;
+      _listError = null;
+    });
+    try {
+      final results = await ref.read(poReceptionRepositoryProvider).search(q);
+      if (mounted) {
+        setState(() {
+          _poList = results;
+          _searching = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _listError = 'Search failed.';
+          _searching = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _selectPO(String poName) async {
+    setState(() {
+      _loadingDetail = true;
+      _detailError = null;
+      _currentView = _View.detail;
+    });
+    try {
+      final detail = await ref.read(poReceptionRepositoryProvider).get(poName);
+      _disposeQtyControllers();
+      for (final item in detail.items) {
+        _qtyControllers[item.name] =
+            TextEditingController(text: item.pendingQty.toString());
+      }
+      if (mounted) {
+        setState(() {
+          _poDetail = detail;
+          _loadingDetail = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _detailError = 'Failed to load Purchase Order details.';
+          _loadingDetail = false;
+        });
+      }
+    }
+  }
+
+  // ── Submit reception ──
+
+  Future<void> _submitReception() async {
+    if (_poDetail == null) return;
+
+    final items = <Map<String, dynamic>>[];
+    for (final item in _poDetail!.items) {
+      final ctrl = _qtyControllers[item.name];
+      final qty = double.tryParse(ctrl?.text ?? '') ?? 0;
+      if (qty <= 0) continue;
+      if (qty > item.pendingQty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                '${item.itemName ?? item.itemCode}: qty $qty exceeds pending ${item.pendingQty}'),
+            backgroundColor: AppTheme.danger,
+          ),
+        );
+        return;
+      }
+      items.add({
+        'item_code': item.itemCode,
+        'qty': qty,
+        'po_detail': item.name,
+      });
+    }
+
+    if (items.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter quantity for at least one item.')),
+      );
+      return;
+    }
+
+    final confirmed = await _showConfirmDialog(items);
+    if (confirmed != true) return;
+
+    setState(() => _submitting = true);
+    try {
+      final result =
+          await ref.read(poReceptionRepositoryProvider).submitReception(
+                purchaseOrder: _poDetail!.name,
+                items: items,
+              );
+      final prName = result['purchase_receipt'] ?? '';
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Receipt $prName created successfully!'),
+            backgroundColor: AppTheme.success,
+          ),
+        );
+        _disposeQtyControllers();
+        setState(() {
+          _poDetail = null;
+          _currentView = _View.list;
+        });
+        _loadPending();
+      }
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(messageFor(e)), backgroundColor: AppTheme.danger),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.danger),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<bool?> _showConfirmDialog(List<Map<String, dynamic>> items) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirm Reception'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('PO: ${_poDetail!.name}'),
+            Text('Supplier: ${_poDetail!.supplierName ?? _poDetail!.supplier ?? ''}'),
+            const SizedBox(height: 12),
+            Text('${items.length} item(s) to receive:',
+                style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            ...items.map((i) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text('  ${i['item_code']}  -  ${i['qty']}'),
+                )),
+          ],
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primary,
+              minimumSize: const Size(120, 44),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Navigation ──
+
+  Future<bool> _handleBackPress() async {
+    if (_currentView == _View.detail) {
+      _disposeQtyControllers();
+      setState(() {
+        _poDetail = null;
+        _currentView = _View.list;
+      });
+      return false;
+    }
+    return true;
+  }
+
+  // ── Build ──
+
+  @override
+  Widget build(BuildContext context) {
+    return WillPopScope(
+      onWillPop: _handleBackPress,
+      child: PdtScaffold(
+        title: _currentView == _View.list
+            ? widget.screen.label
+            : 'Receive - ${_poDetail?.name ?? ''}',
+        actions: _currentView == _View.list
+            ? [
+                IconButton(
+                  icon: Icon(
+                      _showSearch ? Icons.search_off : Icons.search),
+                  onPressed: () {
+                    setState(() {
+                      _showSearch = !_showSearch;
+                      if (!_showSearch) {
+                        _searchCtrl.clear();
+                        _loadPending();
+                      }
+                    });
+                  },
+                ),
+              ]
+            : null,
+        body: _currentView == _View.list ? _buildListBody() : _buildDetailBody(),
+      ),
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  //  LIST VIEW
+  // ════════════════════════════════════════════════════════════════════════════
+
+  Widget _buildListBody() {
+    return Column(
+      children: [
+        if (_showSearch) _buildSearchBar(),
+        Expanded(child: _buildListContent()),
+      ],
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppTheme.bgSurface,
+        border: Border(bottom: BorderSide(color: AppTheme.bgBorder)),
+      ),
+      padding: const EdgeInsets.all(AppTheme.horizontalPad),
+      child: ScanInputField(
+        controller: _searchCtrl,
+        focusNode: _searchFocus,
+        labelText: 'Search / Scan PO',
+        hintText: 'PO number or supplier name',
+        prefixIcon: Icons.search,
+        autofocus: true,
+        onScanned: _handleSearch,
+        onSubmitted: _handleSearch,
+      ),
+    );
+  }
+
+  Widget _buildListContent() {
+    if (_loadingList || _searching) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_listError != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppTheme.horizontalPad),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(_listError!,
+                  style: const TextStyle(color: AppTheme.danger)),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                  onPressed: _loadPending, child: const Text('Retry')),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_poList.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppTheme.horizontalPad),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.inbox_outlined,
+                  size: 64, color: AppTheme.textDisabled),
+              const SizedBox(height: 16),
+              Text(
+                'No pending Purchase Orders',
+                style: Theme.of(context)
+                    .textTheme
+                    .headlineSmall
+                    ?.copyWith(color: AppTheme.textSecondary),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadPending,
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppTheme.horizontalPad, vertical: 8),
+        itemCount: _poList.length,
+        itemBuilder: (context, i) {
+          final po = _poList[i];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Card(
+              child: ListTile(
+                title: Text(
+                  po.name,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 4),
+                    Text(po.supplierName ?? po.supplier ?? ''),
+                    const SizedBox(height: 2),
+                    Text('Date: ${po.transactionDate ?? '-'}'),
+                    const SizedBox(height: 2),
+                    Text(
+                        '${po.itemCount} item(s)  |  ${po.currency ?? ''} ${po.grandTotal.toStringAsFixed(2)}'),
+                  ],
+                ),
+                trailing: const Icon(Icons.arrow_forward_ios,
+                    size: 16, color: AppTheme.textSecondary),
+                onTap: () => _selectPO(po.name),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  //  DETAIL VIEW — items with editable quantities
+  // ════════════════════════════════════════════════════════════════════════════
+
+  Widget _buildDetailBody() {
+    if (_loadingDetail) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_detailError != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppTheme.horizontalPad),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(_detailError!,
+                  style: const TextStyle(color: AppTheme.danger)),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => _selectPO(_poDetail?.name ?? ''),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final detail = _poDetail!;
+    final items = detail.items;
+
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(AppTheme.horizontalPad),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Back button
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () {
+                      _disposeQtyControllers();
+                      setState(() {
+                        _poDetail = null;
+                        _currentView = _View.list;
+                      });
+                    },
+                    icon: const Icon(Icons.arrow_back),
+                    label: const Text('Back to list'),
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // PO Header Card
+                Card(
+                  color: AppTheme.bgElevated,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          detail.name,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                              color: AppTheme.primary),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                            'Supplier: ${detail.supplierName ?? detail.supplier ?? ''}'),
+                        Text('Date: ${detail.transactionDate ?? '-'}'),
+                        Text(
+                            'Total: ${detail.currency ?? ''} ${detail.grandTotal.toStringAsFixed(2)}'),
+                        Text(
+                            'Receiving to: ${detail.inboundWarehouse ?? '-'}'),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Section header
+                const Text(
+                  'ITEMS TO RECEIVE',
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textSecondary,
+                      fontSize: 12,
+                      letterSpacing: 1.0),
+                ),
+                const SizedBox(height: 8),
+
+                if (items.isEmpty)
+                  const Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(20),
+                      child: Text(
+                        'All items have been fully received.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            fontStyle: FontStyle.italic,
+                            color: AppTheme.textSecondary),
+                      ),
+                    ),
+                  )
+                else
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: items.length,
+                    itemBuilder: (context, i) =>
+                        _buildItemCard(items[i]),
+                  ),
+              ],
+            ),
+          ),
+        ),
+
+        // Bottom submit bar
+        if (items.isNotEmpty)
+          Container(
+            decoration: const BoxDecoration(
+              color: AppTheme.bgSurface,
+              border: Border(top: BorderSide(color: AppTheme.bgBorder)),
+            ),
+            padding: const EdgeInsets.all(AppTheme.horizontalPad),
+            child: SafeArea(
+              top: false,
+              child: CustomButton(
+                text: 'SUBMIT RECEPTION',
+                isLoading: _submitting,
+                icon: Icons.check_circle_outline,
+                onPressed: widget.screen.can('submit_reception')
+                    ? _submitReception
+                    : null,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildItemCard(PurchaseOrderItemLine item) {
+    final ctrl = _qtyControllers[item.name]!;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Item header
+            Text(
+              item.itemCode,
+              style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  color: AppTheme.primary),
+            ),
+            if (item.itemName != null && item.itemName!.isNotEmpty)
+              Text(item.itemName!,
+                  style: const TextStyle(
+                      fontSize: 13, color: AppTheme.textSecondary)),
+            if (item.upcCode != null && item.upcCode!.isNotEmpty)
+              Text('UPC: ${item.upcCode}',
+                  style: const TextStyle(
+                      fontSize: 12, color: AppTheme.textSecondary)),
+            const SizedBox(height: 10),
+
+            // Quantity info row
+            Row(
+              children: [
+                _buildQtyChip('Ordered', item.orderedQty, item.uom ?? ''),
+                const SizedBox(width: 8),
+                _buildQtyChip('Received', item.receivedQty, item.uom ?? ''),
+                const SizedBox(width: 8),
+                _buildQtyChip('Pending', item.pendingQty, item.uom ?? '',
+                    highlight: true),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Editable quantity input
+            Row(
+              children: [
+                const Text('Receive Qty:',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 120,
+                  child: CustomTextField(
+                    controller: ctrl,
+                    labelText: '',
+                    hintText: '0',
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(item.uom ?? '',
+                    style: const TextStyle(color: AppTheme.textSecondary)),
+                const Spacer(),
+                // Quick-fill to max
+                TextButton(
+                  onPressed: () {
+                    ctrl.text = item.pendingQty.toString();
+                  },
+                  child: const Text('Max'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQtyChip(String label, double qty, String uom,
+      {bool highlight = false}) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+        decoration: BoxDecoration(
+          color: highlight
+              ? AppTheme.primary.withValues(alpha: 0.08)
+              : AppTheme.bgElevated,
+          borderRadius: BorderRadius.circular(6),
+          border: highlight
+              ? Border.all(color: AppTheme.primary.withValues(alpha: 0.3))
+              : null,
+        ),
+        child: Column(
+          children: [
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 10, color: AppTheme.textSecondary)),
+            const SizedBox(height: 2),
+            Text(
+              '$qty',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                color: highlight ? AppTheme.primary : AppTheme.textPrimary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

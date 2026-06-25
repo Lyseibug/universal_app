@@ -22,6 +22,8 @@ String messageFor(ApiException e) {
       return 'No stock found in this location.';
     case PdtErrorCode.insufficientQty:
       return 'Insufficient quantity available.';
+    case PdtErrorCode.poNotReceivable:
+      return 'This Purchase Order cannot be received.';
     default:
       return e.message;
   }
