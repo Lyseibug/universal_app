@@ -93,6 +93,64 @@ class Line1Repository {
     return LabTestResult.fromJson(Map<String, dynamic>.from(result));
   }
 
+  // ── Calendering ─────────────────────────────────────────────────────────
+
+  Future<List<CalenderingFmb>> listFmbForCalendering() async {
+    final data =
+        await _api.call('line1_calendering.list_fmb_for_calendering');
+    if (data is List) {
+      return data
+          .map((j) => CalenderingFmb.fromJson(Map<String, dynamic>.from(j)))
+          .toList();
+    }
+    return const [];
+  }
+
+  Future<CalenderingStartResult> startCalenderingRun({
+    required String fmbBatch,
+    required double inputQty,
+  }) async {
+    final result = await _writeQueue.run('line1_calendering.start_run', {
+      'fmb_batch': fmbBatch,
+      'input_qty': inputQty,
+    });
+    return CalenderingStartResult.fromJson(Map<String, dynamic>.from(result));
+  }
+
+  Future<CalenderingRun> getCalenderingRun(String name) async {
+    final data =
+        await _api.call('line1_calendering.get_run', body: {'name': name});
+    return CalenderingRun.fromJson(Map<String, dynamic>.from(data));
+  }
+
+  Future<CalenderingCompleteResult> completeCalenderingRun({
+    required String name,
+    required List<Map<String, dynamic>> sheets,
+    required double rReturnQty,
+    required double cReturnQty,
+  }) async {
+    final result = await _writeQueue.run('line1_calendering.complete_run', {
+      'name': name,
+      'sheets': sheets,
+      'r_return_qty': rReturnQty,
+      'c_return_qty': cReturnQty,
+    });
+    return CalenderingCompleteResult.fromJson(
+        Map<String, dynamic>.from(result));
+  }
+
+  Future<List<CalenderingRun>> listCalenderingRuns({String? status}) async {
+    final data = await _api.call('line1_calendering.list_runs', body: {
+      if (status != null) 'status': status,
+    });
+    if (data is List) {
+      return data
+          .map((j) => CalenderingRun.fromJson(Map<String, dynamic>.from(j)))
+          .toList();
+    }
+    return const [];
+  }
+
   // ── Helpers ─────────────────────────────────────────────────────────────
 
   List<StockItem> _parseStockList(dynamic data) {
