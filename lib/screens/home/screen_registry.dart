@@ -13,6 +13,16 @@ import '../../features/line1/bag_viewer_screen.dart';
 import '../../features/line1/compound_lab_test_screen.dart';
 import '../../features/line1/calendering_screen.dart';
 import '../../features/po_reception/po_reception_screen.dart';
+import '../../features/line2/active_jobs_screen.dart';
+import '../../features/line2/sleeve_building_screen.dart';
+import '../../features/line2/curing_screen.dart';
+import '../../features/line2/processing_screen.dart';
+import '../../features/line2/labelling_screen.dart';
+import '../../features/line2/qc_measurement_screen.dart';
+import '../../features/line2/qc_final_screen.dart';
+import '../../features/line2/sleeve_creation_screen.dart';
+import '../../features/line2/packing_screen.dart';
+import '../../features/line2/tool_status_screen.dart';
 
 /// Function type for building a WMS screen from its [MenuScreen] config.
 typedef ScreenBuilder = Widget Function(MenuScreen screen);
@@ -35,4 +45,15 @@ final Map<String, ScreenBuilder> screenRegistry = {
   'compound_lab_test':  (s) => CompoundLabTestScreen(screen: s),
   'calendering':        (s) => CalenderingScreen(screen: s),
   'po_reception':       (s) => PoReceptionScreen(screen: s),
+  // Line 2 — Belt/Sleeve Building
+  'line2_active_jobs':  (s) => ActiveJobsScreen(screen: s),
+  'line2_building':     (s) => SleeveBuildingScreen(screen: s),
+  'line2_curing':       (s) => CuringScreen(screen: s),
+  'line2_processing':   (s) => ProcessingScreen(screen: s),
+  'line2_labelling':    (s) => LabellingScreen(screen: s),
+  'line2_qc_measure':   (s) => QcMeasurementScreen(screen: s),
+  'line2_qc_final':     (s) => QcFinalScreen(screen: s),
+  'line2_sleeve':       (s) => SleeveCreationScreen(screen: s),
+  'line2_packing':      (s) => PackingScreen(screen: s),
+  'line2_tools':        (s) => ToolStatusScreen(screen: s),
 };
