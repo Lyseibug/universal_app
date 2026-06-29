@@ -3,11 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/menu/menu_models.dart';
 import '../../core/theme/app_theme.dart';
-import '../../widgets/custom_button.dart';
 import '../../widgets/pdt_scaffold.dart';
 import '../../widgets/scan_input_field.dart';
-import '../../widgets/status_chip.dart';
 import 'line2_repository.dart';
+import 'widgets/production_station_layout.dart';
 
 class CuringScreen extends ConsumerStatefulWidget {
   final MenuScreen screen;
@@ -30,6 +29,17 @@ class _CuringScreenState extends ConsumerState<CuringScreen> {
 
   Map<String, dynamic>? _scanResult;
   bool _airbagAssigned = false;
+  DateTime? _timerStart;
+
+  List<String> _workstations = [];
+  List<String> _assignedStations = [];
+  String? _selectedWorkstation;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadWorkerStations();
+  }
 
   @override
   void dispose() {
@@ -38,6 +48,25 @@ class _CuringScreenState extends ConsumerState<CuringScreen> {
     _airbagCtrl.dispose();
     _airbagFocus.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadWorkerStations() async {
+    try {
+      final stations = await ref.read(line2RepositoryProvider).getWorkerStations();
+      if (stations.isNotEmpty && mounted) {
+        final all = <String>[];
+        for (final s in stations) {
+          final ws = s['workstations'];
+          if (ws is List) all.addAll(ws.map((w) => w.toString()));
+        }
+        final pressStations = all.where((w) => w.contains('P')).toList();
+        setState(() {
+          _assignedStations = all;
+          _workstations = pressStations.isNotEmpty ? pressStations : all;
+          if (_workstations.isNotEmpty) _selectedWorkstation = _workstations.first;
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _onFlowchartScanned(String barcode) async {
@@ -50,14 +79,15 @@ class _CuringScreenState extends ConsumerState<CuringScreen> {
       _scanResult = null;
       _airbagAssigned = false;
       _airbagCtrl.clear();
+      _timerStart = null;
     });
 
     try {
-      final result =
-          await ref.read(line2RepositoryProvider).scanFlowchart(trimmed);
+      final result = await ref.read(line2RepositoryProvider).scanFlowchart(trimmed);
       setState(() {
         _scanResult = result;
         _scanning = false;
+        _timerStart = DateTime.now();
       });
     } catch (e) {
       setState(() {
@@ -71,31 +101,20 @@ class _CuringScreenState extends ConsumerState<CuringScreen> {
     final trimmed = barcode.trim();
     if (trimmed.isEmpty) return;
 
-    setState(() {
-      _assigningTool = true;
-      _error = null;
-    });
+    setState(() { _assigningTool = true; _error = null; });
 
     try {
       await ref.read(line2RepositoryProvider).assignTool(
-            toolId: trimmed,
-            jobCard: _scanResult!['job_card']?.toString() ?? _flowchartCtrl.text.trim(),
-          );
-      setState(() {
-        _airbagAssigned = true;
-        _assigningTool = false;
-      });
+        toolId: trimmed,
+        jobCard: _scanResult!['job_card']?.toString() ?? '',
+      );
+      setState(() { _airbagAssigned = true; _assigningTool = false; });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Airbag assigned'),
-          backgroundColor: AppTheme.success,
-        ));
+          content: Text('Airbag assigned'), backgroundColor: AppTheme.success));
       }
     } catch (e) {
-      setState(() {
-        _error = 'Airbag assignment failed: $e';
-        _assigningTool = false;
-      });
+      setState(() { _error = 'Airbag assignment failed: $e'; _assigningTool = false; });
     }
   }
 
@@ -103,166 +122,86 @@ class _CuringScreenState extends ConsumerState<CuringScreen> {
     setState(() => _completing = true);
     try {
       await ref.read(line2RepositoryProvider).completeStep(
-            jobCard: _scanResult!['job_card']?.toString() ?? _flowchartCtrl.text.trim(),
-          );
+        jobCard: _scanResult!['job_card']?.toString() ?? '',
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Curing completed - tools auto-released'),
-          backgroundColor: AppTheme.success,
-        ));
-        setState(() {
-          _scanResult = null;
-          _airbagAssigned = false;
-          _flowchartCtrl.clear();
-          _airbagCtrl.clear();
-        });
+          backgroundColor: AppTheme.success));
+        _resetForm();
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: AppTheme.danger,
-        ));
+          content: Text('Error: $e'), backgroundColor: AppTheme.danger));
       }
     } finally {
       if (mounted) setState(() => _completing = false);
     }
   }
 
+  void _resetForm() {
+    setState(() {
+      _scanResult = null;
+      _airbagAssigned = false;
+      _error = null;
+      _timerStart = null;
+      _flowchartCtrl.clear();
+      _airbagCtrl.clear();
+    });
+  }
+
+  Widget _buildStepContent() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ScanInputField(
+          controller: _airbagCtrl,
+          focusNode: _airbagFocus,
+          labelText: 'Scan Airbag',
+          hintText: 'Scan airbag barcode',
+          onScanned: _onAirbagScanned,
+          onSubmitted: _onAirbagScanned,
+        ),
+        if (_assigningTool)
+          const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: LinearProgressIndicator()),
+        if (_airbagAssigned)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Row(children: [
+              Icon(Icons.check_circle, color: AppTheme.success, size: 20),
+              SizedBox(width: 8),
+              Text('Airbag assigned', style: TextStyle(color: AppTheme.success, fontWeight: FontWeight.w600)),
+            ]),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return PdtScaffold(
       title: widget.screen.label,
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          ScanInputField(
-            controller: _flowchartCtrl,
-            focusNode: _flowchartFocus,
-            labelText: 'Scan Flowchart',
-            hintText: 'Scan flowchart barcode',
-            onScanned: _onFlowchartScanned,
-            onSubmitted: _onFlowchartScanned,
-            autofocus: true,
-          ),
-          const SizedBox(height: 12),
-
-          if (_scanning)
-            const Center(child: CircularProgressIndicator()),
-
-          if (_error != null)
-            Card(
-              color: AppTheme.dangerLight,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    const Icon(Icons.error_outline, color: AppTheme.danger),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(_error!,
-                        style: const TextStyle(color: AppTheme.danger))),
-                  ],
-                ),
-              ),
-            ),
-
-          if (_scanResult != null) ...[
-            // WO info card
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            _scanResult!['work_order']?.toString() ?? '',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 15),
-                          ),
-                        ),
-                        StatusChip(
-                            status:
-                                _scanResult!['status']?.toString() ?? 'Open'),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                        'Item: ${_scanResult!['item_name'] ?? _scanResult!['item_code'] ?? ''}'),
-                    Text(
-                        'Step: ${_scanResult!['current_step'] ?? 'Curing'}'),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // Airbag scan
-            ScanInputField(
-              controller: _airbagCtrl,
-              focusNode: _airbagFocus,
-              labelText: 'Scan Airbag',
-              hintText: 'Scan airbag barcode',
-              onScanned: _onAirbagScanned,
-              onSubmitted: _onAirbagScanned,
-            ),
-            if (_assigningTool)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: LinearProgressIndicator(),
-              ),
-            if (_airbagAssigned)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  children: [
-                    Icon(Icons.check_circle, color: AppTheme.success, size: 20),
-                    SizedBox(width: 8),
-                    Text('Airbag assigned',
-                        style: TextStyle(
-                            color: AppTheme.success,
-                            fontWeight: FontWeight.w600)),
-                  ],
-                ),
-              ),
-            const SizedBox(height: 12),
-
-            // Airbag weight display
-            if (_scanResult!['airbag_weight'] != null)
-              Card(
-                color: AppTheme.infoLight,
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.monitor_weight_outlined,
-                          color: AppTheme.info),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Airbag Weight: ${_scanResult!['airbag_weight']} Kg',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.info),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            const SizedBox(height: 16),
-
-            // Finish button
-            CustomButton(
-              text: _completing ? 'Completing...' : 'Finish Curing',
-              icon: Icons.check_circle,
-              isLoading: _completing,
-              backgroundColor: AppTheme.success,
-              textColor: Colors.white,
-              onPressed: _completing ? null : _finishCuring,
-            ),
-          ],
-        ],
+      body: ProductionStationLayout(
+        title: widget.screen.label,
+        availableWorkstations: _workstations,
+        selectedWorkstation: _selectedWorkstation,
+        onWorkstationChanged: (ws) => setState(() => _selectedWorkstation = ws),
+        assignedStations: _assignedStations,
+        scanController: _flowchartCtrl,
+        scanFocusNode: _flowchartFocus,
+        onScanned: _onFlowchartScanned,
+        scanning: _scanning,
+        scanResult: _scanResult,
+        stepContent: _scanResult != null ? _buildStepContent() : null,
+        timerStartTime: _timerStart,
+        targetMinutes: (_scanResult?['target_time_minutes'] as num?)?.toInt(),
+        onFinish: _finishCuring,
+        onBack: _resetForm,
+        finishing: _completing,
+        finishLabel: 'Finish Curing',
+        error: _error,
+        onDismissError: () => setState(() => _error = null),
       ),
     );
   }

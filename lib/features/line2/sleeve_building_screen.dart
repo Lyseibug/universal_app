@@ -3,11 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/menu/menu_models.dart';
 import '../../core/theme/app_theme.dart';
-import '../../widgets/custom_button.dart';
 import '../../widgets/pdt_scaffold.dart';
 import '../../widgets/scan_input_field.dart';
-import '../../widgets/status_chip.dart';
 import 'line2_repository.dart';
+import 'widgets/production_station_layout.dart';
 
 class SleeveBuildingScreen extends ConsumerStatefulWidget {
   final MenuScreen screen;
@@ -32,6 +31,18 @@ class _SleeveBuildingScreenState extends ConsumerState<SleeveBuildingScreen> {
   Map<String, dynamic>? _scanResult;
   List<_LayerCheck> _layeringChecks = [];
   bool _moldAssigned = false;
+  DateTime? _timerStart;
+
+  // Workstation
+  List<String> _workstations = [];
+  List<String> _assignedStations = [];
+  String? _selectedWorkstation;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadWorkerStations();
+  }
 
   @override
   void dispose() {
@@ -40,6 +51,25 @@ class _SleeveBuildingScreenState extends ConsumerState<SleeveBuildingScreen> {
     _moldCtrl.dispose();
     _moldFocus.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadWorkerStations() async {
+    try {
+      final stations = await ref.read(line2RepositoryProvider).getWorkerStations();
+      if (stations.isNotEmpty && mounted) {
+        final all = <String>[];
+        for (final s in stations) {
+          final ws = s['workstations'];
+          if (ws is List) all.addAll(ws.map((w) => w.toString()));
+        }
+        final buildingStations = all.where((w) => w.contains('B')).toList();
+        setState(() {
+          _assignedStations = all;
+          _workstations = buildingStations.isNotEmpty ? buildingStations : all;
+          if (_workstations.isNotEmpty) _selectedWorkstation = _workstations.first;
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _onFlowchartScanned(String barcode) async {
@@ -53,23 +83,21 @@ class _SleeveBuildingScreenState extends ConsumerState<SleeveBuildingScreen> {
       _layeringChecks = [];
       _moldAssigned = false;
       _moldCtrl.clear();
+      _timerStart = null;
     });
 
     try {
-      final result =
-          await ref.read(line2RepositoryProvider).scanFlowchart(trimmed);
-      final data = result;
+      final data = await ref.read(line2RepositoryProvider).scanFlowchart(trimmed);
       final layering = data['layering_sequence'];
       List<_LayerCheck> checks = [];
       if (layering is List) {
-        checks = layering
-            .map((l) => _LayerCheck(label: l.toString()))
-            .toList();
+        checks = layering.map((l) => _LayerCheck(label: l.toString())).toList();
       }
       setState(() {
         _scanResult = data;
         _layeringChecks = checks;
         _scanning = false;
+        _timerStart = DateTime.now();
       });
     } catch (e) {
       setState(() {
@@ -91,7 +119,7 @@ class _SleeveBuildingScreenState extends ConsumerState<SleeveBuildingScreen> {
     try {
       await ref.read(line2RepositoryProvider).assignTool(
             toolId: trimmed,
-            jobCard: _scanResult!['job_card']?.toString() ?? _flowchartCtrl.text.trim(),
+            jobCard: _scanResult!['job_card']?.toString() ?? '',
           );
       setState(() {
         _moldAssigned = true;
@@ -124,20 +152,14 @@ class _SleeveBuildingScreenState extends ConsumerState<SleeveBuildingScreen> {
     setState(() => _completing = true);
     try {
       await ref.read(line2RepositoryProvider).completeStep(
-            jobCard: _scanResult!['job_card']?.toString() ?? _flowchartCtrl.text.trim(),
+            jobCard: _scanResult!['job_card']?.toString() ?? '',
           );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Sleeve building step completed'),
           backgroundColor: AppTheme.success,
         ));
-        setState(() {
-          _scanResult = null;
-          _layeringChecks = [];
-          _moldAssigned = false;
-          _flowchartCtrl.clear();
-          _moldCtrl.clear();
-        });
+        _resetForm();
       }
     } catch (e) {
       if (mounted) {
@@ -157,158 +179,100 @@ class _SleeveBuildingScreenState extends ConsumerState<SleeveBuildingScreen> {
       _layeringChecks = [];
       _moldAssigned = false;
       _error = null;
+      _timerStart = null;
       _flowchartCtrl.clear();
       _moldCtrl.clear();
     });
+  }
+
+  Widget _buildStepContent() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Mold scan
+        ScanInputField(
+          controller: _moldCtrl,
+          focusNode: _moldFocus,
+          labelText: 'Scan Mold',
+          hintText: 'Scan mold barcode',
+          onScanned: _onMoldScanned,
+          onSubmitted: _onMoldScanned,
+        ),
+        if (_assigningTool)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: LinearProgressIndicator(),
+          ),
+        if (_moldAssigned)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: [
+                Icon(Icons.check_circle, color: AppTheme.success, size: 20),
+                SizedBox(width: 8),
+                Text('Mold assigned',
+                    style: TextStyle(color: AppTheme.success, fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+        const SizedBox(height: 12),
+
+        // Layering checklist
+        if (_layeringChecks.isNotEmpty) ...[
+          const Text(
+            'LAYERING CHECKLIST',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textSecondary,
+              letterSpacing: 1.0,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Card(
+            child: Column(
+              children: _layeringChecks.asMap().entries.map((entry) {
+                final i = entry.key;
+                final check = entry.value;
+                return CheckboxListTile(
+                  title: Text('${i + 1}. ${check.label}'),
+                  value: check.checked,
+                  activeColor: AppTheme.success,
+                  onChanged: (val) {
+                    setState(() => check.checked = val ?? false);
+                  },
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return PdtScaffold(
       title: widget.screen.label,
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // Step 1: Flowchart scan
-          ScanInputField(
-            controller: _flowchartCtrl,
-            focusNode: _flowchartFocus,
-            labelText: 'Scan Flowchart',
-            hintText: 'Scan flowchart barcode',
-            onScanned: _onFlowchartScanned,
-            onSubmitted: _onFlowchartScanned,
-            autofocus: true,
-          ),
-          const SizedBox(height: 12),
-
-          if (_scanning)
-            const Center(child: CircularProgressIndicator()),
-
-          if (_error != null)
-            Card(
-              color: AppTheme.dangerLight,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    const Icon(Icons.error_outline, color: AppTheme.danger),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(_error!,
-                        style: const TextStyle(color: AppTheme.danger))),
-                    IconButton(
-                      icon: const Icon(Icons.close, size: 18),
-                      onPressed: () => setState(() => _error = null),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-          if (_scanResult != null) ...[
-            // WO info card
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            _scanResult!['work_order']?.toString() ?? '',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 15),
-                          ),
-                        ),
-                        StatusChip(
-                            status: _scanResult!['status']?.toString() ??
-                                'Open'),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                        'Item: ${_scanResult!['item_name'] ?? _scanResult!['item_code'] ?? ''}'),
-                    Text(
-                        'Step: ${_scanResult!['current_step'] ?? 'Sleeve Building'}'),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // Step 2: Mold scan
-            ScanInputField(
-              controller: _moldCtrl,
-              focusNode: _moldFocus,
-              labelText: 'Scan Mold',
-              hintText: 'Scan mold barcode',
-              onScanned: _onMoldScanned,
-              onSubmitted: _onMoldScanned,
-            ),
-            if (_assigningTool)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: LinearProgressIndicator(),
-              ),
-            if (_moldAssigned)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  children: [
-                    Icon(Icons.check_circle, color: AppTheme.success, size: 20),
-                    SizedBox(width: 8),
-                    Text('Mold assigned',
-                        style: TextStyle(
-                            color: AppTheme.success,
-                            fontWeight: FontWeight.w600)),
-                  ],
-                ),
-              ),
-            const SizedBox(height: 16),
-
-            // Layering checklist
-            if (_layeringChecks.isNotEmpty) ...[
-              Text('Layering Checklist',
-                  style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              Card(
-                child: Column(
-                  children: _layeringChecks.asMap().entries.map((entry) {
-                    final i = entry.key;
-                    final check = entry.value;
-                    return CheckboxListTile(
-                      title: Text('${i + 1}. ${check.label}'),
-                      value: check.checked,
-                      activeColor: AppTheme.success,
-                      onChanged: (val) {
-                        setState(() => check.checked = val ?? false);
-                      },
-                    );
-                  }).toList(),
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
-
-            // Finish button
-            CustomButton(
-              text: _completing ? 'Completing...' : 'Finish Step',
-              icon: Icons.check_circle,
-              isLoading: _completing,
-              backgroundColor: AppTheme.success,
-              textColor: Colors.white,
-              onPressed: _completing ? null : _finishStep,
-            ),
-            const SizedBox(height: 8),
-            CustomButton(
-              text: 'Reset',
-              icon: Icons.refresh,
-              outlined: true,
-              onPressed: _resetForm,
-            ),
-          ],
-        ],
+      body: ProductionStationLayout(
+        title: widget.screen.label,
+        availableWorkstations: _workstations,
+        selectedWorkstation: _selectedWorkstation,
+        onWorkstationChanged: (ws) => setState(() => _selectedWorkstation = ws),
+        assignedStations: _assignedStations,
+        scanController: _flowchartCtrl,
+        scanFocusNode: _flowchartFocus,
+        onScanned: _onFlowchartScanned,
+        scanning: _scanning,
+        scanResult: _scanResult,
+        stepContent: _scanResult != null ? _buildStepContent() : null,
+        timerStartTime: _timerStart,
+        targetMinutes: (_scanResult?['target_time_minutes'] as num?)?.toInt(),
+        onFinish: _finishStep,
+        onBack: _resetForm,
+        finishing: _completing,
+        error: _error,
+        onDismissError: () => setState(() => _error = null),
       ),
     );
   }
@@ -317,6 +281,5 @@ class _SleeveBuildingScreenState extends ConsumerState<SleeveBuildingScreen> {
 class _LayerCheck {
   final String label;
   bool checked;
-
   _LayerCheck({required this.label, this.checked = false});
 }

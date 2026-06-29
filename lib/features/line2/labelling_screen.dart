@@ -7,6 +7,8 @@ import '../../widgets/custom_button.dart';
 import '../../widgets/pdt_scaffold.dart';
 import '../../widgets/scan_input_field.dart';
 import 'line2_repository.dart';
+import 'widgets/product_details_card.dart';
+import 'widgets/support_help_section.dart';
 
 class LabellingScreen extends ConsumerStatefulWidget {
   final MenuScreen screen;
@@ -25,7 +27,7 @@ class _LabellingScreenState extends ConsumerState<LabellingScreen> {
   String? _error;
   String? _printStatus;
 
-  Map<String, dynamic>? _itemData;
+  Map<String, dynamic>? _scanResult;
 
   @override
   void dispose() {
@@ -41,63 +43,43 @@ class _LabellingScreenState extends ConsumerState<LabellingScreen> {
     setState(() {
       _scanning = true;
       _error = null;
-      _itemData = null;
+      _scanResult = null;
       _printStatus = null;
     });
 
     try {
-      final result =
-          await ref.read(line2RepositoryProvider).scanFlowchart(trimmed);
-      setState(() {
-        _itemData = result;
-        _scanning = false;
-      });
+      final result = await ref.read(line2RepositoryProvider).scanFlowchart(trimmed);
+      setState(() { _scanResult = result; _scanning = false; });
     } catch (e) {
-      setState(() {
-        _error = 'Scan failed: $e';
-        _scanning = false;
-      });
+      setState(() { _error = 'Scan failed: $e'; _scanning = false; });
     }
   }
 
   Future<void> _printLabel() async {
-    if (_itemData == null) return;
+    if (_scanResult == null) return;
 
-    setState(() {
-      _printing = true;
-      _printStatus = null;
-    });
+    setState(() { _printing = true; _printStatus = null; });
 
     try {
-      final itemCode = _itemData!['item_code']?.toString() ?? _scanCtrl.text.trim();
-      await ref.read(line2RepositoryProvider).printLabel(barcode: itemCode, labelType: 'Item');
-      setState(() {
-        _printStatus = 'success';
-        _printing = false;
-      });
+      final barcode = _scanResult!['flowchart_barcode']?.toString() ?? _scanCtrl.text.trim();
+      await ref.read(line2RepositoryProvider).printLabel(barcode: barcode, labelType: 'Item');
+      setState(() { _printStatus = 'success'; _printing = false; });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Label sent to printer'),
-          backgroundColor: AppTheme.success,
-        ));
+          content: Text('Label sent to printer'), backgroundColor: AppTheme.success));
       }
     } catch (e) {
-      setState(() {
-        _printStatus = 'error';
-        _printing = false;
-      });
+      setState(() { _printStatus = 'error'; _printing = false; });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Print failed: $e'),
-          backgroundColor: AppTheme.danger,
-        ));
+          content: Text('Print failed: $e'), backgroundColor: AppTheme.danger));
       }
     }
   }
 
   void _resetForm() {
     setState(() {
-      _itemData = null;
+      _scanResult = null;
       _error = null;
       _printStatus = null;
       _scanCtrl.clear();
@@ -114,101 +96,47 @@ class _LabellingScreenState extends ConsumerState<LabellingScreen> {
           ScanInputField(
             controller: _scanCtrl,
             focusNode: _scanFocus,
-            labelText: 'Scan Item / Batch',
-            hintText: 'Scan item or batch barcode',
+            labelText: 'Scan Flowchart / Item',
+            hintText: 'Scan item or flowchart barcode',
             onScanned: _onItemScanned,
             onSubmitted: _onItemScanned,
             autofocus: true,
           ),
           const SizedBox(height: 12),
 
-          if (_scanning)
-            const Center(child: CircularProgressIndicator()),
+          if (_scanning) const Center(child: CircularProgressIndicator()),
 
           if (_error != null)
             Card(
               color: AppTheme.dangerLight,
               child: Padding(
                 padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    const Icon(Icons.error_outline, color: AppTheme.danger),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(_error!,
-                        style: const TextStyle(color: AppTheme.danger))),
-                  ],
-                ),
+                child: Row(children: [
+                  const Icon(Icons.error_outline, color: AppTheme.danger),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(_error!, style: const TextStyle(color: AppTheme.danger))),
+                ]),
               ),
             ),
 
-          if (_itemData != null) ...[
-            // Item details card
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.inventory_2,
-                            color: AppTheme.primary, size: 20),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _itemData!['item_name']?.toString() ??
-                                _itemData!['item_code']?.toString() ?? '',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 16),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Divider(height: 20),
-                    _infoRow('Item Code',
-                        _itemData!['item_code']?.toString() ?? ''),
-                    if (_itemData!['batch_no'] != null)
-                      _infoRow('Batch', _itemData!['batch_no'].toString()),
-                    if (_itemData!['work_order'] != null)
-                      _infoRow(
-                          'Work Order', _itemData!['work_order'].toString()),
-                    if (_itemData!['qty'] != null)
-                      _infoRow('Qty', _itemData!['qty'].toString()),
-                  ],
-                ),
-              ),
-            ),
+          if (_scanResult != null) ...[
+            ProductDetailsCard.fromScanResult(_scanResult!),
             const SizedBox(height: 16),
 
-            // Print status
             if (_printStatus != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
-                child: Row(
-                  children: [
-                    Icon(
-                      _printStatus == 'success'
-                          ? Icons.check_circle
-                          : Icons.error_outline,
-                      color: _printStatus == 'success'
-                          ? AppTheme.success
-                          : AppTheme.danger,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      _printStatus == 'success'
-                          ? 'Label printed successfully'
-                          : 'Print failed - try again',
-                      style: TextStyle(
-                        color: _printStatus == 'success'
-                            ? AppTheme.success
-                            : AppTheme.danger,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
+                child: Row(children: [
+                  Icon(
+                    _printStatus == 'success' ? Icons.check_circle : Icons.error_outline,
+                    color: _printStatus == 'success' ? AppTheme.success : AppTheme.danger, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    _printStatus == 'success' ? 'Label printed successfully' : 'Print failed - try again',
+                    style: TextStyle(
+                      color: _printStatus == 'success' ? AppTheme.success : AppTheme.danger,
+                      fontWeight: FontWeight.w600)),
+                ]),
               ),
 
             CustomButton(
@@ -226,29 +154,9 @@ class _LabellingScreenState extends ConsumerState<LabellingScreen> {
               outlined: true,
               onPressed: _resetForm,
             ),
+            const SizedBox(height: 16),
+            const SupportHelpSection(),
           ],
-        ],
-      ),
-    );
-  }
-
-  Widget _infoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 100,
-            child: Text(label,
-                style: const TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontWeight: FontWeight.w500)),
-          ),
-          Expanded(
-            child: Text(value,
-                style: const TextStyle(fontWeight: FontWeight.w600)),
-          ),
         ],
       ),
     );

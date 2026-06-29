@@ -3,19 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/menu/menu_models.dart';
 import '../../core/theme/app_theme.dart';
-import '../../widgets/custom_button.dart';
 import '../../widgets/pdt_scaffold.dart';
-import '../../widgets/scan_input_field.dart';
 import '../../widgets/status_chip.dart';
 import 'line2_repository.dart';
+import 'widgets/production_station_layout.dart';
 
 class QcMeasurementScreen extends ConsumerStatefulWidget {
   final MenuScreen screen;
   const QcMeasurementScreen({required this.screen, super.key});
 
   @override
-  ConsumerState<QcMeasurementScreen> createState() =>
-      _QcMeasurementScreenState();
+  ConsumerState<QcMeasurementScreen> createState() => _QcMeasurementScreenState();
 }
 
 class _QcMeasurementScreenState extends ConsumerState<QcMeasurementScreen> {
@@ -25,89 +23,108 @@ class _QcMeasurementScreenState extends ConsumerState<QcMeasurementScreen> {
   bool _scanning = false;
   bool _submitting = false;
   String? _error;
+  DateTime? _timerStart;
 
-  Map<String, dynamic>? _qcInfo;
+  Map<String, dynamic>? _scanResult;
   List<_QcParam> _params = [];
+
+  List<String> _workstations = [];
+  List<String> _assignedStations = [];
+  String? _selectedWorkstation;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadWorkerStations();
+  }
 
   @override
   void dispose() {
     _flowchartCtrl.dispose();
     _flowchartFocus.dispose();
-    for (final p in _params) {
-      p.dispose();
-    }
+    for (final p in _params) { p.dispose(); }
     super.dispose();
+  }
+
+  Future<void> _loadWorkerStations() async {
+    try {
+      final stations = await ref.read(line2RepositoryProvider).getWorkerStations();
+      if (stations.isNotEmpty && mounted) {
+        final all = <String>[];
+        for (final s in stations) {
+          final ws = s['workstations'];
+          if (ws is List) all.addAll(ws.map((w) => w.toString()));
+        }
+        final qcStations = all.where((w) => w.contains('QC')).toList();
+        setState(() {
+          _assignedStations = all;
+          _workstations = qcStations.isNotEmpty ? qcStations : all;
+          if (_workstations.isNotEmpty) _selectedWorkstation = _workstations.first;
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _onFlowchartScanned(String barcode) async {
     final trimmed = barcode.trim();
     if (trimmed.isEmpty) return;
 
-    for (final p in _params) {
-      p.dispose();
-    }
+    for (final p in _params) { p.dispose(); }
 
     setState(() {
       _scanning = true;
       _error = null;
-      _qcInfo = null;
+      _scanResult = null;
       _params = [];
+      _timerStart = null;
     });
 
     try {
-      final result =
-          await ref.read(line2RepositoryProvider).getQcInfo(workOrder: trimmed);
-      final data = result;
-      final parameters = data['parameters'];
+      final data = await ref.read(line2RepositoryProvider).scanFlowchart(trimmed);
+      final params = data['measurement_params'];
       List<_QcParam> paramList = [];
-      if (parameters is List) {
-        paramList = parameters.map((p) {
+      if (params is List) {
+        paramList = params.map((p) {
           final param = Map<String, dynamic>.from(p);
           return _QcParam(
-            name: param['name']?.toString() ?? '',
-            label: param['label']?.toString() ?? param['name']?.toString() ?? '',
-            unit: param['unit']?.toString() ?? '',
-            min: (param['min'] as num?)?.toDouble(),
-            max: (param['max'] as num?)?.toDouble(),
+            name: param['param_name']?.toString() ?? '',
+            unit: param['uom']?.toString() ?? '',
+            min: (param['expected_min'] as num?)?.toDouble(),
+            max: (param['expected_max'] as num?)?.toDouble(),
+            isMandatory: (param['is_mandatory'] ?? 0) == 1,
           );
         }).toList();
       }
       setState(() {
-        _qcInfo = data;
+        _scanResult = data;
         _params = paramList;
         _scanning = false;
+        _timerStart = DateTime.now();
       });
     } catch (e) {
-      setState(() {
-        _error = 'Failed to load QC info: $e';
-        _scanning = false;
-      });
+      setState(() { _error = 'Failed to load QC info: $e'; _scanning = false; });
     }
   }
 
   bool _isParamPassing(_QcParam param) {
     final val = double.tryParse(param.controller.text.trim());
     if (val == null) return false;
-    if (param.min != null && val < param.min!) return false;
-    if (param.max != null && val > param.max!) return false;
+    if (param.min != null && param.min! > 0 && val < param.min!) return false;
+    if (param.max != null && param.max! > 0 && val > param.max!) return false;
     return true;
   }
 
   Future<void> _submitMeasurements() async {
     for (final p in _params) {
       final val = p.controller.text.trim();
-      if (val.isEmpty) {
+      if (p.isMandatory && val.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Please fill in "${p.label}"'),
-          backgroundColor: AppTheme.danger,
-        ));
+          content: Text('Please fill in "${p.name}"'), backgroundColor: AppTheme.danger));
         return;
       }
-      if (double.tryParse(val) == null) {
+      if (val.isNotEmpty && double.tryParse(val) == null) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('"${p.label}" must be a valid number'),
-          backgroundColor: AppTheme.danger,
-        ));
+          content: Text('"${p.name}" must be a valid number'), backgroundColor: AppTheme.danger));
         return;
       }
     }
@@ -115,30 +132,30 @@ class _QcMeasurementScreenState extends ConsumerState<QcMeasurementScreen> {
     setState(() => _submitting = true);
     try {
       final measurements = _params
+          .where((p) => p.controller.text.trim().isNotEmpty)
           .map((p) => {
-                'param': p.name,
-                'value': double.tryParse(p.controller.text.trim()) ?? 0,
+                'parameter_name': p.name,
+                'actual_value': double.tryParse(p.controller.text.trim()) ?? 0,
+                'expected_min': p.min ?? 0,
+                'expected_max': p.max ?? 0,
+                'uom': p.unit,
               })
           .toList();
 
       await ref.read(line2RepositoryProvider).submitMeasurement(
-            jobCard: _qcInfo!['job_card']?.toString() ?? _flowchartCtrl.text.trim(),
-            measurements: measurements,
-          );
+        jobCard: _scanResult!['job_card']?.toString() ?? '',
+        measurements: measurements,
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('QC measurements submitted'),
-          backgroundColor: AppTheme.success,
-        ));
+          content: Text('QC measurements submitted'), backgroundColor: AppTheme.success));
         _resetForm();
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: AppTheme.danger,
-        ));
+          content: Text('Error: $e'), backgroundColor: AppTheme.danger));
       }
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -146,174 +163,97 @@ class _QcMeasurementScreenState extends ConsumerState<QcMeasurementScreen> {
   }
 
   void _resetForm() {
-    for (final p in _params) {
-      p.dispose();
-    }
+    for (final p in _params) { p.dispose(); }
     setState(() {
-      _qcInfo = null;
+      _scanResult = null;
       _params = [];
       _error = null;
+      _timerStart = null;
       _flowchartCtrl.clear();
     });
+  }
+
+  Widget _buildStepContent() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('MEASUREMENTS',
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary, letterSpacing: 1.0)),
+        const SizedBox(height: 10),
+        ..._params.map((param) {
+          final hasValue = param.controller.text.trim().isNotEmpty;
+          final passing = hasValue && _isParamPassing(param);
+          final failing = hasValue && !_isParamPassing(param);
+
+          return Card(
+            margin: const EdgeInsets.only(bottom: 8),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(child: Text('${param.name}${param.isMandatory ? " *" : ""}',
+                          style: const TextStyle(fontWeight: FontWeight.w600))),
+                      if (param.min != null && param.min! > 0 || param.max != null && param.max! > 0)
+                        Text('${param.min ?? "-"} - ${param.max ?? "-"} ${param.unit}',
+                            style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+                      const SizedBox(width: 8),
+                      if (hasValue) StatusChip(status: passing ? 'success' : 'failed'),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: param.controller,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      hintText: 'Enter value',
+                      suffixText: param.unit,
+                      isDense: true,
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: BorderSide(
+                          color: failing ? AppTheme.danger : passing ? AppTheme.success : AppTheme.bgBorder,
+                        ),
+                      ),
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }),
+      ],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return PdtScaffold(
       title: widget.screen.label,
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          ScanInputField(
-            controller: _flowchartCtrl,
-            focusNode: _flowchartFocus,
-            labelText: 'Scan Flowchart',
-            hintText: 'Scan flowchart barcode for QC',
-            onScanned: _onFlowchartScanned,
-            onSubmitted: _onFlowchartScanned,
-            autofocus: true,
-          ),
-          const SizedBox(height: 12),
-
-          if (_scanning)
-            const Center(child: CircularProgressIndicator()),
-
-          if (_error != null)
-            Card(
-              color: AppTheme.dangerLight,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    const Icon(Icons.error_outline, color: AppTheme.danger),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(_error!,
-                        style: const TextStyle(color: AppTheme.danger))),
-                  ],
-                ),
-              ),
-            ),
-
-          if (_qcInfo != null) ...[
-            // QC info header
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            _qcInfo!['item_name']?.toString() ??
-                                _qcInfo!['item_code']?.toString() ?? '',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 15),
-                          ),
-                        ),
-                        if (_qcInfo!['qc_mode'] != null)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppTheme.infoLight,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              _qcInfo!['qc_mode'].toString().toUpperCase(),
-                              style: const TextStyle(
-                                  color: AppTheme.info,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    if (_qcInfo!['work_order'] != null)
-                      Text('WO: ${_qcInfo!['work_order']}'),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Measurement parameters
-            Text('Measurements (${_params.length} parameters)',
-                style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-
-            ..._params.map((param) {
-              final hasValue = param.controller.text.trim().isNotEmpty;
-              final passing = hasValue && _isParamPassing(param);
-              final failing = hasValue && !_isParamPassing(param);
-
-              return Card(
-                margin: const EdgeInsets.only(bottom: 8),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(param.label,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w600)),
-                          ),
-                          if (param.min != null || param.max != null)
-                            Text(
-                              '${param.min ?? '-'} - ${param.max ?? '-'} ${param.unit}',
-                              style: const TextStyle(
-                                  color: AppTheme.textSecondary, fontSize: 12),
-                            ),
-                          const SizedBox(width: 8),
-                          if (hasValue)
-                            StatusChip(
-                                status: passing ? 'success' : 'failed'),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: param.controller,
-                        keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
-                        decoration: InputDecoration(
-                          hintText: 'Enter value',
-                          suffixText: param.unit,
-                          border: const OutlineInputBorder(),
-                          isDense: true,
-                          enabledBorder: OutlineInputBorder(
-                            borderSide: BorderSide(
-                              color: failing
-                                  ? AppTheme.danger
-                                  : passing
-                                      ? AppTheme.success
-                                      : AppTheme.bgBorder,
-                            ),
-                          ),
-                        ),
-                        onChanged: (_) => setState(() {}),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }),
-            const SizedBox(height: 16),
-
-            CustomButton(
-              text: _submitting ? 'Submitting...' : 'Submit Measurements',
-              icon: Icons.upload,
-              isLoading: _submitting,
-              backgroundColor: AppTheme.primary,
-              textColor: Colors.white,
-              onPressed: _submitting ? null : _submitMeasurements,
-            ),
-          ],
-        ],
+      body: ProductionStationLayout(
+        title: widget.screen.label,
+        availableWorkstations: _workstations,
+        selectedWorkstation: _selectedWorkstation,
+        onWorkstationChanged: (ws) => setState(() => _selectedWorkstation = ws),
+        assignedStations: _assignedStations,
+        scanController: _flowchartCtrl,
+        scanFocusNode: _flowchartFocus,
+        scanLabel: 'Scan Flowchart',
+        scanHint: 'Scan flowchart barcode for QC',
+        onScanned: _onFlowchartScanned,
+        scanning: _scanning,
+        scanResult: _scanResult,
+        stepContent: _scanResult != null ? _buildStepContent() : null,
+        timerStartTime: _timerStart,
+        targetMinutes: (_scanResult?['target_time_minutes'] as num?)?.toInt(),
+        onFinish: _submitMeasurements,
+        onBack: _resetForm,
+        finishing: _submitting,
+        finishLabel: 'Submit Measurements',
+        error: _error,
+        onDismissError: () => setState(() => _error = null),
       ),
     );
   }
@@ -321,21 +261,14 @@ class _QcMeasurementScreenState extends ConsumerState<QcMeasurementScreen> {
 
 class _QcParam {
   final String name;
-  final String label;
   final String unit;
   final double? min;
   final double? max;
+  final bool isMandatory;
   final TextEditingController controller;
 
-  _QcParam({
-    required this.name,
-    required this.label,
-    this.unit = '',
-    this.min,
-    this.max,
-  }) : controller = TextEditingController();
+  _QcParam({required this.name, this.unit = '', this.min, this.max, this.isMandatory = false})
+      : controller = TextEditingController();
 
-  void dispose() {
-    controller.dispose();
-  }
+  void dispose() { controller.dispose(); }
 }

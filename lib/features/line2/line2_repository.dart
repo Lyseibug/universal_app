@@ -12,6 +12,25 @@ class Line2Repository {
       : _api = api,
         _writeQueue = writeQueue;
 
+  // ── Worker Stations & Config ────────────────────────────────────────────
+
+  Future<List<Map<String, dynamic>>> getWorkerStations() async {
+    final data = await _api.call('line2.get_worker_stations', body: {});
+    if (data is List) {
+      return data.map((j) => Map<String, dynamic>.from(j)).toList();
+    }
+    return const [];
+  }
+
+  Future<List<Map<String, dynamic>>> getRejectionCodes(String productionType) async {
+    final data = await _api.call('line2.get_rejection_codes',
+        body: {'production_type': productionType});
+    if (data is List) {
+      return data.map((j) => Map<String, dynamic>.from(j)).toList();
+    }
+    return const [];
+  }
+
   // ── Flowchart / Scanning ────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> scanFlowchart(String barcode) async {
