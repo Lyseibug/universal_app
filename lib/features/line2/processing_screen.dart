@@ -58,7 +58,7 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
     try {
       final result =
           await ref.read(line2RepositoryProvider).scanFlowchart(trimmed);
-      final data = Map<String, dynamic>.from(result);
+      final data = result;
       final params = data['measurement_params'];
       List<_MeasurementField> fields = [];
       if (params is List) {
@@ -115,7 +115,7 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
           .toList();
 
       await ref.read(line2RepositoryProvider).completeStep(
-            flowchart: _flowchartCtrl.text.trim(),
+            jobCard: _scanResult!['job_card']?.toString() ?? _flowchartCtrl.text.trim(),
             measurements: measurementData,
           );
 

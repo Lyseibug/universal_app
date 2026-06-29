@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/menu/menu_models.dart';
 import '../../core/theme/app_theme.dart';
+import '../../providers/service_providers.dart';
 import '../../widgets/pdt_scaffold.dart';
 import '../../widgets/status_chip.dart';
 import 'line2_repository.dart';
@@ -49,12 +50,17 @@ class _ToolStatusScreenState extends ConsumerState<ToolStatusScreen> {
       _error = null;
     });
     try {
-      final data = await ref.read(line2RepositoryProvider).getToolStatus(
-            toolType: _filterType,
-            status: _filterStatus,
+      final data = await ref.read(apiClientProvider).call(
+            'line2.get_tool_status',
+            body: {
+              if (_filterType != null) 'tool_type': _filterType,
+              if (_filterStatus != null) 'status': _filterStatus,
+            },
           );
       setState(() {
-        _tools = List<Map<String, dynamic>>.from(data);
+        _tools = (data is List)
+            ? data.map((e) => Map<String, dynamic>.from(e)).toList()
+            : <Map<String, dynamic>>[];
         _loading = false;
       });
     } catch (e) {
@@ -114,9 +120,9 @@ class _ToolStatusScreenState extends ConsumerState<ToolStatusScreen> {
                 }
                 Navigator.pop(ctx);
                 try {
-                  await ref.read(line2RepositoryProvider).updateToolWeight(
-                        toolCode: tool['tool_code']?.toString() ?? '',
-                        weight: weight,
+                  await ref.read(line2RepositoryProvider).updateAirbagWeight(
+                        toolId: tool['tool_code']?.toString() ?? '',
+                        weightKg: weight,
                       );
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(

@@ -18,11 +18,8 @@ class SleeveCreationScreen extends ConsumerStatefulWidget {
 }
 
 class _SleeveCreationScreenState extends ConsumerState<SleeveCreationScreen> {
-  final _fabricItemCtrl = TextEditingController();
-  final _fabricItemFocus = FocusNode();
-  final _fabricQtyCtrl = TextEditingController();
-  final _sleeveItemCtrl = TextEditingController();
-  final _sleeveItemFocus = FocusNode();
+  final _workOrderCtrl = TextEditingController();
+  final _workOrderFocus = FocusNode();
   final _sleeveCountCtrl = TextEditingController();
 
   bool _creating = false;
@@ -31,31 +28,18 @@ class _SleeveCreationScreenState extends ConsumerState<SleeveCreationScreen> {
 
   @override
   void dispose() {
-    _fabricItemCtrl.dispose();
-    _fabricItemFocus.dispose();
-    _fabricQtyCtrl.dispose();
-    _sleeveItemCtrl.dispose();
-    _sleeveItemFocus.dispose();
+    _workOrderCtrl.dispose();
+    _workOrderFocus.dispose();
     _sleeveCountCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _createSleeves() async {
-    final fabricItem = _fabricItemCtrl.text.trim();
-    final fabricQty = double.tryParse(_fabricQtyCtrl.text.trim());
-    final sleeveItem = _sleeveItemCtrl.text.trim();
+    final workOrder = _workOrderCtrl.text.trim();
     final sleeveCount = int.tryParse(_sleeveCountCtrl.text.trim());
 
-    if (fabricItem.isEmpty) {
-      _showError('Scan or enter fabric item');
-      return;
-    }
-    if (fabricQty == null || fabricQty <= 0) {
-      _showError('Enter a valid fabric quantity');
-      return;
-    }
-    if (sleeveItem.isEmpty) {
-      _showError('Scan or enter sleeve item');
+    if (workOrder.isEmpty) {
+      _showError('Scan or enter work order');
       return;
     }
     if (sleeveCount == null || sleeveCount <= 0) {
@@ -71,13 +55,11 @@ class _SleeveCreationScreenState extends ConsumerState<SleeveCreationScreen> {
 
     try {
       final result = await ref.read(line2RepositoryProvider).createSleeves(
-            fabricItem: fabricItem,
-            fabricQty: fabricQty,
-            sleeveItem: sleeveItem,
+            workOrder: workOrder,
             sleeveCount: sleeveCount,
           );
       setState(() {
-        _result = Map<String, dynamic>.from(result);
+        _result = result;
         _creating = false;
       });
       if (mounted) {
@@ -103,9 +85,7 @@ class _SleeveCreationScreenState extends ConsumerState<SleeveCreationScreen> {
 
   void _resetForm() {
     setState(() {
-      _fabricItemCtrl.clear();
-      _fabricQtyCtrl.clear();
-      _sleeveItemCtrl.clear();
+      _workOrderCtrl.clear();
       _sleeveCountCtrl.clear();
       _error = null;
       _result = null;
@@ -119,35 +99,13 @@ class _SleeveCreationScreenState extends ConsumerState<SleeveCreationScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Fabric item scan
+          // Work order scan
           ScanInputField(
-            controller: _fabricItemCtrl,
-            focusNode: _fabricItemFocus,
-            labelText: 'Fabric Item',
-            hintText: 'Scan fabric item barcode',
+            controller: _workOrderCtrl,
+            focusNode: _workOrderFocus,
+            labelText: 'Work Order',
+            hintText: 'Scan or enter work order',
             autofocus: true,
-          ),
-          const SizedBox(height: 12),
-
-          // Fabric qty
-          TextField(
-            controller: _fabricQtyCtrl,
-            keyboardType:
-                const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              labelText: 'Fabric Qty (Kg)',
-              border: OutlineInputBorder(),
-              isDense: true,
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Sleeve item
-          ScanInputField(
-            controller: _sleeveItemCtrl,
-            focusNode: _sleeveItemFocus,
-            labelText: 'Sleeve Item',
-            hintText: 'Scan or enter sleeve item code',
           ),
           const SizedBox(height: 12),
 

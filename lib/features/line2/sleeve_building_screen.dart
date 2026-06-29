@@ -58,7 +58,7 @@ class _SleeveBuildingScreenState extends ConsumerState<SleeveBuildingScreen> {
     try {
       final result =
           await ref.read(line2RepositoryProvider).scanFlowchart(trimmed);
-      final data = Map<String, dynamic>.from(result);
+      final data = result;
       final layering = data['layering_sequence'];
       List<_LayerCheck> checks = [];
       if (layering is List) {
@@ -90,8 +90,8 @@ class _SleeveBuildingScreenState extends ConsumerState<SleeveBuildingScreen> {
 
     try {
       await ref.read(line2RepositoryProvider).assignTool(
-            flowchart: _flowchartCtrl.text.trim(),
-            toolBarcode: trimmed,
+            toolId: trimmed,
+            jobCard: _scanResult!['job_card']?.toString() ?? _flowchartCtrl.text.trim(),
           );
       setState(() {
         _moldAssigned = true;
@@ -124,7 +124,7 @@ class _SleeveBuildingScreenState extends ConsumerState<SleeveBuildingScreen> {
     setState(() => _completing = true);
     try {
       await ref.read(line2RepositoryProvider).completeStep(
-            flowchart: _flowchartCtrl.text.trim(),
+            jobCard: _scanResult!['job_card']?.toString() ?? _flowchartCtrl.text.trim(),
           );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(

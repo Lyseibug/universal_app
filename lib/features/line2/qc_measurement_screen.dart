@@ -56,8 +56,8 @@ class _QcMeasurementScreenState extends ConsumerState<QcMeasurementScreen> {
 
     try {
       final result =
-          await ref.read(line2RepositoryProvider).getQcInfo(trimmed);
-      final data = Map<String, dynamic>.from(result);
+          await ref.read(line2RepositoryProvider).getQcInfo(workOrder: trimmed);
+      final data = result;
       final parameters = data['parameters'];
       List<_QcParam> paramList = [];
       if (parameters is List) {
@@ -122,7 +122,7 @@ class _QcMeasurementScreenState extends ConsumerState<QcMeasurementScreen> {
           .toList();
 
       await ref.read(line2RepositoryProvider).submitMeasurement(
-            flowchart: _flowchartCtrl.text.trim(),
+            jobCard: _qcInfo!['job_card']?.toString() ?? _flowchartCtrl.text.trim(),
             measurements: measurements,
           );
 

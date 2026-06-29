@@ -50,8 +50,8 @@ class _QcFinalScreenState extends ConsumerState<QcFinalScreen> {
 
     try {
       final result =
-          await ref.read(line2RepositoryProvider).getQcInfo(trimmed);
-      final data = Map<String, dynamic>.from(result);
+          await ref.read(line2RepositoryProvider).getQcInfo(workOrder: trimmed);
+      final data = result;
       final meas = data['submitted_measurements'];
       List<Map<String, dynamic>> measList = [];
       if (meas is List) {
@@ -214,16 +214,17 @@ class _QcFinalScreenState extends ConsumerState<QcFinalScreen> {
       final flowchart = _flowchartCtrl.text.trim();
       final acceptedQty = double.tryParse(_acceptedQtyCtrl.text.trim());
 
+      final woName = _qcInfo!['work_order']?.toString() ?? flowchart;
       await ref.read(line2RepositoryProvider).submitQcResult(
-        flowchart: flowchart,
-        accepted: accepted,
+        workOrder: woName,
+        result: accepted ? 'Pass' : 'Fail',
         acceptedQty: acceptedQty,
-        rejectionData: rejectionData,
+        remarks: rejectionData != null ? rejectionData['reason']?.toString() : null,
       );
 
       if (accepted) {
         await ref.read(line2RepositoryProvider).completeWo(
-              flowchart: flowchart,
+              workOrder: woName,
             );
       }
 

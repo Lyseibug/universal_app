@@ -68,8 +68,8 @@ class _PackingScreenState extends ConsumerState<PackingScreen>
 
     setState(() => _creatingBox = true);
     try {
-      final result = await ref.read(line2RepositoryProvider).createBox(so: so);
-      final data = Map<String, dynamic>.from(result);
+      final result = await ref.read(line2RepositoryProvider).createBox(salesOrder: so);
+      final data = result;
       setState(() {
         _activeBoxId = data['box_id']?.toString();
         _boxItems = [];
@@ -97,11 +97,11 @@ class _PackingScreenState extends ConsumerState<PackingScreen>
     if (trimmed.isEmpty || _activeBoxId == null) return;
 
     try {
-      final result = await ref.read(line2RepositoryProvider).scanIntoBox(
-            boxId: _activeBoxId!,
+      final result = await ref.read(line2RepositoryProvider).addToBox(
+            boxBarcode: _activeBoxId!,
             itemBarcode: trimmed,
           );
-      final data = Map<String, dynamic>.from(result);
+      final data = result;
       setState(() {
         _boxItems.add(data);
       });
@@ -120,7 +120,7 @@ class _PackingScreenState extends ConsumerState<PackingScreen>
     if (_activeBoxId == null) return;
     setState(() => _sealingBox = true);
     try {
-      await ref.read(line2RepositoryProvider).sealBox(boxId: _activeBoxId!);
+      await ref.read(line2RepositoryProvider).sealBox(_activeBoxId!);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Box $_activeBoxId sealed'),
@@ -149,7 +149,7 @@ class _PackingScreenState extends ConsumerState<PackingScreen>
     try {
       await ref
           .read(line2RepositoryProvider)
-          .printLabel('Box', _activeBoxId!);
+          .printLabel(barcode: _activeBoxId!, labelType: 'Box');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Box label sent to printer'),
@@ -172,7 +172,7 @@ class _PackingScreenState extends ConsumerState<PackingScreen>
     setState(() => _creatingPallet = true);
     try {
       final result = await ref.read(line2RepositoryProvider).createPallet();
-      final data = Map<String, dynamic>.from(result);
+      final data = result;
       setState(() {
         _activePalletId = data['pallet_id']?.toString();
         _palletBoxes = [];
@@ -200,11 +200,11 @@ class _PackingScreenState extends ConsumerState<PackingScreen>
     if (trimmed.isEmpty || _activePalletId == null) return;
 
     try {
-      final result = await ref.read(line2RepositoryProvider).scanIntoPallet(
-            palletId: _activePalletId!,
+      final result = await ref.read(line2RepositoryProvider).addBoxToPallet(
+            palletBarcode: _activePalletId!,
             boxBarcode: trimmed,
           );
-      final data = Map<String, dynamic>.from(result);
+      final data = result;
       setState(() {
         _palletBoxes.add(data);
       });
@@ -225,7 +225,7 @@ class _PackingScreenState extends ConsumerState<PackingScreen>
     try {
       await ref
           .read(line2RepositoryProvider)
-          .sealPallet(palletId: _activePalletId!);
+          .sealPallet(_activePalletId!);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Pallet $_activePalletId sealed'),
@@ -253,7 +253,7 @@ class _PackingScreenState extends ConsumerState<PackingScreen>
     try {
       await ref
           .read(line2RepositoryProvider)
-          .printLabel('Pallet', _activePalletId!);
+          .printLabel(barcode: _activePalletId!, labelType: 'Pallet');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Pallet label sent to printer'),

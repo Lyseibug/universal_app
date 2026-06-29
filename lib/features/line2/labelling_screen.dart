@@ -49,7 +49,7 @@ class _LabellingScreenState extends ConsumerState<LabellingScreen> {
       final result =
           await ref.read(line2RepositoryProvider).scanFlowchart(trimmed);
       setState(() {
-        _itemData = Map<String, dynamic>.from(result);
+        _itemData = result;
         _scanning = false;
       });
     } catch (e) {
@@ -70,7 +70,7 @@ class _LabellingScreenState extends ConsumerState<LabellingScreen> {
 
     try {
       final itemCode = _itemData!['item_code']?.toString() ?? _scanCtrl.text.trim();
-      await ref.read(line2RepositoryProvider).printLabel('Item', itemCode);
+      await ref.read(line2RepositoryProvider).printLabel(barcode: itemCode, labelType: 'Item');
       setState(() {
         _printStatus = 'success';
         _printing = false;

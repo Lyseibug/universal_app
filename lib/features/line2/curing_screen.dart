@@ -56,7 +56,7 @@ class _CuringScreenState extends ConsumerState<CuringScreen> {
       final result =
           await ref.read(line2RepositoryProvider).scanFlowchart(trimmed);
       setState(() {
-        _scanResult = Map<String, dynamic>.from(result);
+        _scanResult = result;
         _scanning = false;
       });
     } catch (e) {
@@ -78,8 +78,8 @@ class _CuringScreenState extends ConsumerState<CuringScreen> {
 
     try {
       await ref.read(line2RepositoryProvider).assignTool(
-            flowchart: _flowchartCtrl.text.trim(),
-            toolBarcode: trimmed,
+            toolId: trimmed,
+            jobCard: _scanResult!['job_card']?.toString() ?? _flowchartCtrl.text.trim(),
           );
       setState(() {
         _airbagAssigned = true;
@@ -103,7 +103,7 @@ class _CuringScreenState extends ConsumerState<CuringScreen> {
     setState(() => _completing = true);
     try {
       await ref.read(line2RepositoryProvider).completeStep(
-            flowchart: _flowchartCtrl.text.trim(),
+            jobCard: _scanResult!['job_card']?.toString() ?? _flowchartCtrl.text.trim(),
           );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(

@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
-import '../../core/models/line2_models.dart';
 import '../../core/sync/write_queue.dart';
 import '../../providers/service_providers.dart';
 
@@ -15,30 +14,30 @@ class Line2Repository {
 
   // ── Flowchart / Scanning ────────────────────────────────────────────────
 
-  Future<FlowchartScanResult> scanFlowchart(String barcode) async {
+  Future<Map<String, dynamic>> scanFlowchart(String barcode) async {
     final data = await _api.call('line2.scan_flowchart',
         body: {'barcode': barcode});
-    return FlowchartScanResult.fromJson(Map<String, dynamic>.from(data));
+    return Map<String, dynamic>.from(data);
   }
 
-  Future<List<ActiveJobCard>> getActiveJobs({String? workstation}) async {
+  Future<List<Map<String, dynamic>>> getActiveJobs({String? workstation}) async {
     final data = await _api.call('line2.get_active_jobs', body: {
       if (workstation != null) 'workstation': workstation,
     });
     if (data is List) {
       return data
-          .map((j) => ActiveJobCard.fromJson(Map<String, dynamic>.from(j)))
+          .map((j) => Map<String, dynamic>.from(j))
           .toList();
     }
     return const [];
   }
 
-  Future<List<LayerItem>> getLayeringChecklist(String jobCard) async {
+  Future<List<Map<String, dynamic>>> getLayeringChecklist(String jobCard) async {
     final data = await _api.call('line2.get_layering_checklist',
         body: {'job_card': jobCard});
     if (data is List) {
       return data
-          .map((j) => LayerItem.fromJson(Map<String, dynamic>.from(j)))
+          .map((j) => Map<String, dynamic>.from(j))
           .toList();
     }
     return const [];
@@ -46,7 +45,7 @@ class Line2Repository {
 
   // ── Step Completion ─────────────────────────────────────────────────────
 
-  Future<StepCompleteResult> completeStep({
+  Future<Map<String, dynamic>> completeStep({
     required String jobCard,
     List<Map<String, dynamic>>? measurements,
     String? remarks,
@@ -56,12 +55,12 @@ class Line2Repository {
       if (measurements != null) 'measurements': measurements,
       if (remarks != null) 'remarks': remarks,
     });
-    return StepCompleteResult.fromJson(Map<String, dynamic>.from(result));
+    return Map<String, dynamic>.from(result);
   }
 
   // ── Tool Management ─────────────────────────────────────────────────────
 
-  Future<ToolAssignResult> assignTool({
+  Future<Map<String, dynamic>> assignTool({
     required String toolId,
     required String jobCard,
   }) async {
@@ -69,10 +68,10 @@ class Line2Repository {
       'tool_id': toolId,
       'job_card': jobCard,
     });
-    return ToolAssignResult.fromJson(Map<String, dynamic>.from(result));
+    return Map<String, dynamic>.from(result);
   }
 
-  Future<ToolAssignResult> releaseTool({
+  Future<Map<String, dynamic>> releaseTool({
     required String toolId,
     String? jobCard,
   }) async {
@@ -80,16 +79,16 @@ class Line2Repository {
       'tool_id': toolId,
       if (jobCard != null) 'job_card': jobCard,
     });
-    return ToolAssignResult.fromJson(Map<String, dynamic>.from(result));
+    return Map<String, dynamic>.from(result);
   }
 
-  Future<ToolInfo> getToolStatus(String toolId) async {
+  Future<Map<String, dynamic>> getToolStatus(String toolId) async {
     final data = await _api.call('line2.get_tool_status',
         body: {'tool_id': toolId});
-    return ToolInfo.fromJson(Map<String, dynamic>.from(data));
+    return Map<String, dynamic>.from(data);
   }
 
-  Future<ToolInfo> updateAirbagWeight({
+  Future<Map<String, dynamic>> updateAirbagWeight({
     required String toolId,
     required double weightKg,
   }) async {
@@ -97,7 +96,7 @@ class Line2Repository {
       'tool_id': toolId,
       'weight_kg': weightKg,
     });
-    return ToolInfo.fromJson(Map<String, dynamic>.from(result));
+    return Map<String, dynamic>.from(result);
   }
 
   Future<Map<String, dynamic>> convertAirbag({
@@ -111,7 +110,7 @@ class Line2Repository {
 
   // ── Rejection ───────────────────────────────────────────────────────────
 
-  Future<RejectionResult> createRejection({
+  Future<Map<String, dynamic>> createRejection({
     required String jobCard,
     required String rejectionType,
     String? reason,
@@ -123,12 +122,12 @@ class Line2Repository {
       if (reason != null) 'reason': reason,
       if (qty != null) 'qty': qty,
     });
-    return RejectionResult.fromJson(Map<String, dynamic>.from(result));
+    return Map<String, dynamic>.from(result);
   }
 
   // ── QC ──────────────────────────────────────────────────────────────────
 
-  Future<QcInfo> getQcInfo({
+  Future<Map<String, dynamic>> getQcInfo({
     required String workOrder,
     String? jobCard,
   }) async {
@@ -136,10 +135,10 @@ class Line2Repository {
       'work_order': workOrder,
       if (jobCard != null) 'job_card': jobCard,
     });
-    return QcInfo.fromJson(Map<String, dynamic>.from(data));
+    return Map<String, dynamic>.from(data);
   }
 
-  Future<QcMeasurementResult> submitMeasurement({
+  Future<Map<String, dynamic>> submitMeasurement({
     required String jobCard,
     required List<Map<String, dynamic>> measurements,
   }) async {
@@ -147,10 +146,10 @@ class Line2Repository {
       'job_card': jobCard,
       'measurements': measurements,
     });
-    return QcMeasurementResult.fromJson(Map<String, dynamic>.from(result));
+    return Map<String, dynamic>.from(result);
   }
 
-  Future<QcResult> submitQcResult({
+  Future<Map<String, dynamic>> submitQcResult({
     required String workOrder,
     required String result,
     String? jobCard,
@@ -164,10 +163,10 @@ class Line2Repository {
       if (acceptedQty != null) 'accepted_qty': acceptedQty,
       if (remarks != null) 'remarks': remarks,
     });
-    return QcResult.fromJson(Map<String, dynamic>.from(data));
+    return Map<String, dynamic>.from(data);
   }
 
-  Future<WoCompleteResult> completeWo({
+  Future<Map<String, dynamic>> completeWo({
     required String workOrder,
     double? qty,
   }) async {
@@ -175,12 +174,12 @@ class Line2Repository {
       'work_order': workOrder,
       if (qty != null) 'qty': qty,
     });
-    return WoCompleteResult.fromJson(Map<String, dynamic>.from(result));
+    return Map<String, dynamic>.from(result);
   }
 
   // ── Sleeves ─────────────────────────────────────────────────────────────
 
-  Future<SleeveCreationResult> createSleeves({
+  Future<Map<String, dynamic>> createSleeves({
     required String workOrder,
     required int sleeveCount,
   }) async {
@@ -188,15 +187,15 @@ class Line2Repository {
       'work_order': workOrder,
       'sleeve_count': sleeveCount,
     });
-    return SleeveCreationResult.fromJson(Map<String, dynamic>.from(result));
+    return Map<String, dynamic>.from(result);
   }
 
-  Future<List<LayerItem>> getLayeringSequence(String productionItem) async {
+  Future<List<Map<String, dynamic>>> getLayeringSequence(String productionItem) async {
     final data = await _api.call('line2_sleeve.get_layering_sequence',
         body: {'production_item': productionItem});
     if (data is List) {
       return data
-          .map((j) => LayerItem.fromJson(Map<String, dynamic>.from(j)))
+          .map((j) => Map<String, dynamic>.from(j))
           .toList();
     }
     return const [];
@@ -204,16 +203,16 @@ class Line2Repository {
 
   // ── Packing ─────────────────────────────────────────────────────────────
 
-  Future<BoxInfo> createBox({
+  Future<Map<String, dynamic>> createBox({
     String? salesOrder,
   }) async {
     final result = await _writeQueue.run('packing.create_box', {
       if (salesOrder != null) 'sales_order': salesOrder,
     });
-    return BoxInfo.fromJson(Map<String, dynamic>.from(result));
+    return Map<String, dynamic>.from(result);
   }
 
-  Future<BoxInfo> addToBox({
+  Future<Map<String, dynamic>> addToBox({
     required String boxBarcode,
     required String itemBarcode,
     double? qty,
@@ -223,17 +222,17 @@ class Line2Repository {
       'item_barcode': itemBarcode,
       if (qty != null) 'qty': qty,
     });
-    return BoxInfo.fromJson(Map<String, dynamic>.from(result));
+    return Map<String, dynamic>.from(result);
   }
 
-  Future<BoxInfo> sealBox(String boxBarcode) async {
+  Future<Map<String, dynamic>> sealBox(String boxBarcode) async {
     final result = await _writeQueue.run('packing.seal_box', {
       'box_barcode': boxBarcode,
     });
-    return BoxInfo.fromJson(Map<String, dynamic>.from(result));
+    return Map<String, dynamic>.from(result);
   }
 
-  Future<PalletInfo> createPallet({
+  Future<Map<String, dynamic>> createPallet({
     String? palletType,
     String? salesOrder,
   }) async {
@@ -241,10 +240,10 @@ class Line2Repository {
       if (palletType != null) 'pallet_type': palletType,
       if (salesOrder != null) 'sales_order': salesOrder,
     });
-    return PalletInfo.fromJson(Map<String, dynamic>.from(result));
+    return Map<String, dynamic>.from(result);
   }
 
-  Future<PalletInfo> addBoxToPallet({
+  Future<Map<String, dynamic>> addBoxToPallet({
     required String palletBarcode,
     required String boxBarcode,
   }) async {
@@ -252,10 +251,10 @@ class Line2Repository {
       'pallet_barcode': palletBarcode,
       'box_barcode': boxBarcode,
     });
-    return PalletInfo.fromJson(Map<String, dynamic>.from(result));
+    return Map<String, dynamic>.from(result);
   }
 
-  Future<PalletInfo> addItemToPallet({
+  Future<Map<String, dynamic>> addItemToPallet({
     required String palletBarcode,
     required String itemBarcode,
     double? qty,
@@ -265,14 +264,14 @@ class Line2Repository {
       'item_barcode': itemBarcode,
       if (qty != null) 'qty': qty,
     });
-    return PalletInfo.fromJson(Map<String, dynamic>.from(result));
+    return Map<String, dynamic>.from(result);
   }
 
-  Future<PalletInfo> sealPallet(String palletBarcode) async {
+  Future<Map<String, dynamic>> sealPallet(String palletBarcode) async {
     final result = await _writeQueue.run('packing.seal_pallet', {
       'pallet_barcode': palletBarcode,
     });
-    return PalletInfo.fromJson(Map<String, dynamic>.from(result));
+    return Map<String, dynamic>.from(result);
   }
 
   Future<Map<String, dynamic>> printLabel({
