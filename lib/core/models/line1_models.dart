@@ -175,91 +175,183 @@ class LabTestParameterResult with _$LabTestParameterResult {
       _$LabTestParameterResultFromJson(json);
 }
 
-// ── Calendering Models ──────────────────────────────────────────────────
+// ── Calendering Models (plain Dart — no code generation needed) ─────────
 
-@freezed
-class CalenderingFmb with _$CalenderingFmb {
-  const factory CalenderingFmb({
-    @JsonKey(name: 'batch_no') required String batchNo,
-    @JsonKey(name: 'item_code') required String itemCode,
-    @JsonKey(name: 'item_name') String? itemName,
-    @Default(0) double qty,
-    @JsonKey(name: 'lab_status') @Default('Pass') String labStatus,
-    @JsonKey(name: 'manufacturing_date') String? manufacturingDate,
-  }) = _CalenderingFmb;
+class CalenderingFmb {
+  final String batchNo;
+  final String itemCode;
+  final String? itemName;
+  final double qty;
+  final String labStatus;
+  final String? manufacturingDate;
 
-  factory CalenderingFmb.fromJson(Map<String, dynamic> json) =>
-      _$CalenderingFmbFromJson(json);
+  const CalenderingFmb({
+    required this.batchNo,
+    required this.itemCode,
+    this.itemName,
+    this.qty = 0,
+    this.labStatus = 'Pass',
+    this.manufacturingDate,
+  });
+
+  factory CalenderingFmb.fromJson(Map<String, dynamic> json) => CalenderingFmb(
+        batchNo: json['batch_no']?.toString() ?? '',
+        itemCode: json['item_code']?.toString() ?? '',
+        itemName: json['item_name']?.toString(),
+        qty: (json['qty'] as num?)?.toDouble() ?? 0,
+        labStatus: json['lab_status']?.toString() ?? 'Pass',
+        manufacturingDate: json['manufacturing_date']?.toString(),
+      );
 }
 
-@freezed
-class CalenderingSheet with _$CalenderingSheet {
-  const factory CalenderingSheet({
-    @JsonKey(name: 'item_code') required String itemCode,
-    @Default(0) double qty,
-    @JsonKey(name: 'thickness_mm') @Default(0) double thicknessMm,
-    @JsonKey(name: 'width_in_mm') @Default(0) double widthInMm,
-    @JsonKey(name: 'length_in_mm') @Default(0) double lengthInMm,
-    @JsonKey(name: 'batch_no') String? batchNo,
-  }) = _CalenderingSheet;
+class CalenderingSheet {
+  final String itemCode;
+  final double qty;
+  final double thicknessMm;
+  final double widthInMm;
+  final double lengthInMm;
+  final String? batchNo;
+
+  const CalenderingSheet({
+    required this.itemCode,
+    this.qty = 0,
+    this.thicknessMm = 0,
+    this.widthInMm = 0,
+    this.lengthInMm = 0,
+    this.batchNo,
+  });
 
   factory CalenderingSheet.fromJson(Map<String, dynamic> json) =>
-      _$CalenderingSheetFromJson(json);
+      CalenderingSheet(
+        itemCode: json['item_code']?.toString() ?? '',
+        qty: (json['qty'] as num?)?.toDouble() ?? 0,
+        thicknessMm: (json['thickness_mm'] as num?)?.toDouble() ?? 0,
+        widthInMm: (json['width_in_mm'] as num?)?.toDouble() ?? 0,
+        lengthInMm: (json['length_in_mm'] as num?)?.toDouble() ?? 0,
+        batchNo: json['batch_no']?.toString(),
+      );
 }
 
-@freezed
-class CalenderingRun with _$CalenderingRun {
-  const factory CalenderingRun({
-    required String name,
-    @JsonKey(name: 'fmb_batch') required String fmbBatch,
-    @JsonKey(name: 'fmb_item') String? fmbItem,
-    @JsonKey(name: 'item_name') String? itemName,
-    @Default('Draft') String status,
-    String? operator,
-    @JsonKey(name: 'start_time') String? startTime,
-    @JsonKey(name: 'end_time') String? endTime,
-    @JsonKey(name: 'fmb_input_qty') @Default(0) double fmbInputQty,
-    @JsonKey(name: 'total_sheet_output_qty') @Default(0) double totalSheetOutputQty,
-    @JsonKey(name: 'r_return_qty') @Default(0) double rReturnQty,
-    @JsonKey(name: 'c_return_qty') @Default(0) double cReturnQty,
-    @JsonKey(name: 'input_stock_entry') String? inputStockEntry,
-    @JsonKey(name: 'output_stock_entry') String? outputStockEntry,
-    @JsonKey(name: 'return_stock_entry') String? returnStockEntry,
-    @Default([]) List<CalenderingSheet> sheets,
-  }) = _CalenderingRun;
+class CalenderingRun {
+  final String name;
+  final String fmbBatch;
+  final String? fmbItem;
+  final String? itemName;
+  final String status;
+  final String? operator;
+  final String? startTime;
+  final String? endTime;
+  final double fmbInputQty;
+  final double totalSheetOutputQty;
+  final double rReturnQty;
+  final double cReturnQty;
+  final String? inputStockEntry;
+  final String? outputStockEntry;
+  final String? returnStockEntry;
+  final List<CalenderingSheet> sheets;
 
-  factory CalenderingRun.fromJson(Map<String, dynamic> json) =>
-      _$CalenderingRunFromJson(json);
+  const CalenderingRun({
+    required this.name,
+    required this.fmbBatch,
+    this.fmbItem,
+    this.itemName,
+    this.status = 'Draft',
+    this.operator,
+    this.startTime,
+    this.endTime,
+    this.fmbInputQty = 0,
+    this.totalSheetOutputQty = 0,
+    this.rReturnQty = 0,
+    this.cReturnQty = 0,
+    this.inputStockEntry,
+    this.outputStockEntry,
+    this.returnStockEntry,
+    this.sheets = const [],
+  });
+
+  factory CalenderingRun.fromJson(Map<String, dynamic> json) => CalenderingRun(
+        name: json['name']?.toString() ?? '',
+        fmbBatch: json['fmb_batch']?.toString() ?? '',
+        fmbItem: json['fmb_item']?.toString(),
+        itemName: json['item_name']?.toString(),
+        status: json['status']?.toString() ?? 'Draft',
+        operator: json['operator']?.toString(),
+        startTime: json['start_time']?.toString(),
+        endTime: json['end_time']?.toString(),
+        fmbInputQty: (json['fmb_input_qty'] as num?)?.toDouble() ?? 0,
+        totalSheetOutputQty:
+            (json['total_sheet_output_qty'] as num?)?.toDouble() ?? 0,
+        rReturnQty: (json['r_return_qty'] as num?)?.toDouble() ?? 0,
+        cReturnQty: (json['c_return_qty'] as num?)?.toDouble() ?? 0,
+        inputStockEntry: json['input_stock_entry']?.toString(),
+        outputStockEntry: json['output_stock_entry']?.toString(),
+        returnStockEntry: json['return_stock_entry']?.toString(),
+        sheets: (json['sheets'] as List?)
+                ?.map((e) =>
+                    CalenderingSheet.fromJson(Map<String, dynamic>.from(e)))
+                .toList() ??
+            const [],
+      );
 }
 
-@freezed
-class CalenderingStartResult with _$CalenderingStartResult {
-  const factory CalenderingStartResult({
-    required String name,
-    @JsonKey(name: 'fmb_batch') required String fmbBatch,
-    @JsonKey(name: 'fmb_item') String? fmbItem,
-    @JsonKey(name: 'input_qty') @Default(0) double inputQty,
-    @Default('In Progress') String status,
-    @JsonKey(name: 'input_stock_entry') String? inputStockEntry,
-  }) = _CalenderingStartResult;
+class CalenderingStartResult {
+  final String name;
+  final String fmbBatch;
+  final String? fmbItem;
+  final double inputQty;
+  final String status;
+  final String? inputStockEntry;
+
+  const CalenderingStartResult({
+    required this.name,
+    required this.fmbBatch,
+    this.fmbItem,
+    this.inputQty = 0,
+    this.status = 'In Progress',
+    this.inputStockEntry,
+  });
 
   factory CalenderingStartResult.fromJson(Map<String, dynamic> json) =>
-      _$CalenderingStartResultFromJson(json);
+      CalenderingStartResult(
+        name: json['name']?.toString() ?? '',
+        fmbBatch: json['fmb_batch']?.toString() ?? '',
+        fmbItem: json['fmb_item']?.toString(),
+        inputQty: (json['input_qty'] as num?)?.toDouble() ?? 0,
+        status: json['status']?.toString() ?? 'In Progress',
+        inputStockEntry: json['input_stock_entry']?.toString(),
+      );
 }
 
-@freezed
-class CalenderingCompleteResult with _$CalenderingCompleteResult {
-  const factory CalenderingCompleteResult({
-    required String name,
-    @Default('Completed') String status,
-    @JsonKey(name: 'output_stock_entry') String? outputStockEntry,
-    @JsonKey(name: 'return_stock_entry') String? returnStockEntry,
-    @JsonKey(name: 'sheet_count') @Default(0) int sheetCount,
-    @JsonKey(name: 'total_sheet_qty') @Default(0) double totalSheetQty,
-    @JsonKey(name: 'r_return_qty') @Default(0) double rReturnQty,
-    @JsonKey(name: 'c_return_qty') @Default(0) double cReturnQty,
-  }) = _CalenderingCompleteResult;
+class CalenderingCompleteResult {
+  final String name;
+  final String status;
+  final String? outputStockEntry;
+  final String? returnStockEntry;
+  final int sheetCount;
+  final double totalSheetQty;
+  final double rReturnQty;
+  final double cReturnQty;
+
+  const CalenderingCompleteResult({
+    required this.name,
+    this.status = 'Completed',
+    this.outputStockEntry,
+    this.returnStockEntry,
+    this.sheetCount = 0,
+    this.totalSheetQty = 0,
+    this.rReturnQty = 0,
+    this.cReturnQty = 0,
+  });
 
   factory CalenderingCompleteResult.fromJson(Map<String, dynamic> json) =>
-      _$CalenderingCompleteResultFromJson(json);
+      CalenderingCompleteResult(
+        name: json['name']?.toString() ?? '',
+        status: json['status']?.toString() ?? 'Completed',
+        outputStockEntry: json['output_stock_entry']?.toString(),
+        returnStockEntry: json['return_stock_entry']?.toString(),
+        sheetCount: (json['sheet_count'] as num?)?.toInt() ?? 0,
+        totalSheetQty: (json['total_sheet_qty'] as num?)?.toDouble() ?? 0,
+        rReturnQty: (json['r_return_qty'] as num?)?.toDouble() ?? 0,
+        cReturnQty: (json['c_return_qty'] as num?)?.toDouble() ?? 0,
+      );
 }
