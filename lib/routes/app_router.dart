@@ -8,6 +8,7 @@ import '../screens/notifications/notifications_screen.dart';
 import '../screens/settings/settings_screen.dart';
 import '../screens/splash/splash_screen.dart';
 import '../screens/workspace/workspace_screen.dart';
+import '../screens/workstation/workstation_setup_screen.dart';
 
 /// Application router.
 ///
@@ -54,6 +55,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/workspace',
         builder: (context, state) => const WorkspaceScreen(),
+      ),
+
+      // ── Workstation Setup (post-login, pre-production) ─────────────────────
+      GoRoute(
+        path: '/workstation-setup',
+        builder: (context, state) => const WorkstationSetupScreen(),
       ),
 
       // ── Home (dynamic menu) ────────────────────────────────────────────────

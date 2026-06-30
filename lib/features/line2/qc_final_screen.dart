@@ -7,6 +7,7 @@ import '../../widgets/custom_button.dart';
 import '../../widgets/pdt_scaffold.dart';
 import '../../widgets/scan_input_field.dart';
 import 'line2_repository.dart';
+import 'widgets/flowchart_photo_capture.dart';
 import 'widgets/product_details_card.dart';
 import 'widgets/rejection_modal.dart';
 import 'widgets/support_help_section.dart';
@@ -132,6 +133,15 @@ class _QcFinalScreenState extends ConsumerState<QcFinalScreen> {
   }
 
   Future<void> _completeWo() async {
+    // Require flowchart photo before completion
+    final photoResult = await FlowchartPhotoCapture.show(
+      context,
+      lotNumber: _scanResult!['flowchart_barcode']?.toString() ?? '',
+      productName: _scanResult!['item_name']?.toString() ?? '',
+    );
+
+    if (photoResult == null) return;
+
     setState(() => _completing = true);
     try {
       final woName = _scanResult!['work_order']?.toString() ?? '';
@@ -326,6 +336,35 @@ class _QcFinalScreenState extends ConsumerState<QcFinalScreen> {
                       child: Text('No rejections added', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
                     ),
                   const SizedBox(height: 16),
+
+                  // Rework assignment summary
+                  if (_rejections.any((r) => !r.isFullScrap)) ...[
+                    const Text('ASSIGNED STATION & QTY (REWORK)',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary, letterSpacing: 1.0)),
+                    const SizedBox(height: 8),
+                    Card(
+                      child: Column(
+                        children: _rejections.where((r) => !r.isFullScrap).map((r) {
+                          return ListTile(
+                            dense: true,
+                            leading: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppTheme.warningLight,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(r.reworkStep ?? 'N/A',
+                                  style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.warning, fontSize: 12)),
+                            ),
+                            title: Text('${r.code} — ${r.description}', style: const TextStyle(fontSize: 13)),
+                            trailing: Text('Qty: ${r.qty}',
+                                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
 
                   const SupportHelpSection(),
                   const SizedBox(height: 16),
