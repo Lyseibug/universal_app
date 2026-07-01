@@ -243,8 +243,11 @@ class CalenderingRun {
   final String? endTime;
   final double fmbInputQty;
   final double totalSheetOutputQty;
-  final double rReturnQty;
-  final double cReturnQty;
+  final double linerReturnQty;
+  final String? linerReturnBatch;
+  final double calendarReturnQty;
+  final String? calendarReturnBatch;
+  final double excruderSludgeQty;
   final String? inputStockEntry;
   final String? outputStockEntry;
   final String? returnStockEntry;
@@ -261,8 +264,11 @@ class CalenderingRun {
     this.endTime,
     this.fmbInputQty = 0,
     this.totalSheetOutputQty = 0,
-    this.rReturnQty = 0,
-    this.cReturnQty = 0,
+    this.linerReturnQty = 0,
+    this.linerReturnBatch,
+    this.calendarReturnQty = 0,
+    this.calendarReturnBatch,
+    this.excruderSludgeQty = 0,
     this.inputStockEntry,
     this.outputStockEntry,
     this.returnStockEntry,
@@ -281,8 +287,13 @@ class CalenderingRun {
         fmbInputQty: (json['fmb_input_qty'] as num?)?.toDouble() ?? 0,
         totalSheetOutputQty:
             (json['total_sheet_output_qty'] as num?)?.toDouble() ?? 0,
-        rReturnQty: (json['r_return_qty'] as num?)?.toDouble() ?? 0,
-        cReturnQty: (json['c_return_qty'] as num?)?.toDouble() ?? 0,
+        linerReturnQty: (json['liner_return_qty'] as num?)?.toDouble() ?? 0,
+        linerReturnBatch: json['liner_return_batch']?.toString(),
+        calendarReturnQty:
+            (json['calendar_return_qty'] as num?)?.toDouble() ?? 0,
+        calendarReturnBatch: json['calendar_return_batch']?.toString(),
+        excruderSludgeQty:
+            (json['excruder_sludge_qty'] as num?)?.toDouble() ?? 0,
         inputStockEntry: json['input_stock_entry']?.toString(),
         outputStockEntry: json['output_stock_entry']?.toString(),
         returnStockEntry: json['return_stock_entry']?.toString(),
@@ -329,8 +340,11 @@ class CalenderingCompleteResult {
   final String? returnStockEntry;
   final int sheetCount;
   final double totalSheetQty;
-  final double rReturnQty;
-  final double cReturnQty;
+  final double linerReturnQty;
+  final String? linerReturnBatch;
+  final double calendarReturnQty;
+  final String? calendarReturnBatch;
+  final double excruderSludgeQty;
 
   const CalenderingCompleteResult({
     required this.name,
@@ -339,8 +353,11 @@ class CalenderingCompleteResult {
     this.returnStockEntry,
     this.sheetCount = 0,
     this.totalSheetQty = 0,
-    this.rReturnQty = 0,
-    this.cReturnQty = 0,
+    this.linerReturnQty = 0,
+    this.linerReturnBatch,
+    this.calendarReturnQty = 0,
+    this.calendarReturnBatch,
+    this.excruderSludgeQty = 0,
   });
 
   factory CalenderingCompleteResult.fromJson(Map<String, dynamic> json) =>
@@ -351,7 +368,12 @@ class CalenderingCompleteResult {
         returnStockEntry: json['return_stock_entry']?.toString(),
         sheetCount: (json['sheet_count'] as num?)?.toInt() ?? 0,
         totalSheetQty: (json['total_sheet_qty'] as num?)?.toDouble() ?? 0,
-        rReturnQty: (json['r_return_qty'] as num?)?.toDouble() ?? 0,
-        cReturnQty: (json['c_return_qty'] as num?)?.toDouble() ?? 0,
+        linerReturnQty: (json['liner_return_qty'] as num?)?.toDouble() ?? 0,
+        linerReturnBatch: json['liner_return_batch']?.toString(),
+        calendarReturnQty:
+            (json['calendar_return_qty'] as num?)?.toDouble() ?? 0,
+        calendarReturnBatch: json['calendar_return_batch']?.toString(),
+        excruderSludgeQty:
+            (json['excruder_sludge_qty'] as num?)?.toDouble() ?? 0,
       );
 }

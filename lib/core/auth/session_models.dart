@@ -1,44 +1,71 @@
-import 'package:freezed_annotation/freezed_annotation.dart';
+/// A workstation assignment the employee can select at login.
+///
+/// Plain Dart (no Freezed/codegen) — see line2_models.dart for precedent.
+class WorkspaceModel {
+  final String assignment;
+  final String productionLine;
+  final List<String> workstations;
+  final String supervisor;
+  final String supervisorName;
 
-part 'session_models.freezed.dart';
-part 'session_models.g.dart';
+  const WorkspaceModel({
+    required this.assignment,
+    this.productionLine = '',
+    this.workstations = const [],
+    this.supervisor = '',
+    this.supervisorName = '',
+  });
 
-/// A workspace/assignment the employee can select at login.
-@freezed
-class WorkspaceModel with _$WorkspaceModel {
-  const factory WorkspaceModel({
-    required String assignment,
-    required String label,
-    @Default('') String warehouse,
-    @Default('') String supervisor,
-    // ignore: invalid_annotation_target
-    @JsonKey(name: 'supervisor_name') @Default('') String supervisorName,
-  }) = _WorkspaceModel;
+  /// Human-readable label for this assignment, e.g. "Line L1".
+  String get label =>
+      productionLine.isNotEmpty ? 'Line $productionLine' : (workstations.isNotEmpty ? workstations.first : assignment);
 
-  factory WorkspaceModel.fromJson(Map<String, dynamic> json) =>
-      _$WorkspaceModelFromJson(_preProcess(json));
-
-  static Map<String, dynamic> _preProcess(Map<String, dynamic> json) {
-    final adjusted = Map<String, dynamic>.from(json);
-    adjusted['assignment'] ??= json['name'] ?? json['id'] ?? '';
-    adjusted['label'] ??= json['workspace_label'] ?? json['workspace'] ?? adjusted['assignment'] ?? 'Workspace';
-    return adjusted;
-  }
+  factory WorkspaceModel.fromJson(Map<String, dynamic> json) => WorkspaceModel(
+        assignment: json['assignment']?.toString() ?? json['name']?.toString() ?? '',
+        productionLine: json['production_line']?.toString() ?? '',
+        workstations: (json['workstations'] as List?)?.map((w) => w.toString()).toList() ?? const [],
+        supervisor: json['supervisor']?.toString() ?? '',
+        supervisorName: json['supervisor_name']?.toString() ?? '',
+      );
 }
 
-/// Session information returned after login + workspace selection.
-@freezed
-class SessionInfo with _$SessionInfo {
-  const factory SessionInfo({
-    required String employee,
-    // ignore: invalid_annotation_target
-    @JsonKey(name: 'employee_name') required String employeeName,
-    @Default([]) List<String> roles,
-    String? workspace,
-    // ignore: invalid_annotation_target
-    @JsonKey(name: 'workspace_label') String? workspaceLabel,
-  }) = _SessionInfo;
+/// Session information returned after login + workstation selection.
+class SessionInfo {
+  final String? employee;
+  final String? employeeName;
+  final List<String> roles;
+  final String? workspace;
+  final String? workspaceLabel;
+  final String? productionLine;
+  final List<String> assignedStations;
 
-  factory SessionInfo.fromJson(Map<String, dynamic> json) =>
-      _$SessionInfoFromJson(json);
+  const SessionInfo({
+    this.employee,
+    this.employeeName,
+    this.roles = const [],
+    this.workspace,
+    this.workspaceLabel,
+    this.productionLine,
+    this.assignedStations = const [],
+  });
+
+  factory SessionInfo.fromJson(Map<String, dynamic> json) => SessionInfo(
+        employee: json['employee']?.toString(),
+        employeeName: json['employee_name']?.toString(),
+        roles: (json['roles'] as List?)?.map((r) => r.toString()).toList() ?? const [],
+        workspace: json['workspace']?.toString(),
+        workspaceLabel: json['workspace_label']?.toString(),
+        productionLine: json['production_line']?.toString(),
+        assignedStations: (json['assigned_stations'] as List?)?.map((s) => s.toString()).toList() ?? const [],
+      );
+
+  Map<String, dynamic> toJson() => {
+        'employee': employee,
+        'employee_name': employeeName,
+        'roles': roles,
+        'workspace': workspace,
+        'workspace_label': workspaceLabel,
+        'production_line': productionLine,
+        'assigned_stations': assignedStations,
+      };
 }

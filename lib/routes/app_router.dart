@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -8,7 +9,11 @@ import '../screens/notifications/notifications_screen.dart';
 import '../screens/settings/settings_screen.dart';
 import '../screens/splash/splash_screen.dart';
 import '../screens/workspace/workspace_screen.dart';
-import '../screens/workstation/workstation_setup_screen.dart';
+
+/// Root navigator key — lets cross-cutting global UI (e.g. the worker
+/// idle/overrun prompt dialog) show on top of whatever screen is active,
+/// without needing a BuildContext from inside the widget tree.
+final rootNavigatorKey = GlobalKey<NavigatorState>();
 
 /// Application router.
 ///
@@ -18,6 +23,7 @@ import '../screens/workstation/workstation_setup_screen.dart';
 ///  - Otherwise               → stays on requested route (e.g. /home)
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/',
     redirect: (context, state) {
       final authState = ref.read(authProvider);
@@ -55,12 +61,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/workspace',
         builder: (context, state) => const WorkspaceScreen(),
-      ),
-
-      // ── Workstation Setup (post-login, pre-production) ─────────────────────
-      GoRoute(
-        path: '/workstation-setup',
-        builder: (context, state) => const WorkstationSetupScreen(),
       ),
 
       // ── Home (dynamic menu) ────────────────────────────────────────────────

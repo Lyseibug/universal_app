@@ -126,14 +126,16 @@ class Line1Repository {
   Future<CalenderingCompleteResult> completeCalenderingRun({
     required String name,
     required List<Map<String, dynamic>> sheets,
-    required double rReturnQty,
-    required double cReturnQty,
+    required double linerReturnQty,
+    required double calendarReturnQty,
+    required double excruderSludgeQty,
   }) async {
     final result = await _writeQueue.run('line1_calendering.complete_run', {
       'name': name,
       'sheets': sheets,
-      'r_return_qty': rReturnQty,
-      'c_return_qty': cReturnQty,
+      'liner_return_qty': linerReturnQty,
+      'calendar_return_qty': calendarReturnQty,
+      'excruder_sludge_qty': excruderSludgeQty,
     });
     return CalenderingCompleteResult.fromJson(
         Map<String, dynamic>.from(result));

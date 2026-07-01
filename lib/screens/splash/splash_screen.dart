@@ -64,13 +64,16 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
           ref.read(authProvider.notifier).setSession(sessionInfo);
         }
         if (mounted) {
-          context.go('/home');
+          // A workstation was already picked in a previous session → resume
+          // straight to /home. Otherwise the worker needs to pick one first.
+          final hasWorkstation = (sessionInfo?.workspace ?? '').isNotEmpty;
+          context.go(hasWorkstation ? '/home' : '/workspace');
           // Run update check after navigation — non-blocking
           _runUpdateCheck();
         }
       } catch (e) {
         if (mounted) {
-          context.go('/home');
+          context.go('/workspace');
           _runUpdateCheck();
         }
       }

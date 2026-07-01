@@ -35,8 +35,9 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
 
   // ── Sheet entry ──
   final List<_SheetEntry> _sheetEntries = [];
-  final _rReturnCtrl = TextEditingController(text: '0');
-  final _cReturnCtrl = TextEditingController(text: '0');
+  final _linerReturnCtrl = TextEditingController(text: '0');
+  final _calendarReturnCtrl = TextEditingController(text: '0');
+  final _excruderSludgeCtrl = TextEditingController(text: '0');
   bool _completing = false;
 
   @override
@@ -50,8 +51,9 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
   @override
   void dispose() {
     _tabCtrl.dispose();
-    _rReturnCtrl.dispose();
-    _cReturnCtrl.dispose();
+    _linerReturnCtrl.dispose();
+    _calendarReturnCtrl.dispose();
+    _excruderSludgeCtrl.dispose();
     for (final e in _sheetEntries) {
       e.dispose();
     }
@@ -102,8 +104,9 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
         _activeRun = run;
         _loadingRun = false;
         _sheetEntries.clear();
-        _rReturnCtrl.text = '0';
-        _cReturnCtrl.text = '0';
+        _linerReturnCtrl.text = '0';
+        _calendarReturnCtrl.text = '0';
+        _excruderSludgeCtrl.text = '0';
       });
     } catch (e) {
       setState(() => _loadingRun = false);
@@ -235,12 +238,18 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
   double get _sheetTotal =>
       _sheetEntries.fold(0.0, (sum, e) => sum + (double.tryParse(e.qtyCtrl.text) ?? 0));
 
-  double get _rReturn => double.tryParse(_rReturnCtrl.text) ?? 0;
+  double get _linerReturn => double.tryParse(_linerReturnCtrl.text) ?? 0;
 
-  double get _cReturn => double.tryParse(_cReturnCtrl.text) ?? 0;
+  double get _calendarReturn => double.tryParse(_calendarReturnCtrl.text) ?? 0;
+
+  double get _excruderSludge => double.tryParse(_excruderSludgeCtrl.text) ?? 0;
 
   double get _balance =>
-      (_activeRun?.fmbInputQty ?? 0) - _sheetTotal - _rReturn - _cReturn;
+      (_activeRun?.fmbInputQty ?? 0) -
+      _sheetTotal -
+      _linerReturn -
+      _calendarReturn -
+      _excruderSludge;
 
   Future<void> _completeRun() async {
     if (_activeRun == null) return;
@@ -289,13 +298,18 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
             'thickness_mm': double.tryParse(e.thicknessCtrl.text) ?? 0,
             'width_in_mm': double.tryParse(e.widthCtrl.text) ?? 0,
             'length_in_mm': double.tryParse(e.lengthCtrl.text) ?? 0,
+            if (e.linerToolCtrl.text.trim().isNotEmpty)
+              'liner_tool': e.linerToolCtrl.text.trim(),
+            if (e.cylinderToolCtrl.text.trim().isNotEmpty)
+              'cylinder_tool': e.cylinderToolCtrl.text.trim(),
           }).toList();
 
       await ref.read(line1RepositoryProvider).completeCalenderingRun(
             name: _activeRun!.name,
             sheets: sheets,
-            rReturnQty: _rReturn,
-            cReturnQty: _cReturn,
+            linerReturnQty: _linerReturn,
+            calendarReturnQty: _calendarReturn,
+            excruderSludgeQty: _excruderSludge,
           );
 
       if (mounted) {
@@ -466,7 +480,7 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
                   Text('Input: ${run.fmbInputQty} Kg'),
                   if (run.status == 'Completed')
                     Text(
-                        'Sheets: ${run.totalSheetOutputQty} Kg | C: ${run.cReturnQty} | R: ${run.rReturnQty}'),
+                        'Sheets: ${run.totalSheetOutputQty} Kg | Calendar: ${run.calendarReturnQty} | Liner: ${run.linerReturnQty} | Sludge: ${run.excruderSludgeQty}'),
                 ],
               ),
               trailing: Row(
@@ -653,6 +667,34 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
                         ),
                       ],
                     ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: e.linerToolCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Liner (optional)',
+                              helperText: 'Reusable, auto-released when empty',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            controller: e.cylinderToolCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Cylinder (optional)',
+                              helperText: 'Reusable, auto-released when empty',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -668,12 +710,12 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
             children: [
               Expanded(
                 child: TextField(
-                  controller: _rReturnCtrl,
+                  controller: _linerReturnCtrl,
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
                   decoration: const InputDecoration(
-                    labelText: 'R-Return (Kg)',
-                    helperText: 'Extruder residue (absorbed)',
+                    labelText: 'Liner Return (Kg)',
+                    helperText: 'Reusable — new batch',
                     border: OutlineInputBorder(),
                   ),
                   onChanged: (_) => setState(() {}),
@@ -682,18 +724,29 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
               const SizedBox(width: 12),
               Expanded(
                 child: TextField(
-                  controller: _cReturnCtrl,
+                  controller: _calendarReturnCtrl,
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
                   decoration: const InputDecoration(
-                    labelText: 'C-Return (Kg)',
-                    helperText: 'Reusable compound',
+                    labelText: 'Calendar Return (Kg)',
+                    helperText: 'Reusable — new batch',
                     border: OutlineInputBorder(),
                   ),
                   onChanged: (_) => setState(() {}),
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _excruderSludgeCtrl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              labelText: 'Excruder Sludge (Kg)',
+              helperText: 'Cleaned out, scrapped — cost absorbed, no batch',
+              border: OutlineInputBorder(),
+            ),
+            onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 16),
 
@@ -733,8 +786,9 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
                 children: [
                   _summaryRow('Input', run.fmbInputQty),
                   _summaryRow('Sheets', _sheetTotal),
-                  _summaryRow('R-Return (absorbed)', _rReturn),
-                  _summaryRow('C-Return (reusable)', _cReturn),
+                  _summaryRow('Liner Return (reusable)', _linerReturn),
+                  _summaryRow('Calendar Return (reusable)', _calendarReturn),
+                  _summaryRow('Excruder Sludge (absorbed)', _excruderSludge),
                 ],
               ),
             ),
@@ -823,6 +877,8 @@ class _SheetEntry {
   final thicknessCtrl = TextEditingController();
   final widthCtrl = TextEditingController();
   final lengthCtrl = TextEditingController();
+  final linerToolCtrl = TextEditingController();
+  final cylinderToolCtrl = TextEditingController();
 
   void dispose() {
     itemCodeCtrl.dispose();
@@ -830,5 +886,7 @@ class _SheetEntry {
     thicknessCtrl.dispose();
     widthCtrl.dispose();
     lengthCtrl.dispose();
+    linerToolCtrl.dispose();
+    cylinderToolCtrl.dispose();
   }
 }

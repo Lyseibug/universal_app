@@ -7,11 +7,20 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/logger.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/service_providers.dart';
+import '../../providers/workstation_provider.dart';
+import '../../widgets/custom_button.dart';
+import '../../widgets/custom_text_field.dart';
 
-/// Workspace selection screen shown after login.
+/// Workspace + workstation selection screen shown after login.
 ///
-/// If the employee has only one workspace, it is auto-selected and this
-/// screen is skipped. Otherwise, the worker picks their assignment.
+/// Loads the worker's assigned production lines via `session.list_workspaces`.
+/// If there is exactly one assignment with exactly one workstation, both are
+/// auto-selected and this screen is skipped entirely. Otherwise the worker
+/// picks an assignment (if more than one) and then a specific workstation
+/// within it, optionally naming a helper. Confirming calls
+/// `session.select_workspace`, which creates the Worker Session (so
+/// supervisor idle-alerts work) and returns the full station list, which is
+/// seeded directly into [workstationProvider] for the Line 2 screens.
 class WorkspaceScreen extends ConsumerStatefulWidget {
   const WorkspaceScreen({super.key});
 
@@ -20,15 +29,25 @@ class WorkspaceScreen extends ConsumerStatefulWidget {
 }
 
 class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
+  final _helperCtrl = TextEditingController();
+
   List<WorkspaceModel>? _workspaces;
+  WorkspaceModel? _selectedAssignment;
+  String? _selectedWorkstation;
   bool _loading = true;
+  bool _confirming = false;
   String? _error;
-  String? _selectingId;
 
   @override
   void initState() {
     super.initState();
     _loadWorkspaces();
+  }
+
+  @override
+  void dispose() {
+    _helperCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _loadWorkspaces() async {
@@ -42,14 +61,16 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
 
       if (!mounted) return;
 
-      if (workspaces.length == 1) {
-        // Auto-select single workspace
-        await _selectWorkspace(workspaces.first);
+      if (workspaces.length == 1 && workspaces.first.workstations.length == 1) {
+        // Single assignment, single workstation — auto-select silently.
+        await _confirm(workspaces.first, workspaces.first.workstations.first);
         return;
       }
 
       setState(() {
         _workspaces = workspaces;
+        _selectedAssignment = workspaces.length == 1 ? workspaces.first : null;
+        _selectedWorkstation = _selectedAssignment?.workstations.firstOrNull;
         _loading = false;
       });
     } catch (e) {
@@ -62,19 +83,34 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
     }
   }
 
-  Future<void> _selectWorkspace(WorkspaceModel workspace) async {
-    setState(() => _selectingId = workspace.assignment);
+  Future<void> _confirm(WorkspaceModel assignment, String workstation) async {
+    setState(() {
+      _confirming = true;
+      _error = null;
+    });
     try {
       final api = ref.read(sessionRepositoryProvider);
-      final session = await api.selectWorkspace(workspace.assignment);
+      final session = await api.selectWorkspace(
+        assignment.assignment,
+        workstation: workstation,
+        helperName: _helperCtrl.text.trim().isNotEmpty ? _helperCtrl.text.trim() : null,
+      );
       if (!mounted) return;
+
       ref.read(authProvider.notifier).setSession(session);
+      ref.read(workstationProvider.notifier).state = WorkstationState(
+        selectedWorkstation: session.workspace,
+        productionLine: session.productionLine,
+        assignedStations: session.assignedStations,
+        helperName: _helperCtrl.text.trim().isNotEmpty ? _helperCtrl.text.trim() : null,
+      );
+
       if (mounted) context.go('/home');
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = 'Failed to select workspace. Please try again.';
-        _selectingId = null;
+        _error = 'Failed to select workstation. Please try again.';
+        _confirming = false;
       });
     }
   }
@@ -87,7 +123,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
     return Scaffold(
       backgroundColor: AppTheme.bgScaffold,
       appBar: AppBar(
-        title: const Text('Select Workspace'),
+        title: const Text('Workstation Setup'),
         automaticallyImplyLeading: false,
         actions: [
           TextButton.icon(
@@ -106,9 +142,9 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
       body: SafeArea(
         child: _loading
             ? _buildLoading()
-            : _error != null
+            : _error != null && _workspaces == null
                 ? _buildError()
-                : _buildWorkspaceList(employeeName),
+                : _buildSetupForm(employeeName),
       ),
     );
   }
@@ -121,7 +157,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
           const CircularProgressIndicator(),
           const SizedBox(height: 20),
           Text(
-            'Loading your workspaces…',
+            'Loading your workstations…',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
         ],
@@ -171,8 +207,23 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
     );
   }
 
-  Widget _buildWorkspaceList(String employeeName) {
+  Widget _buildSetupForm(String employeeName) {
     final workspaces = _workspaces ?? [];
+
+    if (workspaces.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppTheme.horizontalPad),
+          child: Text(
+            'No workstations assigned. Contact your supervisor.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AppTheme.danger, fontSize: 14),
+          ),
+        ),
+      );
+    }
+
+    final stations = _selectedAssignment?.workstations ?? const <String>[];
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTheme.horizontalPad),
@@ -180,13 +231,124 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 8),
+          Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppTheme.primary,
+                  borderRadius: BorderRadius.circular(AppTheme.borderRadius),
+                ),
+                child: const Icon(Icons.precision_manufacturing_outlined, color: Colors.white, size: 26),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Welcome, $employeeName', style: Theme.of(context).textTheme.titleMedium),
+                    Text(
+                      '${workspaces.length} assignment${workspaces.length == 1 ? '' : 's'} available',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(height: 1),
+          const SizedBox(height: 20),
 
-          // ── Header ──────────────────────────────────────────────────────────
-          _buildHeader(employeeName, workspaces.length),
-          const SizedBox(height: 24),
+          // Assignment picker (only shown when there's more than one)
+          if (workspaces.length > 1) ...[
+            const Text('PRODUCTION LINE',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary, letterSpacing: 1.0)),
+            const SizedBox(height: 8),
+            ...workspaces.map(_buildAssignmentCard),
+            const SizedBox(height: 20),
+          ],
 
-          // ── Workspace Cards ──────────────────────────────────────────────────
-          ...workspaces.map((ws) => _buildWorkspaceCard(ws)),
+          if (_selectedAssignment != null) ...[
+            const Text('WORKSTATION ID',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary, letterSpacing: 1.0)),
+            const SizedBox(height: 6),
+            DropdownButtonFormField<String>(
+              value: _selectedWorkstation,
+              decoration: const InputDecoration(
+                hintText: 'Select workstation',
+                prefixIcon: Icon(Icons.place_outlined),
+              ),
+              items: stations.map((ws) => DropdownMenuItem(value: ws, child: Text(ws))).toList(),
+              onChanged: (ws) => setState(() => _selectedWorkstation = ws),
+            ),
+            if (stations.length > 1) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Assigned: ${stations.join(" · ")}',
+                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              ),
+            ],
+            if (_selectedAssignment!.supervisorName.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.person_outline, size: 14, color: AppTheme.textSecondary),
+                  const SizedBox(width: 4),
+                  Text('Supervisor: ${_selectedAssignment!.supervisorName}',
+                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                ],
+              ),
+            ],
+            const SizedBox(height: 20),
+
+            const Text('MACHINE OPERATOR',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary, letterSpacing: 1.0)),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: AppTheme.bgElevated,
+                borderRadius: BorderRadius.circular(AppTheme.borderRadius),
+                border: Border.all(color: AppTheme.bgBorder, width: 1.5),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.person, color: AppTheme.textSecondary, size: 20),
+                  const SizedBox(width: 12),
+                  Text(employeeName, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            const Text('HELPER (IF APPLICABLE)',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary, letterSpacing: 1.0)),
+            const SizedBox(height: 6),
+            CustomTextField(
+              controller: _helperCtrl,
+              hintText: 'Helper Name',
+              prefixIcon: const Icon(Icons.person_add_outlined),
+            ),
+            const SizedBox(height: 28),
+          ],
+
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Text(_error!, style: const TextStyle(color: AppTheme.danger, fontSize: 13), textAlign: TextAlign.center),
+            ),
+
+          if (_selectedAssignment != null)
+            CustomButton(
+              text: _confirming ? 'Setting up...' : 'Next',
+              icon: Icons.arrow_forward,
+              isLoading: _confirming,
+              onPressed: _selectedWorkstation == null
+                  ? null
+                  : () => _confirm(_selectedAssignment!, _selectedWorkstation!),
+            ),
 
           const SizedBox(height: 24),
         ],
@@ -194,49 +356,8 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
     );
   }
 
-  Widget _buildHeader(String name, int count) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: AppTheme.primary,
-                borderRadius: BorderRadius.circular(AppTheme.borderRadius),
-              ),
-              child: const Icon(Icons.warehouse_outlined, color: Colors.white, size: 26),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Welcome, $name', style: Theme.of(context).textTheme.titleMedium),
-                  Text(
-                    '$count workspace${count == 1 ? '' : 's'} available',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        const Divider(height: 1),
-        const SizedBox(height: 16),
-        Text(
-          'Select your workstation to begin:',
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildWorkspaceCard(WorkspaceModel ws) {
-    final isSelecting = _selectingId == ws.assignment;
+  Widget _buildAssignmentCard(WorkspaceModel ws) {
+    final isSelected = _selectedAssignment?.assignment == ws.assignment;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -245,18 +366,20 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppTheme.cardRadius),
           side: BorderSide(
-            color: isSelecting ? AppTheme.primary : AppTheme.bgBorder,
-            width: isSelecting ? 2.0 : 1.0,
+            color: isSelected ? AppTheme.primary : AppTheme.bgBorder,
+            width: isSelected ? 2.0 : 1.0,
           ),
         ),
         child: InkWell(
           borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-          onTap: isSelecting ? null : () => _selectWorkspace(ws),
+          onTap: () => setState(() {
+            _selectedAssignment = ws;
+            _selectedWorkstation = ws.workstations.firstOrNull;
+          }),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                // ── Icon ────────────────────────────────────────────────────
                 Container(
                   width: 52,
                   height: 52,
@@ -264,52 +387,38 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
                     color: AppTheme.primary.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(AppTheme.borderRadius),
                   ),
-                  child: const Icon(Icons.place_outlined, color: AppTheme.primary, size: 28),
+                  child: const Icon(Icons.precision_manufacturing_outlined, color: AppTheme.primary, size: 28),
                 ),
                 const SizedBox(width: 16),
-
-                // ── Details ─────────────────────────────────────────────────
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Text(ws.label, style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: 2),
                       Text(
-                        ws.label,
-                        style: Theme.of(context).textTheme.titleMedium,
+                        '${ws.workstations.length} station${ws.workstations.length == 1 ? '' : 's'}',
+                        style: Theme.of(context).textTheme.bodySmall,
                       ),
-                      if (ws.warehouse.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          ws.warehouse,
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
                       if (ws.supervisorName.isNotEmpty) ...[
                         const SizedBox(height: 4),
                         Row(
                           children: [
                             const Icon(Icons.person_outline, size: 13, color: AppTheme.textSecondary),
                             const SizedBox(width: 4),
-                            Text(
-                              'Supervisor: ${ws.supervisorName}',
-                              style: Theme.of(context).textTheme.labelMedium,
-                            ),
+                            Text('Supervisor: ${ws.supervisorName}', style: Theme.of(context).textTheme.labelMedium),
                           ],
                         ),
                       ],
                     ],
                   ),
                 ),
-
-                // ── Action ──────────────────────────────────────────────────
                 const SizedBox(width: 12),
-                isSelecting
-                    ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.chevron_right, color: AppTheme.textDisabled, size: 24),
+                Icon(
+                  isSelected ? Icons.check_circle : Icons.chevron_right,
+                  color: isSelected ? AppTheme.primary : AppTheme.textDisabled,
+                  size: 24,
+                ),
               ],
             ),
           ),

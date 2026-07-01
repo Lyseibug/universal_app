@@ -8,6 +8,7 @@ import 'core/theme/app_theme.dart';
 import 'core/utils/logger.dart';
 import 'providers/service_providers.dart';
 import 'routes/app_router.dart';
+import 'widgets/worker_prompt_dialog.dart';
 
 /// Entry point of the Universal PDT WMS application.
 void main() async {
@@ -63,6 +64,8 @@ class PdtApp extends ConsumerWidget {
       theme: AppTheme.lightTheme,
       routerConfig: router,
       scaffoldMessengerKey: scaffoldMessengerKey,
+      builder: (context, child) =>
+          WorkerPromptListener(child: child ?? const SizedBox.shrink()),
     );
   }
 }

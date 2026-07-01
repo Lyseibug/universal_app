@@ -61,7 +61,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
 
     if (success && mounted) {
-      context.go('/home');
+      context.go('/workspace');
       // Run update check after successful login (non-blocking)
       _runUpdateCheck();
     }

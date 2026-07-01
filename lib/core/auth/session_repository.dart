@@ -60,11 +60,23 @@ class SessionRepository {
 
   /// Select an active workstation assignment.
   ///
+  /// [workstation] picks a specific station within the assignment's list
+  /// (defaults to the first one server-side if omitted). [helperName] is
+  /// optional and recorded on the Worker Session for audit purposes.
+  ///
   /// Returns and caches the updated [SessionInfo].
-  Future<SessionInfo> selectWorkspace(String assignment) async {
-    final data = await _api.call('session.select_workspace', body: {'assignment': assignment});
+  Future<SessionInfo> selectWorkspace(
+    String assignment, {
+    String? workstation,
+    String? helperName,
+  }) async {
+    final data = await _api.call('session.select_workspace', body: {
+      'assignment': assignment,
+      if (workstation != null) 'workstation': workstation,
+      if (helperName != null) 'helper_name': helperName,
+    });
     final session = SessionInfo.fromJson(Map<String, dynamic>.from(data));
-    
+
     // Cache the active session locally for offline startup
     await _sessionBox.put(_sessionCacheKey, jsonEncode(data));
     AppLogger.info('Workspace selected and cached: ${session.workspaceLabel}', tag: _tag);
