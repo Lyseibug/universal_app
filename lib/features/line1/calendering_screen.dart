@@ -279,6 +279,20 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
         ));
         return;
       }
+      if (e.linerToolCtrl.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Sheet ${i + 1}: Liner tool is required'),
+          backgroundColor: AppTheme.danger,
+        ));
+        return;
+      }
+      if (e.cylinderToolCtrl.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Sheet ${i + 1}: Cylinder tool is required'),
+          backgroundColor: AppTheme.danger,
+        ));
+        return;
+      }
     }
 
     if (_balance.abs() > 0.5) {
@@ -298,10 +312,8 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
             'thickness_mm': double.tryParse(e.thicknessCtrl.text) ?? 0,
             'width_in_mm': double.tryParse(e.widthCtrl.text) ?? 0,
             'length_in_mm': double.tryParse(e.lengthCtrl.text) ?? 0,
-            if (e.linerToolCtrl.text.trim().isNotEmpty)
-              'liner_tool': e.linerToolCtrl.text.trim(),
-            if (e.cylinderToolCtrl.text.trim().isNotEmpty)
-              'cylinder_tool': e.cylinderToolCtrl.text.trim(),
+            'liner_tool': e.linerToolCtrl.text.trim(),
+            'cylinder_tool': e.cylinderToolCtrl.text.trim(),
           }).toList();
 
       await ref.read(line1RepositoryProvider).completeCalenderingRun(
@@ -674,7 +686,7 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
                           child: TextField(
                             controller: e.linerToolCtrl,
                             decoration: const InputDecoration(
-                              labelText: 'Liner (optional)',
+                              labelText: 'Liner (required)',
                               helperText: 'Reusable, auto-released when empty',
                               border: OutlineInputBorder(),
                               isDense: true,
@@ -686,7 +698,7 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
                           child: TextField(
                             controller: e.cylinderToolCtrl,
                             decoration: const InputDecoration(
-                              labelText: 'Cylinder (optional)',
+                              labelText: 'Cylinder (required)',
                               helperText: 'Reusable, auto-released when empty',
                               border: OutlineInputBorder(),
                               isDense: true,

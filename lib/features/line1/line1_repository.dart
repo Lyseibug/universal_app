@@ -42,6 +42,38 @@ class Line1Repository {
     return LoadResult.fromJson(Map<String, dynamic>.from(result));
   }
 
+  // ── Mixer Loading (staging → Mixer WIP) ─────────────────────────────────
+
+  Future<List<Map<String, dynamic>>> listMixerStageable() async {
+    final data = await _api.call('line1_mixer.list_stageable');
+    return _parseMapList(data);
+  }
+
+  Future<List<Map<String, dynamic>>> listMixerWip() async {
+    final data = await _api.call('line1_mixer.list_wip');
+    return _parseMapList(data);
+  }
+
+  Future<Map<String, dynamic>> resolveMixerScan(String code) async {
+    final data = await _api.call('line1_mixer.resolve', body: {'code': code});
+    return Map<String, dynamic>.from(data);
+  }
+
+  Future<Map<String, dynamic>> loadToMixer({
+    required String itemCode,
+    required double qty,
+    String? batchNo,
+    String? sourceWarehouse,
+  }) async {
+    final result = await _writeQueue.run('line1_mixer.load', {
+      'item_code': itemCode,
+      'qty': qty,
+      if (batchNo != null) 'batch_no': batchNo,
+      if (sourceWarehouse != null) 'source_warehouse': sourceWarehouse,
+    });
+    return Map<String, dynamic>.from(result);
+  }
+
   // ── Bags ────────────────────────────────────────────────────────────────
 
   Future<List<BagItem>> listBags() async {
@@ -160,6 +192,13 @@ class Line1Repository {
       return data
           .map((j) => StockItem.fromJson(Map<String, dynamic>.from(j)))
           .toList();
+    }
+    return const [];
+  }
+
+  List<Map<String, dynamic>> _parseMapList(dynamic data) {
+    if (data is List) {
+      return data.map((j) => Map<String, dynamic>.from(j)).toList();
     }
     return const [];
   }
