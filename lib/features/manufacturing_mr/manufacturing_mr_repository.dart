@@ -72,6 +72,14 @@ class ManufacturingMRRepository {
       'name': name,
     });
   }
+
+  /// Recovery path: submit_mr already creates the pick list; this re-creates
+  /// it for a submitted MR that is missing one (idempotent server-side).
+  Future<dynamic> createPickList(String name) async {
+    return _writeQueue.run('manufacturing_mr.create_pick_list', {
+      'name': name,
+    });
+  }
 }
 
 final manufacturingMRRepositoryProvider =

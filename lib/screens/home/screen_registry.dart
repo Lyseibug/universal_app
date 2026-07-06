@@ -51,7 +51,7 @@ final Map<String, ScreenBuilder> screenRegistry = {
   'calendering':        (s) => CalenderingScreen(screen: s),
   'oil_loading':        (s) => OilLoadingScreen(screen: s),
   'silo_loading':       (s) => SiloLoadingScreen(screen: s),
-  'weighing':           (s) => WeighingScreen(screen: s),
+  'weighing_load':      (s) => WeighingScreen(screen: s),
   'po_reception':       (s) => PoReceptionScreen(screen: s),
   // Line 2 — Belt/Sleeve Building
   'line2_active_jobs':  (s) => ActiveJobsScreen(screen: s),

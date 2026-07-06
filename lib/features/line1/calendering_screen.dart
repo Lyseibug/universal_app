@@ -40,6 +40,11 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
   final _excruderSludgeCtrl = TextEditingController(text: '0');
   bool _completing = false;
 
+  // ── Roll stock (pooled Liner/Cylinder specs) ──
+  List<RollStock> _rollStock = [];
+  bool _loadingRollStock = false;
+  String? _rollStockError;
+
   @override
   void initState() {
     super.initState();
@@ -95,8 +100,25 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
     }
   }
 
+  Future<void> _loadRollStock() async {
+    setState(() {
+      _loadingRollStock = true;
+      _rollStockError = null;
+    });
+    try {
+      _rollStock = await ref.read(line1RepositoryProvider).listRollStock();
+      setState(() => _loadingRollStock = false);
+    } catch (e) {
+      setState(() {
+        _rollStockError = 'Failed to load roll stock';
+        _loadingRollStock = false;
+      });
+    }
+  }
+
   Future<void> _loadRunDetail(String name) async {
     setState(() => _loadingRun = true);
+    _loadRollStock();
     try {
       final run =
           await ref.read(line1RepositoryProvider).getCalenderingRun(name);
@@ -279,16 +301,37 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
         ));
         return;
       }
-      if (e.linerToolCtrl.text.trim().isEmpty) {
+      if (e.linerItemCode == null || e.linerItemCode!.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Sheet ${i + 1}: Liner tool is required'),
+          content: Text('Sheet ${i + 1}: Liner roll spec is required'),
           backgroundColor: AppTheme.danger,
         ));
         return;
       }
-      if (e.cylinderToolCtrl.text.trim().isEmpty) {
+      if (e.cylinderItemCode == null || e.cylinderItemCode!.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Sheet ${i + 1}: Cylinder tool is required'),
+          content: Text('Sheet ${i + 1}: Cylinder roll spec is required'),
+          backgroundColor: AppTheme.danger,
+        ));
+        return;
+      }
+    }
+
+    // Each sheet checks out 1 Nos per selected roll spec (Store → In Use);
+    // catch over-allocation before the server rejects it.
+    final rollNeeded = <String, int>{};
+    for (final e in _sheetEntries) {
+      rollNeeded[e.linerItemCode!] = (rollNeeded[e.linerItemCode!] ?? 0) + 1;
+      rollNeeded[e.cylinderItemCode!] =
+          (rollNeeded[e.cylinderItemCode!] ?? 0) + 1;
+    }
+    for (final entry in rollNeeded.entries) {
+      final stock = _rollStock.where((r) => r.itemCode == entry.key).toList();
+      if (stock.isNotEmpty && entry.value > stock.first.availableQty) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+              'Not enough rolls of ${stock.first.itemName ?? entry.key}: '
+              'need ${entry.value}, only ${stock.first.availableQty.toStringAsFixed(0)} in store'),
           backgroundColor: AppTheme.danger,
         ));
         return;
@@ -312,8 +355,8 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
             'thickness_mm': double.tryParse(e.thicknessCtrl.text) ?? 0,
             'width_in_mm': double.tryParse(e.widthCtrl.text) ?? 0,
             'length_in_mm': double.tryParse(e.lengthCtrl.text) ?? 0,
-            'liner_tool': e.linerToolCtrl.text.trim(),
-            'cylinder_tool': e.cylinderToolCtrl.text.trim(),
+            'liner_item_code': e.linerItemCode,
+            'cylinder_item_code': e.cylinderItemCode,
           }).toList();
 
       await ref.read(line1RepositoryProvider).completeCalenderingRun(
@@ -557,6 +600,58 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
           ),
           const SizedBox(height: 16),
 
+          // Roll stock overview (pooled Liner/Cylinder specs)
+          Card(
+            child: ExpansionTile(
+              leading: const Icon(Icons.album_outlined),
+              title: const Text('Roll Stock',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              subtitle: Text(
+                _rollStockError ?? 'Available in store / checked out in use',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: _rollStockError != null
+                      ? AppTheme.danger
+                      : Colors.grey[600],
+                ),
+              ),
+              children: [
+                if (_loadingRollStock)
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (_rollStock.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text('No roll specs found',
+                        style: TextStyle(color: Colors.grey)),
+                  )
+                else
+                  ..._rollStock.map((r) => ListTile(
+                        dense: true,
+                        title: Text(r.itemName ?? r.itemCode),
+                        subtitle: Text(r.rollType),
+                        trailing: Text(
+                          '${r.availableQty.toStringAsFixed(0)} avail / ${r.inUseQty.toStringAsFixed(0)} in use',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: r.availableQty > 0
+                                ? AppTheme.success
+                                : AppTheme.danger,
+                          ),
+                        ),
+                      )),
+                TextButton.icon(
+                  onPressed: _loadingRollStock ? null : _loadRollStock,
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: const Text('Refresh'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
           // Sheet outputs
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -683,26 +778,22 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
                     Row(
                       children: [
                         Expanded(
-                          child: TextField(
-                            controller: e.linerToolCtrl,
-                            decoration: const InputDecoration(
-                              labelText: 'Liner (required)',
-                              helperText: 'Reusable, auto-released when empty',
-                              border: OutlineInputBorder(),
-                              isDense: true,
-                            ),
+                          child: _rollDropdown(
+                            rollType: 'Liner',
+                            label: 'Liner (required)',
+                            value: e.linerItemCode,
+                            onChanged: (v) =>
+                                setState(() => e.linerItemCode = v),
                           ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: TextField(
-                            controller: e.cylinderToolCtrl,
-                            decoration: const InputDecoration(
-                              labelText: 'Cylinder (required)',
-                              helperText: 'Reusable, auto-released when empty',
-                              border: OutlineInputBorder(),
-                              isDense: true,
-                            ),
+                          child: _rollDropdown(
+                            rollType: 'Cylinder',
+                            label: 'Cylinder (required)',
+                            value: e.cylinderItemCode,
+                            onChanged: (v) =>
+                                setState(() => e.cylinderItemCode = v),
                           ),
                         ),
                       ],
@@ -834,6 +925,43 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
 
   // ── Widgets ─────────────────────────────────────────────────────────────
 
+  Widget _rollDropdown({
+    required String rollType,
+    required String label,
+    required String? value,
+    required ValueChanged<String?> onChanged,
+  }) {
+    final specs = _rollStock.where((r) => r.rollType == rollType).toList();
+    final safeValue =
+        specs.any((r) => r.itemCode == value) ? value : null;
+    return DropdownButtonFormField<String>(
+      value: safeValue,
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: label,
+        helperText: specs.isEmpty
+            ? (_loadingRollStock ? 'Loading…' : 'None in store')
+            : 'Auto-released when empty',
+        border: const OutlineInputBorder(),
+        isDense: true,
+      ),
+      items: specs
+          .map((r) => DropdownMenuItem<String>(
+                value: r.itemCode,
+                enabled: r.availableQty > 0,
+                child: Text(
+                  '${r.itemName ?? r.itemCode} (${r.availableQty.toStringAsFixed(0)})',
+                  overflow: TextOverflow.ellipsis,
+                  style: r.availableQty > 0
+                      ? null
+                      : const TextStyle(color: Colors.grey),
+                ),
+              ))
+          .toList(),
+      onChanged: onChanged,
+    );
+  }
+
   Widget _summaryRow(String label, double value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
@@ -889,8 +1017,10 @@ class _SheetEntry {
   final thicknessCtrl = TextEditingController();
   final widthCtrl = TextEditingController();
   final lengthCtrl = TextEditingController();
-  final linerToolCtrl = TextEditingController();
-  final cylinderToolCtrl = TextEditingController();
+
+  /// Pooled roll specs (Item codes) — 1 Nos of each is checked out per sheet.
+  String? linerItemCode;
+  String? cylinderItemCode;
 
   void dispose() {
     itemCodeCtrl.dispose();
@@ -898,7 +1028,5 @@ class _SheetEntry {
     thicknessCtrl.dispose();
     widthCtrl.dispose();
     lengthCtrl.dispose();
-    linerToolCtrl.dispose();
-    cylinderToolCtrl.dispose();
   }
 }

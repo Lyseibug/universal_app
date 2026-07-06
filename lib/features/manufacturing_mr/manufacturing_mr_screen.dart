@@ -56,6 +56,7 @@ class _ManufacturingMRScreenState
   String _editRequestType = 'Manual';
   bool _saving = false;
   bool _submittingMR = false;
+  bool _creatingPickList = false;
 
   @override
   void initState() {
@@ -328,6 +329,40 @@ class _ManufacturingMRScreenState
       }
     } finally {
       if (mounted) setState(() => _submittingMR = false);
+    }
+  }
+
+  Future<void> _createPickList() async {
+    setState(() => _creatingPickList = true);
+    try {
+      await ref
+          .read(manufacturingMRRepositoryProvider)
+          .createPickList(_detail!.name);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Pick list created'),
+            backgroundColor: AppTheme.success),
+      );
+      _loadDetail(_detail!.name);
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(messageFor(e)),
+              backgroundColor: AppTheme.danger),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Error: $e'), backgroundColor: AppTheme.danger),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _creatingPickList = false);
     }
   }
 
@@ -708,6 +743,17 @@ class _ManufacturingMRScreenState
               text: 'Go to Pick List',
               icon: Icons.assignment_outlined,
               onPressed: _goToPickList,
+            ),
+
+          // Recovery: submitted MR without a pick list (normally created on submit)
+          if (!isDraft &&
+              d.pickList == null &&
+              widget.screen.can('create_pick_list'))
+            CustomButton(
+              text: 'Create Pick List',
+              icon: Icons.playlist_add,
+              isLoading: _creatingPickList,
+              onPressed: _createPickList,
             ),
           const SizedBox(height: 24),
         ],

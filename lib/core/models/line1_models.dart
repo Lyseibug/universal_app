@@ -94,6 +94,7 @@ class FmbBatch with _$FmbBatch {
     @JsonKey(name: 'item_name') String? itemName,
     @Default(0) double qty,
     @JsonKey(name: 'lab_status') @Default('Pending') String labStatus,
+    @JsonKey(name: 'compound_type') @Default('FMB') String compoundType,
     @JsonKey(name: 'manufacturing_date') String? manufacturingDate,
     @JsonKey(name: 'formula_name') String? formulaName,
     @JsonKey(name: 'formula_code') String? formulaCode,
@@ -201,6 +202,30 @@ class CalenderingFmb {
         qty: (json['qty'] as num?)?.toDouble() ?? 0,
         labStatus: json['lab_status']?.toString() ?? 'Pass',
         manufacturingDate: json['manufacturing_date']?.toString(),
+      );
+}
+
+class RollStock {
+  final String itemCode;
+  final String? itemName;
+  final String rollType; // 'Liner' | 'Cylinder'
+  final double availableQty;
+  final double inUseQty;
+
+  const RollStock({
+    required this.itemCode,
+    this.itemName,
+    this.rollType = 'Liner',
+    this.availableQty = 0,
+    this.inUseQty = 0,
+  });
+
+  factory RollStock.fromJson(Map<String, dynamic> json) => RollStock(
+        itemCode: json['item_code']?.toString() ?? '',
+        itemName: json['item_name']?.toString(),
+        rollType: json['roll_type']?.toString() ?? 'Liner',
+        availableQty: (json['available_qty'] as num?)?.toDouble() ?? 0,
+        inUseQty: (json['in_use_qty'] as num?)?.toDouble() ?? 0,
       );
 }
 

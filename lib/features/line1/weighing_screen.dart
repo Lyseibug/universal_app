@@ -49,7 +49,7 @@ class _WeighingScreenState extends ConsumerState<WeighingScreen> {
     try {
       final repo = ref.read(line1RepositoryProvider);
       final results = await Future.wait([
-        repo.listOutsideStock('weighing'),
+        repo.listWeighingOutsideStock(),
         repo.listBoxes(),
       ]);
       setState(() {

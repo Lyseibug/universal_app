@@ -74,6 +74,31 @@ class Line1Repository {
     return Map<String, dynamic>.from(result);
   }
 
+  // ── Weighing (Outside → Inside Weighing Machine WH) ─────────────────────
+
+  Future<List<StockItem>> listWeighingOutsideStock() async {
+    final data = await _api.call('line1_weighing.list_outside_stock');
+    return _parseStockList(data);
+  }
+
+  Future<List<StockItem>> listBoxes() async {
+    final data = await _api.call('line1_weighing.list_boxes');
+    return _parseStockList(data);
+  }
+
+  Future<LoadResult> weighingLoad({
+    required String boxBarcode,
+    required String itemCode,
+    required double qty,
+  }) async {
+    final result = await _writeQueue.run('line1_weighing.weighing_load', {
+      'box_barcode': boxBarcode,
+      'item_code': itemCode,
+      'qty': qty,
+    });
+    return LoadResult.fromJson(Map<String, dynamic>.from(result));
+  }
+
   // ── Bags ────────────────────────────────────────────────────────────────
 
   Future<List<BagItem>> listBags() async {
@@ -171,6 +196,16 @@ class Line1Repository {
     });
     return CalenderingCompleteResult.fromJson(
         Map<String, dynamic>.from(result));
+  }
+
+  Future<List<RollStock>> listRollStock() async {
+    final data = await _api.call('line1_calendering.list_roll_stock');
+    if (data is List) {
+      return data
+          .map((j) => RollStock.fromJson(Map<String, dynamic>.from(j)))
+          .toList();
+    }
+    return const [];
   }
 
   Future<List<CalenderingRun>> listCalenderingRuns({String? status}) async {

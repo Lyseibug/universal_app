@@ -1366,6 +1366,8 @@ mixin _$FmbBatch {
   double get qty => throw _privateConstructorUsedError;
   @JsonKey(name: 'lab_status')
   String get labStatus => throw _privateConstructorUsedError;
+  @JsonKey(name: 'compound_type')
+  String get compoundType => throw _privateConstructorUsedError;
   @JsonKey(name: 'manufacturing_date')
   String? get manufacturingDate => throw _privateConstructorUsedError;
   @JsonKey(name: 'formula_name')
@@ -1390,6 +1392,7 @@ abstract class $FmbBatchCopyWith<$Res> {
       @JsonKey(name: 'item_name') String? itemName,
       double qty,
       @JsonKey(name: 'lab_status') String labStatus,
+      @JsonKey(name: 'compound_type') String compoundType,
       @JsonKey(name: 'manufacturing_date') String? manufacturingDate,
       @JsonKey(name: 'formula_name') String? formulaName,
       @JsonKey(name: 'formula_code') String? formulaCode});
@@ -1413,6 +1416,7 @@ class _$FmbBatchCopyWithImpl<$Res, $Val extends FmbBatch>
     Object? itemName = freezed,
     Object? qty = null,
     Object? labStatus = null,
+    Object? compoundType = null,
     Object? manufacturingDate = freezed,
     Object? formulaName = freezed,
     Object? formulaCode = freezed,
@@ -1437,6 +1441,10 @@ class _$FmbBatchCopyWithImpl<$Res, $Val extends FmbBatch>
       labStatus: null == labStatus
           ? _value.labStatus
           : labStatus // ignore: cast_nullable_to_non_nullable
+              as String,
+      compoundType: null == compoundType
+          ? _value.compoundType
+          : compoundType // ignore: cast_nullable_to_non_nullable
               as String,
       manufacturingDate: freezed == manufacturingDate
           ? _value.manufacturingDate
@@ -1468,6 +1476,7 @@ abstract class _$$FmbBatchImplCopyWith<$Res>
       @JsonKey(name: 'item_name') String? itemName,
       double qty,
       @JsonKey(name: 'lab_status') String labStatus,
+      @JsonKey(name: 'compound_type') String compoundType,
       @JsonKey(name: 'manufacturing_date') String? manufacturingDate,
       @JsonKey(name: 'formula_name') String? formulaName,
       @JsonKey(name: 'formula_code') String? formulaCode});
@@ -1489,6 +1498,7 @@ class __$$FmbBatchImplCopyWithImpl<$Res>
     Object? itemName = freezed,
     Object? qty = null,
     Object? labStatus = null,
+    Object? compoundType = null,
     Object? manufacturingDate = freezed,
     Object? formulaName = freezed,
     Object? formulaCode = freezed,
@@ -1513,6 +1523,10 @@ class __$$FmbBatchImplCopyWithImpl<$Res>
       labStatus: null == labStatus
           ? _value.labStatus
           : labStatus // ignore: cast_nullable_to_non_nullable
+              as String,
+      compoundType: null == compoundType
+          ? _value.compoundType
+          : compoundType // ignore: cast_nullable_to_non_nullable
               as String,
       manufacturingDate: freezed == manufacturingDate
           ? _value.manufacturingDate
@@ -1539,6 +1553,7 @@ class _$FmbBatchImpl implements _FmbBatch {
       @JsonKey(name: 'item_name') this.itemName,
       this.qty = 0,
       @JsonKey(name: 'lab_status') this.labStatus = 'Pending',
+      @JsonKey(name: 'compound_type') this.compoundType = 'FMB',
       @JsonKey(name: 'manufacturing_date') this.manufacturingDate,
       @JsonKey(name: 'formula_name') this.formulaName,
       @JsonKey(name: 'formula_code') this.formulaCode});
@@ -1562,6 +1577,9 @@ class _$FmbBatchImpl implements _FmbBatch {
   @JsonKey(name: 'lab_status')
   final String labStatus;
   @override
+  @JsonKey(name: 'compound_type')
+  final String compoundType;
+  @override
   @JsonKey(name: 'manufacturing_date')
   final String? manufacturingDate;
   @override
@@ -1573,7 +1591,7 @@ class _$FmbBatchImpl implements _FmbBatch {
 
   @override
   String toString() {
-    return 'FmbBatch(batchNo: $batchNo, itemCode: $itemCode, itemName: $itemName, qty: $qty, labStatus: $labStatus, manufacturingDate: $manufacturingDate, formulaName: $formulaName, formulaCode: $formulaCode)';
+    return 'FmbBatch(batchNo: $batchNo, itemCode: $itemCode, itemName: $itemName, qty: $qty, labStatus: $labStatus, compoundType: $compoundType, manufacturingDate: $manufacturingDate, formulaName: $formulaName, formulaCode: $formulaCode)';
   }
 
   @override
@@ -1589,6 +1607,8 @@ class _$FmbBatchImpl implements _FmbBatch {
             (identical(other.qty, qty) || other.qty == qty) &&
             (identical(other.labStatus, labStatus) ||
                 other.labStatus == labStatus) &&
+            (identical(other.compoundType, compoundType) ||
+                other.compoundType == compoundType) &&
             (identical(other.manufacturingDate, manufacturingDate) ||
                 other.manufacturingDate == manufacturingDate) &&
             (identical(other.formulaName, formulaName) ||
@@ -1600,7 +1620,7 @@ class _$FmbBatchImpl implements _FmbBatch {
   @JsonKey(ignore: true)
   @override
   int get hashCode => Object.hash(runtimeType, batchNo, itemCode, itemName, qty,
-      labStatus, manufacturingDate, formulaName, formulaCode);
+      labStatus, compoundType, manufacturingDate, formulaName, formulaCode);
 
   @JsonKey(ignore: true)
   @override
@@ -1623,6 +1643,7 @@ abstract class _FmbBatch implements FmbBatch {
           @JsonKey(name: 'item_name') final String? itemName,
           final double qty,
           @JsonKey(name: 'lab_status') final String labStatus,
+          @JsonKey(name: 'compound_type') final String compoundType,
           @JsonKey(name: 'manufacturing_date') final String? manufacturingDate,
           @JsonKey(name: 'formula_name') final String? formulaName,
           @JsonKey(name: 'formula_code') final String? formulaCode}) =
@@ -1645,6 +1666,9 @@ abstract class _FmbBatch implements FmbBatch {
   @override
   @JsonKey(name: 'lab_status')
   String get labStatus;
+  @override
+  @JsonKey(name: 'compound_type')
+  String get compoundType;
   @override
   @JsonKey(name: 'manufacturing_date')
   String? get manufacturingDate;

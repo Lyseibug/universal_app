@@ -25,6 +25,8 @@ class _CompoundLabTestScreenState extends ConsumerState<CompoundLabTestScreen> {
 
   // ── Detail / Test view ──
   FmbDetail? _detail;
+  // get_fmb doesn't return compound_type; carried over from the tapped list row.
+  String _detailCompoundType = 'FMB';
   bool _loadingDetail = false;
   bool _submitting = false;
   final _remarksCtrl = TextEditingController();
@@ -61,7 +63,7 @@ class _CompoundLabTestScreenState extends ConsumerState<CompoundLabTestScreen> {
       _fmbBatches = await ref.read(line1RepositoryProvider).listFmb(status: _statusFilter);
       setState(() => _loading = false);
     } catch (e) {
-      setState(() { _error = 'Failed to load FMB batches'; _loading = false; });
+      setState(() { _error = 'Failed to load compound batches'; _loading = false; });
     }
   }
 
@@ -212,7 +214,7 @@ class _CompoundLabTestScreenState extends ConsumerState<CompoundLabTestScreen> {
         ),
         Expanded(
           child: _fmbBatches.isEmpty
-              ? const Center(child: Text('No FMB batches'))
+              ? const Center(child: Text('No compound batches'))
               : RefreshIndicator(
                   onRefresh: _loadList,
                   child: ListView.builder(
@@ -223,8 +225,16 @@ class _CompoundLabTestScreenState extends ConsumerState<CompoundLabTestScreen> {
                       return Card(
                         child: ListTile(
                           leading: _statusIcon(batch.labStatus),
-                          title: Text(batch.itemName ?? batch.itemCode,
-                              style: const TextStyle(fontWeight: FontWeight.bold)),
+                          title: Row(
+                            children: [
+                              Expanded(
+                                child: Text(batch.itemName ?? batch.itemCode,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold)),
+                              ),
+                              _compoundChip(batch.compoundType),
+                            ],
+                          ),
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -236,7 +246,10 @@ class _CompoundLabTestScreenState extends ConsumerState<CompoundLabTestScreen> {
                           ),
                           trailing: const Icon(Icons.chevron_right),
                           isThreeLine: true,
-                          onTap: () => _loadDetail(batch.batchNo),
+                          onTap: () {
+                            _detailCompoundType = batch.compoundType;
+                            _loadDetail(batch.batchNo);
+                          },
                         ),
                       );
                     },
@@ -258,6 +271,23 @@ class _CompoundLabTestScreenState extends ConsumerState<CompoundLabTestScreen> {
           setState(() => _statusFilter = s ? value : null);
           _loadList();
         },
+      ),
+    );
+  }
+
+  Widget _compoundChip(String type) {
+    final color = type == 'CMB' ? Colors.blue : AppTheme.success;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color),
+      ),
+      child: Text(
+        type,
+        style: TextStyle(
+            color: color, fontWeight: FontWeight.w600, fontSize: 11),
       ),
     );
   }
@@ -305,7 +335,16 @@ class _CompoundLabTestScreenState extends ConsumerState<CompoundLabTestScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(detail.itemName ?? detail.itemCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(detail.itemName ?? detail.itemCode,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 16)),
+                      ),
+                      _compoundChip(_detailCompoundType),
+                    ],
+                  ),
                   Text('Batch: ${detail.batchNo}'),
                   Text('Qty: ${detail.qty} Kg'),
                   if (detail.formulaName != null) Text('Formula: ${detail.formulaName}'),
