@@ -13,8 +13,6 @@ import '../../features/line1/mixer_loading_screen.dart';
 import '../../features/line1/bag_viewer_screen.dart';
 import '../../features/line1/compound_lab_test_screen.dart';
 import '../../features/line1/calendering_screen.dart';
-import '../../features/line1/oil_loading_screen.dart';
-import '../../features/line1/silo_loading_screen.dart';
 import '../../features/line1/weighing_screen.dart';
 import '../../features/po_reception/po_reception_screen.dart';
 import '../../features/line2/active_jobs_screen.dart';
@@ -49,8 +47,9 @@ final Map<String, ScreenBuilder> screenRegistry = {
   'bag_view':           (s) => BagViewerScreen(screen: s),
   'compound_lab_test':  (s) => CompoundLabTestScreen(screen: s),
   'calendering':        (s) => CalenderingScreen(screen: s),
-  'oil_loading':        (s) => OilLoadingScreen(screen: s),
-  'silo_loading':       (s) => SiloLoadingScreen(screen: s),
+  // 'oil_loading' / 'silo_loading' intentionally absent: the legacy loading
+  // screens bypass tank-capacity validation — use 'material_loading' for both
+  // streams (GOLIVE-DOC §10, Finding #17).
   'weighing_load':      (s) => WeighingScreen(screen: s),
   'po_reception':       (s) => PoReceptionScreen(screen: s),
   // Line 2 — Belt/Sleeve Building

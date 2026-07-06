@@ -22,6 +22,11 @@ class _MaterialLoadingScreenState extends ConsumerState<MaterialLoadingScreen> {
   List<StockItem> _outsideStock = [];
   List<StockItem> _insideStock = [];
 
+  // Tank dashboard (read-only, loaded independently of the stock lists)
+  List<TankStatus> _tanks = [];
+  bool _loadingTanks = false;
+  String? _tanksError;
+
   // Scan → resolve → load flow
   StockItem? _resolvedItem;
   String? _resolvedStream;
@@ -48,6 +53,7 @@ class _MaterialLoadingScreenState extends ConsumerState<MaterialLoadingScreen> {
 
   Future<void> _loadData() async {
     setState(() { _loading = true; _error = null; });
+    _loadTanks();
     try {
       final repo = ref.read(line1RepositoryProvider);
       final results = await Future.wait([
@@ -61,6 +67,18 @@ class _MaterialLoadingScreenState extends ConsumerState<MaterialLoadingScreen> {
       });
     } catch (e) {
       setState(() { _error = 'Failed to load stock'; _loading = false; });
+    }
+  }
+
+  Future<void> _loadTanks() async {
+    setState(() { _loadingTanks = true; _tanksError = null; });
+    try {
+      _tanks = await ref.read(line1RepositoryProvider).listTankStatus();
+      if (mounted) setState(() => _loadingTanks = false);
+    } catch (e) {
+      if (mounted) {
+        setState(() { _tanksError = 'Failed to load tank levels'; _loadingTanks = false; });
+      }
     }
   }
 
@@ -227,6 +245,8 @@ class _MaterialLoadingScreenState extends ConsumerState<MaterialLoadingScreen> {
                       if (_resolvedItem != null && !_resolving) _buildLoadCard(),
 
                       if (_resolvedItem == null && !_resolving) ...[
+                        _buildTankSection(),
+                        const SizedBox(height: 16),
                         _buildStockSection('Outside — Ready to Load', _outsideStock),
                         const SizedBox(height: 24),
                         _buildStockSection('Inside — Currently Loaded', _insideStock),
@@ -296,6 +316,91 @@ class _MaterialLoadingScreenState extends ConsumerState<MaterialLoadingScreen> {
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildTankSection() {
+    return Card(
+      child: ExpansionTile(
+        leading: const Icon(Icons.storage),
+        title: const Text('Tank Levels',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        subtitle: Text(
+          _tanksError ?? '${_tanks.length} tanks',
+          style: TextStyle(
+            fontSize: 12,
+            color: _tanksError != null ? AppTheme.danger : Colors.grey[600],
+          ),
+        ),
+        children: [
+          if (_loadingTanks)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_tanks.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('No tanks configured',
+                  style: TextStyle(color: Colors.grey)),
+            )
+          else
+            ..._tanks.map(_buildTankTile),
+          TextButton.icon(
+            onPressed: _loadingTanks ? null : _loadTanks,
+            icon: const Icon(Icons.refresh, size: 18),
+            label: const Text('Refresh'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTankTile(TankStatus t) {
+    final hasCapacity = t.maxCapacityKg > 0;
+    final fill = hasCapacity ? (t.fillPct / 100).clamp(0.0, 1.0) : 0.0;
+    final fillColor = t.isFull || t.fillPct >= 100
+        ? AppTheme.danger
+        : t.fillPct >= 80
+            ? Colors.orange
+            : AppTheme.success;
+
+    return ListTile(
+      dense: true,
+      leading: CircleAvatar(
+        backgroundColor: _streamColor(t.tankType).withAlpha(38),
+        radius: 16,
+        child: Icon(_streamIcon(t.tankType),
+            size: 16, color: _streamColor(t.tankType)),
+      ),
+      title: Text('${t.tankName} — ${t.itemName ?? t.itemCode}',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (hasCapacity) ...[
+            const SizedBox(height: 4),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: LinearProgressIndicator(
+                value: fill,
+                minHeight: 5,
+                backgroundColor: Colors.grey[300],
+                color: fillColor,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              '${t.currentQty.toStringAsFixed(0)} / ${t.maxCapacityKg.toStringAsFixed(0)} Kg (${t.fillPct.toStringAsFixed(1)}%)',
+              style: const TextStyle(fontSize: 11),
+            ),
+          ] else
+            Text(
+              '${t.currentQty.toStringAsFixed(0)} Kg — no capacity limit set',
+              style: const TextStyle(fontSize: 11),
+            ),
+        ],
       ),
     );
   }

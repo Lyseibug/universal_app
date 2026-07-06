@@ -176,6 +176,44 @@ class LabTestParameterResult with _$LabTestParameterResult {
       _$LabTestParameterResultFromJson(json);
 }
 
+// ── Tank Status (plain Dart — no code generation needed) ────────────────
+
+class TankStatus {
+  final String tankName;
+  final String tankType; // 'Silo' | 'Oil'
+  final String itemCode;
+  final String? itemName;
+  final String? lot;
+  final double maxCapacityKg;
+  final double currentQty;
+  final double fillPct;
+  final bool isFull;
+
+  const TankStatus({
+    required this.tankName,
+    required this.tankType,
+    required this.itemCode,
+    this.itemName,
+    this.lot,
+    this.maxCapacityKg = 0,
+    this.currentQty = 0,
+    this.fillPct = 0,
+    this.isFull = false,
+  });
+
+  factory TankStatus.fromJson(Map<String, dynamic> json) => TankStatus(
+        tankName: json['tank_name']?.toString() ?? '',
+        tankType: json['tank_type']?.toString() ?? 'Silo',
+        itemCode: json['item_code']?.toString() ?? '',
+        itemName: json['item_name']?.toString(),
+        lot: json['lot']?.toString(),
+        maxCapacityKg: (json['max_capacity_kg'] as num?)?.toDouble() ?? 0,
+        currentQty: (json['current_qty'] as num?)?.toDouble() ?? 0,
+        fillPct: (json['fill_pct'] as num?)?.toDouble() ?? 0,
+        isFull: json['is_full'] == true,
+      );
+}
+
 // ── Calendering Models (plain Dart — no code generation needed) ─────────
 
 class CalenderingFmb {

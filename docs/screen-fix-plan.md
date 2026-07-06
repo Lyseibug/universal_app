@@ -88,9 +88,24 @@ Verified live in the DB (2026-07-06) — unchanged from GOLIVE-DOC §0/§10:
 > - **A5** — `createPickList()` repo method + a "Create Pick List" recovery button on
 >   submitted MRs missing a pick list, gated by `can('create_pick_list')`
 >   (`submit_mr` normally auto-creates it).
+> - **A6** — tank dashboard implemented after all: collapsible "Tank Levels" card on
+>   `material_loading_screen.dart` fed by new `listTankStatus()` repo method + plain-Dart
+>   `TankStatus` model (fill bar, %, capacity, red at full / orange ≥80%, "no capacity
+>   limit set" for the 0-capacity Oil tanks). Loaded independently so a tank-read
+>   failure can't break the loading flow.
+> - **A7** — `oil_loading_screen.dart` / `silo_loading_screen.dart` **deleted** and
+>   their registry entries removed (with a comment pointing at Finding #17). They were
+>   never compilable anyway — both referenced repo methods that don't exist
+>   (`oilLoad`/`siloLoad`/`listOutsideStock`/`listInsideStock`), i.e. two more hidden
+>   compile breaks on top of the weighing one. With PDT Screen records being created
+>   by hand in Desk, a mistakenly-created `silo_loading`/`oil_loading` record now
+>   renders nothing instead of a validation-bypassing flow.
 >
-> **Not done here:** Part B (server PDT config) and Part C (build/verify on a machine
-> with the Flutter SDK — none on this bench). A6 (tank dashboard) intentionally skipped.
+> Verified after the changes: every `Line1Repository` call site matches a defined
+> method (23/23), bracket balance clean on all touched files.
+>
+> **Not done here:** Part B (server PDT config — being created manually in Desk) and
+> Part C (build/verify on a machine with the Flutter SDK — none on this bench).
 
 ### Part A — Flutter fixes (universal_app), in priority order
 

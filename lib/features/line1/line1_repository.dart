@@ -42,6 +42,16 @@ class Line1Repository {
     return LoadResult.fromJson(Map<String, dynamic>.from(result));
   }
 
+  Future<List<TankStatus>> listTankStatus() async {
+    final data = await _api.call('line1_loading.list_tank_status');
+    if (data is List) {
+      return data
+          .map((j) => TankStatus.fromJson(Map<String, dynamic>.from(j)))
+          .toList();
+    }
+    return const [];
+  }
+
   // ── Mixer Loading (staging → Mixer WIP) ─────────────────────────────────
 
   Future<List<Map<String, dynamic>>> listMixerStageable() async {
