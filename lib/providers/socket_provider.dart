@@ -24,9 +24,16 @@ class SocketNotifier extends StateNotifier<void> {
     _ref.listen<AuthState>(
       authProvider,
       (previous, next) {
-        if (next.isAuthenticated && next.session != null) {
-          _connect(next.session!.employee);
+        final employee = next.session?.employee;
+        if (next.isAuthenticated && employee != null && employee.isNotEmpty) {
+          _connect(employee);
         } else {
+          // No Employee linked to this user → no per-employee socket room to join.
+          if (next.isAuthenticated) {
+            AppLogger.warning(
+                'Session has no employee code; skipping socket connect',
+                tag: 'SocketNotifier');
+          }
           _disconnect();
         }
       },
