@@ -16,7 +16,7 @@ void main() {
       );
       expect(
         messageFor(const ApiException(PdtErrorCode.overPendingQty, 'Too much')),
-        equals('Quantity exceeds what is pending.'),
+        contains('more than what is pending'),
       );
       expect(
         messageFor(const ApiException(PdtErrorCode.noActiveWorkspace, 'No ws')),
@@ -33,6 +33,7 @@ void main() {
     });
 
     test('messageFor returns dynamic message for validation and unknown errors', () {
+      // Unknown validation messages pass through sanitized
       expect(
         messageFor(const ApiException(PdtErrorCode.validation, 'Item not found in bin')),
         equals('Item not found in bin'),
@@ -40,6 +41,43 @@ void main() {
       expect(
         messageFor(const ApiException('UNKNOWN_ERROR_CODE', 'Custom backend error')),
         equals('Custom backend error'),
+      );
+    });
+
+    test('messageFor maps currency validation to user-friendly message', () {
+      expect(
+        messageFor(const ApiException(PdtErrorCode.validation,
+            "currency must be equal to 'USD'")),
+        contains('Currency mismatch'),
+      );
+      expect(
+        messageFor(const ApiException(PdtErrorCode.validation,
+            "currency must be equal to 'USD'")),
+        contains('USD'),
+      );
+    });
+
+    test('messageFor maps qty exceeds validation to user-friendly message', () {
+      expect(
+        messageFor(const ApiException(PdtErrorCode.validation,
+            'Qty cannot be greater than ordered qty')),
+        contains('receive quantity exceeds'),
+      );
+    });
+
+    test('messageFor strips HTML tags from unknown messages', () {
+      expect(
+        messageFor(const ApiException(PdtErrorCode.validation,
+            '<b>Some error</b> happened')),
+        equals('Some error happened'),
+      );
+    });
+
+    test('messageFor handles mandatory field errors', () {
+      expect(
+        messageFor(const ApiException(PdtErrorCode.validation,
+            'Warehouse is mandatory')),
+        contains('required field'),
       );
     });
 

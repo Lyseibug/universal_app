@@ -44,12 +44,17 @@ class PoReceptionRepository {
 
   Future<Map<String, dynamic>> submitReception({
     required String purchaseOrder,
+    String? currency,
     required List<Map<String, dynamic>> items,
   }) async {
-    final response = await _writeQueue.run('po_reception.submit_reception', {
+    final body = <String, dynamic>{
       'purchase_order': purchaseOrder,
       'items': items,
-    });
+    };
+    if (currency != null) {
+      body['currency'] = currency;
+    }
+    final response = await _writeQueue.run('po_reception.submit_reception', body);
     if (response is Map) {
       return Map<String, dynamic>.from(response);
     }

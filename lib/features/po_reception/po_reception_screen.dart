@@ -154,23 +154,22 @@ class _PoReceptionScreenState extends ConsumerState<PoReceptionScreen> {
     if (_poDetail == null) return;
 
     final items = <Map<String, dynamic>>[];
+    final warnings = <String>[];
     for (final item in _poDetail!.items) {
       final ctrl = _qtyControllers[item.name];
       final qty = double.tryParse(ctrl?.text ?? '') ?? 0;
       if (qty <= 0) continue;
-      if (qty > item.pendingQty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                '${item.itemName ?? item.itemCode}: qty $qty exceeds pending ${item.pendingQty}'),
-            backgroundColor: AppTheme.danger,
-          ),
-        );
-        return;
+      // Warn but don't block if qty exceeds pending
+      if (qty - item.pendingQty > 0.0001) {
+        warnings.add(
+            '${item.itemName ?? item.itemCode}: qty $qty exceeds pending ${item.pendingQty}');
       }
       items.add({
         'item_code': item.itemCode,
         'qty': qty,
+        'rate': item.rate,
+        'uom': item.uom,
+        'warehouse': item.warehouse,
         'po_detail': item.name,
       });
     }
@@ -182,6 +181,55 @@ class _PoReceptionScreenState extends ConsumerState<PoReceptionScreen> {
       return;
     }
 
+    // Show warning if any items exceed pending qty
+    if (warnings.isNotEmpty) {
+      final proceed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: AppTheme.warning),
+              SizedBox(width: 8),
+              Text('Quantity Warning'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('The following items exceed pending quantity:'),
+              const SizedBox(height: 8),
+              ...warnings.map((w) => Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text('• $w',
+                        style: const TextStyle(color: AppTheme.danger)),
+                  )),
+              const SizedBox(height: 12),
+              const Text('Do you want to proceed anyway?'),
+            ],
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.warning,
+                minimumSize: const Size(120, 44),
+              ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Proceed'),
+            ),
+          ],
+        ),
+      );
+      if (proceed != true) return;
+    }
+
     final confirmed = await _showConfirmDialog(items);
     if (confirmed != true) return;
 
@@ -190,6 +238,7 @@ class _PoReceptionScreenState extends ConsumerState<PoReceptionScreen> {
       final result =
           await ref.read(poReceptionRepositoryProvider).submitReception(
                 purchaseOrder: _poDetail!.name,
+                currency: _poDetail!.currency,
                 items: items,
               );
       final prName = result['purchase_receipt'] ?? '';
@@ -215,10 +264,20 @@ class _PoReceptionScreenState extends ConsumerState<PoReceptionScreen> {
               content: Text(messageFor(e)), backgroundColor: AppTheme.danger),
         );
       }
+    } on NoInternetException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('No internet connection. Please check your network and try again.'),
+              backgroundColor: AppTheme.danger),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.danger),
+          const SnackBar(
+              content: Text('Something went wrong. Please try again.'),
+              backgroundColor: AppTheme.danger),
         );
       }
     } finally {

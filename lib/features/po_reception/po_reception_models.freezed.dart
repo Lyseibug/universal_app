@@ -14,8 +14,7 @@ T _$identity<T>(T value) => value;
 final _privateConstructorUsedError = UnsupportedError(
     'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
 
-PurchaseOrderSummary _$PurchaseOrderSummaryFromJson(
-    Map<String, dynamic> json) {
+PurchaseOrderSummary _$PurchaseOrderSummaryFromJson(Map<String, dynamic> json) {
   return _PurchaseOrderSummary.fromJson(json);
 }
 
@@ -61,7 +60,9 @@ class _$PurchaseOrderSummaryCopyWithImpl<$Res,
     implements $PurchaseOrderSummaryCopyWith<$Res> {
   _$PurchaseOrderSummaryCopyWithImpl(this._value, this._then);
 
+  // ignore: unused_field
   final $Val _value;
+  // ignore: unused_field
   final $Res Function($Val) _then;
 
   @pragma('vm:prefer-inline')
@@ -76,21 +77,34 @@ class _$PurchaseOrderSummaryCopyWithImpl<$Res,
     Object? itemCount = null,
   }) {
     return _then(_value.copyWith(
-      name: null == name ? _value.name : name as String,
-      supplier:
-          freezed == supplier ? _value.supplier : supplier as String?,
+      name: null == name
+          ? _value.name
+          : name // ignore: cast_nullable_to_non_nullable
+              as String,
+      supplier: freezed == supplier
+          ? _value.supplier
+          : supplier // ignore: cast_nullable_to_non_nullable
+              as String?,
       supplierName: freezed == supplierName
           ? _value.supplierName
-          : supplierName as String?,
+          : supplierName // ignore: cast_nullable_to_non_nullable
+              as String?,
       transactionDate: freezed == transactionDate
           ? _value.transactionDate
-          : transactionDate as String?,
-      grandTotal:
-          null == grandTotal ? _value.grandTotal : grandTotal as double,
-      currency:
-          freezed == currency ? _value.currency : currency as String?,
-      itemCount:
-          null == itemCount ? _value.itemCount : itemCount as int,
+          : transactionDate // ignore: cast_nullable_to_non_nullable
+              as String?,
+      grandTotal: null == grandTotal
+          ? _value.grandTotal
+          : grandTotal // ignore: cast_nullable_to_non_nullable
+              as double,
+      currency: freezed == currency
+          ? _value.currency
+          : currency // ignore: cast_nullable_to_non_nullable
+              as String?,
+      itemCount: null == itemCount
+          ? _value.itemCount
+          : itemCount // ignore: cast_nullable_to_non_nullable
+              as int,
     ) as $Val);
   }
 }
@@ -98,8 +112,7 @@ class _$PurchaseOrderSummaryCopyWithImpl<$Res,
 /// @nodoc
 abstract class _$$PurchaseOrderSummaryImplCopyWith<$Res>
     implements $PurchaseOrderSummaryCopyWith<$Res> {
-  factory _$$PurchaseOrderSummaryImplCopyWith(
-          _$PurchaseOrderSummaryImpl value,
+  factory _$$PurchaseOrderSummaryImplCopyWith(_$PurchaseOrderSummaryImpl value,
           $Res Function(_$PurchaseOrderSummaryImpl) then) =
       __$$PurchaseOrderSummaryImplCopyWithImpl<$Res>;
   @override
@@ -116,8 +129,7 @@ abstract class _$$PurchaseOrderSummaryImplCopyWith<$Res>
 
 /// @nodoc
 class __$$PurchaseOrderSummaryImplCopyWithImpl<$Res>
-    extends _$PurchaseOrderSummaryCopyWithImpl<$Res,
-        _$PurchaseOrderSummaryImpl>
+    extends _$PurchaseOrderSummaryCopyWithImpl<$Res, _$PurchaseOrderSummaryImpl>
     implements _$$PurchaseOrderSummaryImplCopyWith<$Res> {
   __$$PurchaseOrderSummaryImplCopyWithImpl(_$PurchaseOrderSummaryImpl _value,
       $Res Function(_$PurchaseOrderSummaryImpl) _then)
@@ -135,21 +147,34 @@ class __$$PurchaseOrderSummaryImplCopyWithImpl<$Res>
     Object? itemCount = null,
   }) {
     return _then(_$PurchaseOrderSummaryImpl(
-      name: null == name ? _value.name : name as String,
-      supplier:
-          freezed == supplier ? _value.supplier : supplier as String?,
+      name: null == name
+          ? _value.name
+          : name // ignore: cast_nullable_to_non_nullable
+              as String,
+      supplier: freezed == supplier
+          ? _value.supplier
+          : supplier // ignore: cast_nullable_to_non_nullable
+              as String?,
       supplierName: freezed == supplierName
           ? _value.supplierName
-          : supplierName as String?,
+          : supplierName // ignore: cast_nullable_to_non_nullable
+              as String?,
       transactionDate: freezed == transactionDate
           ? _value.transactionDate
-          : transactionDate as String?,
-      grandTotal:
-          null == grandTotal ? _value.grandTotal : grandTotal as double,
-      currency:
-          freezed == currency ? _value.currency : currency as String?,
-      itemCount:
-          null == itemCount ? _value.itemCount : itemCount as int,
+          : transactionDate // ignore: cast_nullable_to_non_nullable
+              as String?,
+      grandTotal: null == grandTotal
+          ? _value.grandTotal
+          : grandTotal // ignore: cast_nullable_to_non_nullable
+              as double,
+      currency: freezed == currency
+          ? _value.currency
+          : currency // ignore: cast_nullable_to_non_nullable
+              as String?,
+      itemCount: null == itemCount
+          ? _value.itemCount
+          : itemCount // ignore: cast_nullable_to_non_nullable
+              as int,
     ));
   }
 }
@@ -228,7 +253,9 @@ class _$PurchaseOrderSummaryImpl implements _PurchaseOrderSummary {
 
   @override
   Map<String, dynamic> toJson() {
-    return _$$PurchaseOrderSummaryImplToJson(this);
+    return _$$PurchaseOrderSummaryImplToJson(
+      this,
+    );
   }
 }
 
@@ -266,8 +293,8 @@ abstract class _PurchaseOrderSummary implements PurchaseOrderSummary {
   int get itemCount;
   @override
   @JsonKey(ignore: true)
-  _$$PurchaseOrderSummaryImplCopyWith<_$PurchaseOrderSummaryImpl> get copyWith =>
-      throw _privateConstructorUsedError;
+  _$$PurchaseOrderSummaryImplCopyWith<_$PurchaseOrderSummaryImpl>
+      get copyWith => throw _privateConstructorUsedError;
 }
 
 PurchaseOrderDetail _$PurchaseOrderDetailFromJson(Map<String, dynamic> json) {
@@ -317,7 +344,9 @@ class _$PurchaseOrderDetailCopyWithImpl<$Res, $Val extends PurchaseOrderDetail>
     implements $PurchaseOrderDetailCopyWith<$Res> {
   _$PurchaseOrderDetailCopyWithImpl(this._value, this._then);
 
+  // ignore: unused_field
   final $Val _value;
+  // ignore: unused_field
   final $Res Function($Val) _then;
 
   @pragma('vm:prefer-inline')
@@ -333,25 +362,38 @@ class _$PurchaseOrderDetailCopyWithImpl<$Res, $Val extends PurchaseOrderDetail>
     Object? items = null,
   }) {
     return _then(_value.copyWith(
-      name: null == name ? _value.name : name as String,
-      supplier:
-          freezed == supplier ? _value.supplier : supplier as String?,
+      name: null == name
+          ? _value.name
+          : name // ignore: cast_nullable_to_non_nullable
+              as String,
+      supplier: freezed == supplier
+          ? _value.supplier
+          : supplier // ignore: cast_nullable_to_non_nullable
+              as String?,
       supplierName: freezed == supplierName
           ? _value.supplierName
-          : supplierName as String?,
+          : supplierName // ignore: cast_nullable_to_non_nullable
+              as String?,
       transactionDate: freezed == transactionDate
           ? _value.transactionDate
-          : transactionDate as String?,
-      grandTotal:
-          null == grandTotal ? _value.grandTotal : grandTotal as double,
-      currency:
-          freezed == currency ? _value.currency : currency as String?,
+          : transactionDate // ignore: cast_nullable_to_non_nullable
+              as String?,
+      grandTotal: null == grandTotal
+          ? _value.grandTotal
+          : grandTotal // ignore: cast_nullable_to_non_nullable
+              as double,
+      currency: freezed == currency
+          ? _value.currency
+          : currency // ignore: cast_nullable_to_non_nullable
+              as String?,
       inboundWarehouse: freezed == inboundWarehouse
           ? _value.inboundWarehouse
-          : inboundWarehouse as String?,
+          : inboundWarehouse // ignore: cast_nullable_to_non_nullable
+              as String?,
       items: null == items
           ? _value.items
-          : items as List<PurchaseOrderItemLine>,
+          : items // ignore: cast_nullable_to_non_nullable
+              as List<PurchaseOrderItemLine>,
     ) as $Val);
   }
 }
@@ -396,25 +438,38 @@ class __$$PurchaseOrderDetailImplCopyWithImpl<$Res>
     Object? items = null,
   }) {
     return _then(_$PurchaseOrderDetailImpl(
-      name: null == name ? _value.name : name as String,
-      supplier:
-          freezed == supplier ? _value.supplier : supplier as String?,
+      name: null == name
+          ? _value.name
+          : name // ignore: cast_nullable_to_non_nullable
+              as String,
+      supplier: freezed == supplier
+          ? _value.supplier
+          : supplier // ignore: cast_nullable_to_non_nullable
+              as String?,
       supplierName: freezed == supplierName
           ? _value.supplierName
-          : supplierName as String?,
+          : supplierName // ignore: cast_nullable_to_non_nullable
+              as String?,
       transactionDate: freezed == transactionDate
           ? _value.transactionDate
-          : transactionDate as String?,
-      grandTotal:
-          null == grandTotal ? _value.grandTotal : grandTotal as double,
-      currency:
-          freezed == currency ? _value.currency : currency as String?,
+          : transactionDate // ignore: cast_nullable_to_non_nullable
+              as String?,
+      grandTotal: null == grandTotal
+          ? _value.grandTotal
+          : grandTotal // ignore: cast_nullable_to_non_nullable
+              as double,
+      currency: freezed == currency
+          ? _value.currency
+          : currency // ignore: cast_nullable_to_non_nullable
+              as String?,
       inboundWarehouse: freezed == inboundWarehouse
           ? _value.inboundWarehouse
-          : inboundWarehouse as String?,
+          : inboundWarehouse // ignore: cast_nullable_to_non_nullable
+              as String?,
       items: null == items
           ? _value._items
-          : items as List<PurchaseOrderItemLine>,
+          : items // ignore: cast_nullable_to_non_nullable
+              as List<PurchaseOrderItemLine>,
     ));
   }
 }
@@ -456,8 +511,10 @@ class _$PurchaseOrderDetailImpl implements _PurchaseOrderDetail {
   final String? inboundWarehouse;
   final List<PurchaseOrderItemLine> _items;
   @override
+  @JsonKey()
   List<PurchaseOrderItemLine> get items {
     if (_items is EqualUnmodifiableListView) return _items;
+    // ignore: implicit_dynamic_type
     return EqualUnmodifiableListView(_items);
   }
 
@@ -489,8 +546,15 @@ class _$PurchaseOrderDetailImpl implements _PurchaseOrderDetail {
 
   @JsonKey(ignore: true)
   @override
-  int get hashCode => Object.hash(runtimeType, name, supplier, supplierName,
-      transactionDate, grandTotal, currency, inboundWarehouse,
+  int get hashCode => Object.hash(
+      runtimeType,
+      name,
+      supplier,
+      supplierName,
+      transactionDate,
+      grandTotal,
+      currency,
+      inboundWarehouse,
       const DeepCollectionEquality().hash(_items));
 
   @JsonKey(ignore: true)
@@ -502,7 +566,9 @@ class _$PurchaseOrderDetailImpl implements _PurchaseOrderDetail {
 
   @override
   Map<String, dynamic> toJson() {
-    return _$$PurchaseOrderDetailImplToJson(this);
+    return _$$PurchaseOrderDetailImplToJson(
+      this,
+    );
   }
 }
 
@@ -601,7 +667,9 @@ class _$PurchaseOrderItemLineCopyWithImpl<$Res,
     implements $PurchaseOrderItemLineCopyWith<$Res> {
   _$PurchaseOrderItemLineCopyWithImpl(this._value, this._then);
 
+  // ignore: unused_field
   final $Val _value;
+  // ignore: unused_field
   final $Res Function($Val) _then;
 
   @pragma('vm:prefer-inline')
@@ -619,24 +687,46 @@ class _$PurchaseOrderItemLineCopyWithImpl<$Res,
     Object? warehouse = freezed,
   }) {
     return _then(_value.copyWith(
-      name: null == name ? _value.name : name as String,
-      itemCode:
-          null == itemCode ? _value.itemCode : itemCode as String,
-      itemName:
-          freezed == itemName ? _value.itemName : itemName as String?,
-      uom: freezed == uom ? _value.uom : uom as String?,
-      upcCode:
-          freezed == upcCode ? _value.upcCode : upcCode as String?,
-      orderedQty:
-          null == orderedQty ? _value.orderedQty : orderedQty as double,
+      name: null == name
+          ? _value.name
+          : name // ignore: cast_nullable_to_non_nullable
+              as String,
+      itemCode: null == itemCode
+          ? _value.itemCode
+          : itemCode // ignore: cast_nullable_to_non_nullable
+              as String,
+      itemName: freezed == itemName
+          ? _value.itemName
+          : itemName // ignore: cast_nullable_to_non_nullable
+              as String?,
+      uom: freezed == uom
+          ? _value.uom
+          : uom // ignore: cast_nullable_to_non_nullable
+              as String?,
+      upcCode: freezed == upcCode
+          ? _value.upcCode
+          : upcCode // ignore: cast_nullable_to_non_nullable
+              as String?,
+      orderedQty: null == orderedQty
+          ? _value.orderedQty
+          : orderedQty // ignore: cast_nullable_to_non_nullable
+              as double,
       receivedQty: null == receivedQty
           ? _value.receivedQty
-          : receivedQty as double,
-      pendingQty:
-          null == pendingQty ? _value.pendingQty : pendingQty as double,
-      rate: null == rate ? _value.rate : rate as double,
-      warehouse:
-          freezed == warehouse ? _value.warehouse : warehouse as String?,
+          : receivedQty // ignore: cast_nullable_to_non_nullable
+              as double,
+      pendingQty: null == pendingQty
+          ? _value.pendingQty
+          : pendingQty // ignore: cast_nullable_to_non_nullable
+              as double,
+      rate: null == rate
+          ? _value.rate
+          : rate // ignore: cast_nullable_to_non_nullable
+              as double,
+      warehouse: freezed == warehouse
+          ? _value.warehouse
+          : warehouse // ignore: cast_nullable_to_non_nullable
+              as String?,
     ) as $Val);
   }
 }
@@ -668,8 +758,7 @@ class __$$PurchaseOrderItemLineImplCopyWithImpl<$Res>
     extends _$PurchaseOrderItemLineCopyWithImpl<$Res,
         _$PurchaseOrderItemLineImpl>
     implements _$$PurchaseOrderItemLineImplCopyWith<$Res> {
-  __$$PurchaseOrderItemLineImplCopyWithImpl(
-      _$PurchaseOrderItemLineImpl _value,
+  __$$PurchaseOrderItemLineImplCopyWithImpl(_$PurchaseOrderItemLineImpl _value,
       $Res Function(_$PurchaseOrderItemLineImpl) _then)
       : super(_value, _then);
 
@@ -688,24 +777,46 @@ class __$$PurchaseOrderItemLineImplCopyWithImpl<$Res>
     Object? warehouse = freezed,
   }) {
     return _then(_$PurchaseOrderItemLineImpl(
-      name: null == name ? _value.name : name as String,
-      itemCode:
-          null == itemCode ? _value.itemCode : itemCode as String,
-      itemName:
-          freezed == itemName ? _value.itemName : itemName as String?,
-      uom: freezed == uom ? _value.uom : uom as String?,
-      upcCode:
-          freezed == upcCode ? _value.upcCode : upcCode as String?,
-      orderedQty:
-          null == orderedQty ? _value.orderedQty : orderedQty as double,
+      name: null == name
+          ? _value.name
+          : name // ignore: cast_nullable_to_non_nullable
+              as String,
+      itemCode: null == itemCode
+          ? _value.itemCode
+          : itemCode // ignore: cast_nullable_to_non_nullable
+              as String,
+      itemName: freezed == itemName
+          ? _value.itemName
+          : itemName // ignore: cast_nullable_to_non_nullable
+              as String?,
+      uom: freezed == uom
+          ? _value.uom
+          : uom // ignore: cast_nullable_to_non_nullable
+              as String?,
+      upcCode: freezed == upcCode
+          ? _value.upcCode
+          : upcCode // ignore: cast_nullable_to_non_nullable
+              as String?,
+      orderedQty: null == orderedQty
+          ? _value.orderedQty
+          : orderedQty // ignore: cast_nullable_to_non_nullable
+              as double,
       receivedQty: null == receivedQty
           ? _value.receivedQty
-          : receivedQty as double,
-      pendingQty:
-          null == pendingQty ? _value.pendingQty : pendingQty as double,
-      rate: null == rate ? _value.rate : rate as double,
-      warehouse:
-          freezed == warehouse ? _value.warehouse : warehouse as String?,
+          : receivedQty // ignore: cast_nullable_to_non_nullable
+              as double,
+      pendingQty: null == pendingQty
+          ? _value.pendingQty
+          : pendingQty // ignore: cast_nullable_to_non_nullable
+              as double,
+      rate: null == rate
+          ? _value.rate
+          : rate // ignore: cast_nullable_to_non_nullable
+              as double,
+      warehouse: freezed == warehouse
+          ? _value.warehouse
+          : warehouse // ignore: cast_nullable_to_non_nullable
+              as String?,
     ));
   }
 }
@@ -751,6 +862,7 @@ class _$PurchaseOrderItemLineImpl implements _PurchaseOrderItemLine {
   @JsonKey(name: 'pending_qty')
   final double pendingQty;
   @override
+  @JsonKey()
   final double rate;
   @override
   final String? warehouse;
@@ -771,8 +883,7 @@ class _$PurchaseOrderItemLineImpl implements _PurchaseOrderItemLine {
             (identical(other.itemName, itemName) ||
                 other.itemName == itemName) &&
             (identical(other.uom, uom) || other.uom == uom) &&
-            (identical(other.upcCode, upcCode) ||
-                other.upcCode == upcCode) &&
+            (identical(other.upcCode, upcCode) || other.upcCode == upcCode) &&
             (identical(other.orderedQty, orderedQty) ||
                 other.orderedQty == orderedQty) &&
             (identical(other.receivedQty, receivedQty) ||
@@ -798,7 +909,9 @@ class _$PurchaseOrderItemLineImpl implements _PurchaseOrderItemLine {
 
   @override
   Map<String, dynamic> toJson() {
-    return _$$PurchaseOrderItemLineImplToJson(this);
+    return _$$PurchaseOrderItemLineImplToJson(
+      this,
+    );
   }
 }
 
