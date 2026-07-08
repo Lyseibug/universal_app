@@ -230,6 +230,32 @@ class Line1Repository {
     return const [];
   }
 
+  // ── Cutting & Splicing ──────────────────────────────────────────────────
+
+  Future<List<Map<String, dynamic>>> listEligibleCutSourceBatches(
+      {String? sourceItem}) async {
+    final data = await _api.call('line1_cutting.list_eligible_source_batches',
+        body: {
+          if (sourceItem != null) 'source_item': sourceItem,
+        });
+    return _parseMapList(data);
+  }
+
+  Future<Map<String, dynamic>> performCut({
+    required String sourceBatch,
+    required String targetItem,
+    required double inputQty,
+    required double outputQty,
+  }) async {
+    final result = await _writeQueue.run('line1_cutting.perform_cut', {
+      'source_batch': sourceBatch,
+      'target_item': targetItem,
+      'input_qty': inputQty,
+      'output_qty': outputQty,
+    });
+    return Map<String, dynamic>.from(result);
+  }
+
   // ── Helpers ─────────────────────────────────────────────────────────────
 
   List<StockItem> _parseStockList(dynamic data) {
