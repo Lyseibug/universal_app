@@ -60,9 +60,18 @@ class ManufacturingMRItem with _$ManufacturingMRItem {
     @JsonKey(name: 'target_stream') required String targetStream,
     @JsonKey(name: 'target_warehouse') String? targetWarehouse,
     String? uom,
-    @JsonKey(name: 'is_completed') @Default(false) bool isCompleted,
+    @JsonKey(name: 'is_completed', fromJson: _intToBool) @Default(false) bool isCompleted,
   }) = _ManufacturingMRItem;
 
   factory ManufacturingMRItem.fromJson(Map<String, dynamic> json) =>
       _$ManufacturingMRItemFromJson(json);
+}
+
+bool _intToBool(dynamic value) {
+  if (value is bool) return value;
+  if (value is int) return value == 1;
+  if (value is String) {
+    return value == '1' || value.toLowerCase() == 'true';
+  }
+  return false;
 }
