@@ -852,6 +852,8 @@ class _ManufacturingMRScreenState
         return AppTheme.warning;
       case 'Weighing':
         return AppTheme.success;
+      case 'Mixer':
+        return AppTheme.primary;
       default:
         return AppTheme.textSecondary;
     }
@@ -1110,6 +1112,9 @@ class _ManufacturingMRScreenState
                         DropdownMenuItem(
                             value: 'Weighing',
                             child: Text('Weighing')),
+                        DropdownMenuItem(
+                            value: 'Mixer', 
+                            child: Text('Mixer')),
                       ],
                       onChanged: (v) {
                         if (v != null) {
