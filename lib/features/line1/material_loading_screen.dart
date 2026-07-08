@@ -115,6 +115,15 @@ class _MaterialLoadingScreenState extends ConsumerState<MaterialLoadingScreen> {
     }
   }
 
+  void _selectItem(StockItem item) {
+    setState(() {
+      _resolvedItem = item;
+      _resolvedStream = item.stream;
+      _qtyCtrl.text = item.qty.toStringAsFixed(2);
+      _qtyError = null;
+    });
+  }
+
   bool _validateQty() {
     final text = _qtyCtrl.text.trim();
     if (text.isEmpty) {
@@ -247,7 +256,8 @@ class _MaterialLoadingScreenState extends ConsumerState<MaterialLoadingScreen> {
                       if (_resolvedItem == null && !_resolving) ...[
                         _buildTankSection(),
                         const SizedBox(height: 16),
-                        _buildStockSection('Outside — Ready to Load', _outsideStock),
+                        _buildStockSection('Outside — Ready to Load', _outsideStock,
+                            selectable: true),
                         const SizedBox(height: 24),
                         _buildStockSection('Inside — Currently Loaded', _insideStock),
                       ],
@@ -407,7 +417,8 @@ class _MaterialLoadingScreenState extends ConsumerState<MaterialLoadingScreen> {
     );
   }
 
-  Widget _buildStockSection(String title, List<StockItem> items) {
+  Widget _buildStockSection(String title, List<StockItem> items,
+      {bool selectable = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -420,6 +431,7 @@ class _MaterialLoadingScreenState extends ConsumerState<MaterialLoadingScreen> {
             final stream = item.stream;
             return Card(
               child: ListTile(
+                onTap: selectable ? () => _selectItem(item) : null,
                 leading: stream != null
                     ? CircleAvatar(
                         backgroundColor: _streamColor(stream).withAlpha(38),
