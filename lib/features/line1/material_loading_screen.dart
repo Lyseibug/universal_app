@@ -61,8 +61,8 @@ class _MaterialLoadingScreenState extends ConsumerState<MaterialLoadingScreen> {
         repo.listAllInsideStock(),
       ]);
       setState(() {
-        _outsideStock = results[0];
-        _insideStock = results[1];
+        _outsideStock = results[0].where((i) => i.stream != 'Weighing').toList();
+        _insideStock = results[1].where((i) => i.stream != 'Weighing').toList();
         _loading = false;
       });
     } catch (e) {
@@ -287,6 +287,8 @@ class _MaterialLoadingScreenState extends ConsumerState<MaterialLoadingScreen> {
             ),
             const SizedBox(height: 8),
             Text(item.itemName ?? item.itemCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: 2),
+            Text(item.itemCode, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
             const SizedBox(height: 4),
             Text('Total Available: ${item.qty} Kg', style: const TextStyle(fontSize: 15)),
             const SizedBox(height: 16),
@@ -426,7 +428,7 @@ class _MaterialLoadingScreenState extends ConsumerState<MaterialLoadingScreen> {
                       )
                     : null,
                 title: Text(item.itemName ?? item.itemCode, style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: stream != null ? Text(stream) : null,
+                subtitle: Text(stream != null ? '${item.itemCode} · $stream' : item.itemCode),
                 trailing: Text('${item.qty} Kg', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
               ),
             );
