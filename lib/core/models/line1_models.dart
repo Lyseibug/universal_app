@@ -10,6 +10,34 @@ bool _intToBool(dynamic value) {
   return false;
 }
 
+String _stringValue(dynamic value) {
+  if (value == null) return '';
+  if (value is String) return value;
+  return value.toString();
+}
+
+double _doubleValue(dynamic value) {
+  if (value is num) return value.toDouble();
+  if (value is String) {
+    final parsed = double.tryParse(value);
+    if (parsed != null) return parsed;
+  }
+  return 0;
+}
+
+List<ConsumeItem> _consumeItemsFromJson(dynamic value) {
+  if (value is List) {
+    return value
+        .whereType<Map>()
+        .map((entry) => ConsumeItem.fromJson(Map<String, dynamic>.from(entry)))
+        .toList();
+  }
+  if (value is Map) {
+    return [ConsumeItem.fromJson(Map<String, dynamic>.from(value))];
+  }
+  return const [];
+}
+
 @freezed
 class StockItem with _$StockItem {
   const factory StockItem({
@@ -51,8 +79,17 @@ class BagItem with _$BagItem {
     @JsonKey(name: 'machine_production_record') String? machineProductionRecord,
   }) = _BagItem;
 
-  factory BagItem.fromJson(Map<String, dynamic> json) =>
-      _$BagItemFromJson(json);
+  factory BagItem.fromJson(Map<String, dynamic> json) {
+    return BagItem(
+      batchNo: _stringValue(json['batch_no']),
+      itemCode: _stringValue(json['item_code']),
+      itemName: json['item_name'] == null ? null : _stringValue(json['item_name']),
+      qty: _doubleValue(json['qty']),
+      formulaName: json['formula_name'] == null ? null : _stringValue(json['formula_name']),
+      productionDatetime: json['production_datetime'] == null ? null : _stringValue(json['production_datetime']),
+      machineProductionRecord: json['machine_production_record'] == null ? null : _stringValue(json['machine_production_record']),
+    );
+  }
 }
 
 @freezed
@@ -68,8 +105,18 @@ class BagDetail with _$BagDetail {
     @JsonKey(name: 'consume_items') @Default([]) List<ConsumeItem> consumeItems,
   }) = _BagDetail;
 
-  factory BagDetail.fromJson(Map<String, dynamic> json) =>
-      _$BagDetailFromJson(json);
+  factory BagDetail.fromJson(Map<String, dynamic> json) {
+    return BagDetail(
+      batchNo: _stringValue(json['batch_no']),
+      itemCode: _stringValue(json['item_code']),
+      itemName: json['item_name'] == null ? null : _stringValue(json['item_name']),
+      qty: _doubleValue(json['qty']),
+      formulaName: json['formula_name'] == null ? null : _stringValue(json['formula_name']),
+      manufacturingDate: json['manufacturing_date'] == null ? null : _stringValue(json['manufacturing_date']),
+      machineProductionRecord: json['machine_production_record'] == null ? null : _stringValue(json['machine_production_record']),
+      consumeItems: _consumeItemsFromJson(json['consume_items']),
+    );
+  }
 }
 
 @freezed
@@ -82,8 +129,15 @@ class ConsumeItem with _$ConsumeItem {
     String? warehouse,
   }) = _ConsumeItem;
 
-  factory ConsumeItem.fromJson(Map<String, dynamic> json) =>
-      _$ConsumeItemFromJson(json);
+  factory ConsumeItem.fromJson(Map<String, dynamic> json) {
+    return ConsumeItem(
+      itemCode: _stringValue(json['item_code']),
+      itemName: json['item_name'] == null ? null : _stringValue(json['item_name']),
+      batchNo: json['batch_no'] == null ? null : _stringValue(json['batch_no']),
+      qty: _doubleValue(json['qty']),
+      warehouse: json['warehouse'] == null ? null : _stringValue(json['warehouse']),
+    );
+  }
 }
 
 @freezed

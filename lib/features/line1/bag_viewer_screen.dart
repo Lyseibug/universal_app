@@ -39,15 +39,26 @@ class _BagViewerScreenState extends ConsumerState<BagViewerScreen> {
   }
 
   Future<void> _showBagDetail(BagItem bag) async {
+    final batchNo = bag.batchNo.trim();
+    if (batchNo.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Unable to open bag detail because the batch number is missing.'),
+          backgroundColor: AppTheme.danger,
+        ));
+      }
+      return;
+    }
+
     setState(() => _loadingDetail = true);
     try {
-      final detail = await ref.read(line1RepositoryProvider).getBag(bag.batchNo);
+      final detail = await ref.read(line1RepositoryProvider).getBag(batchNo);
       setState(() { _selectedBag = detail; _loadingDetail = false; });
     } catch (e) {
       setState(() => _loadingDetail = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: $e'),
+          content: Text('Unable to load bag detail: $e'),
           backgroundColor: AppTheme.danger,
         ));
       }
