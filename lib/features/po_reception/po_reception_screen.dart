@@ -43,6 +43,8 @@ class _PoReceptionScreenState extends ConsumerState<PoReceptionScreen> {
 
   // Editable receive quantities keyed by PO Item row name
   final Map<String, TextEditingController> _qtyControllers = {};
+  // Selected reception UOM per PO Item row name (defaults to the PO line's UOM)
+  final Map<String, String> _selectedUom = {};
   bool _submitting = false;
 
   @override
@@ -64,6 +66,7 @@ class _PoReceptionScreenState extends ConsumerState<PoReceptionScreen> {
       c.dispose();
     }
     _qtyControllers.clear();
+    _selectedUom.clear();
   }
 
   // ── Data loading ──
@@ -131,6 +134,7 @@ class _PoReceptionScreenState extends ConsumerState<PoReceptionScreen> {
       for (final item in detail.items) {
         _qtyControllers[item.name] =
             TextEditingController(text: item.pendingQty.toString());
+        _selectedUom[item.name] = item.uom ?? '';
       }
       if (mounted) {
         setState(() {
@@ -148,6 +152,35 @@ class _PoReceptionScreenState extends ConsumerState<PoReceptionScreen> {
     }
   }
 
+  // ── UOM helpers ──
+
+  /// Conversion factor of `uom` relative to the item's stock UOM, from the
+  /// `available_uoms` list the backend returns (defaults to 1 if not found).
+  double _conversionFactorFor(PurchaseOrderItemLine item, String? uom) {
+    for (final entry in item.availableUoms) {
+      final map = entry as Map<String, dynamic>;
+      if (map['uom'] == uom) {
+        return (map['conversion_factor'] as num?)?.toDouble() ?? 1;
+      }
+    }
+    return 1;
+  }
+
+  /// Converts a quantity from `fromUom` to `toUom` via the item's stock UOM.
+  double _convertQty(PurchaseOrderItemLine item, double qty, String? fromUom,
+      String? toUom) {
+    if (fromUom == toUom) return qty;
+    final toFactor = _conversionFactorFor(item, toUom);
+    if (toFactor <= 0) return qty;
+    return qty * _conversionFactorFor(item, fromUom) / toFactor;
+  }
+
+  /// Converts a quantity entered in `uom` back into the PO line's own
+  /// ordered UOM, so it can be compared against ordered/received/pending qty.
+  double _convertToPoUom(PurchaseOrderItemLine item, double qty, String? uom) {
+    return _convertQty(item, qty, uom, item.uom);
+  }
+
   // ── Submit reception ──
 
   Future<void> _submitReception() async {
@@ -159,16 +192,18 @@ class _PoReceptionScreenState extends ConsumerState<PoReceptionScreen> {
       final ctrl = _qtyControllers[item.name];
       final qty = double.tryParse(ctrl?.text ?? '') ?? 0;
       if (qty <= 0) continue;
-      // Warn but don't block if qty exceeds pending
-      if (qty - item.pendingQty > 0.0001) {
+      final chosenUom = _selectedUom[item.name] ?? item.uom;
+      // Warn but don't block if qty (converted to the PO's ordered UOM) exceeds pending
+      final qtyInPoUom = _convertToPoUom(item, qty, chosenUom);
+      if (qtyInPoUom - item.pendingQty > 0.0001) {
         warnings.add(
-            '${item.itemName ?? item.itemCode}: qty $qty exceeds pending ${item.pendingQty}');
+            '${item.itemName ?? item.itemCode}: qty $qty $chosenUom exceeds pending ${item.pendingQty} ${item.uom}');
       }
       items.add({
         'item_code': item.itemCode,
         'qty': qty,
         'rate': item.rate,
-        'uom': item.uom,
+        'uom': chosenUom,
         'warehouse': item.warehouse,
         'po_detail': item.name,
       });
@@ -695,13 +730,15 @@ class _PoReceptionScreenState extends ConsumerState<PoReceptionScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(item.uom ?? '',
-                    style: const TextStyle(color: AppTheme.textSecondary)),
+                _buildUomSelector(item, ctrl),
                 const Spacer(),
                 // Quick-fill to max
                 TextButton(
                   onPressed: () {
-                    ctrl.text = item.pendingQty.toString();
+                    final selected = _selectedUom[item.name] ?? item.uom;
+                    final maxQty =
+                        _convertQty(item, item.pendingQty, item.uom, selected);
+                    ctrl.text = maxQty.toStringAsFixed(3);
                   },
                   child: const Text('Max'),
                 ),
@@ -710,6 +747,42 @@ class _PoReceptionScreenState extends ConsumerState<PoReceptionScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  /// UOM display/selector for the receive-qty row. Shows a dropdown when the
+  /// item has more than one configured UOM; otherwise a plain label.
+  Widget _buildUomSelector(PurchaseOrderItemLine item, TextEditingController ctrl) {
+    final uoms = item.availableUoms
+        .map((e) => (e as Map<String, dynamic>)['uom'] as String?)
+        .whereType<String>()
+        .toSet()
+        .toList();
+    if (uoms.length <= 1) {
+      return Text(item.uom ?? '',
+          style: const TextStyle(color: AppTheme.textSecondary));
+    }
+
+    final selected = _selectedUom[item.name] ?? item.uom;
+    return DropdownButton<String>(
+      value: uoms.contains(selected) ? selected : item.uom,
+      isDense: true,
+      underline: const SizedBox.shrink(),
+      items: uoms
+          .map((u) => DropdownMenuItem(value: u, child: Text(u)))
+          .toList(),
+      onChanged: (newUom) {
+        if (newUom == null) return;
+        final oldUom = _selectedUom[item.name] ?? item.uom;
+        final currentQty = double.tryParse(ctrl.text) ?? 0;
+        setState(() {
+          _selectedUom[item.name] = newUom;
+          if (currentQty > 0) {
+            final converted = _convertQty(item, currentQty, oldUom, newUom);
+            ctrl.text = converted.toStringAsFixed(3);
+          }
+        });
+      },
     );
   }
 

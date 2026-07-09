@@ -625,6 +625,10 @@ mixin _$PurchaseOrderItemLine {
   @JsonKey(name: 'item_name')
   String? get itemName => throw _privateConstructorUsedError;
   String? get uom => throw _privateConstructorUsedError;
+  @JsonKey(name: 'stock_uom')
+  String? get stockUom => throw _privateConstructorUsedError;
+  @JsonKey(name: 'available_uoms')
+  List<dynamic> get availableUoms => throw _privateConstructorUsedError;
   @JsonKey(name: 'upc_code')
   String? get upcCode => throw _privateConstructorUsedError;
   @JsonKey(name: 'ordered_qty')
@@ -653,6 +657,8 @@ abstract class $PurchaseOrderItemLineCopyWith<$Res> {
       @JsonKey(name: 'item_code') String itemCode,
       @JsonKey(name: 'item_name') String? itemName,
       String? uom,
+      @JsonKey(name: 'stock_uom') String? stockUom,
+      @JsonKey(name: 'available_uoms') List<dynamic> availableUoms,
       @JsonKey(name: 'upc_code') String? upcCode,
       @JsonKey(name: 'ordered_qty') double orderedQty,
       @JsonKey(name: 'received_qty') double receivedQty,
@@ -679,6 +685,8 @@ class _$PurchaseOrderItemLineCopyWithImpl<$Res,
     Object? itemCode = null,
     Object? itemName = freezed,
     Object? uom = freezed,
+    Object? stockUom = freezed,
+    Object? availableUoms = null,
     Object? upcCode = freezed,
     Object? orderedQty = null,
     Object? receivedQty = null,
@@ -703,6 +711,14 @@ class _$PurchaseOrderItemLineCopyWithImpl<$Res,
           ? _value.uom
           : uom // ignore: cast_nullable_to_non_nullable
               as String?,
+      stockUom: freezed == stockUom
+          ? _value.stockUom
+          : stockUom // ignore: cast_nullable_to_non_nullable
+              as String?,
+      availableUoms: null == availableUoms
+          ? _value.availableUoms
+          : availableUoms // ignore: cast_nullable_to_non_nullable
+              as List<dynamic>,
       upcCode: freezed == upcCode
           ? _value.upcCode
           : upcCode // ignore: cast_nullable_to_non_nullable
@@ -745,6 +761,8 @@ abstract class _$$PurchaseOrderItemLineImplCopyWith<$Res>
       @JsonKey(name: 'item_code') String itemCode,
       @JsonKey(name: 'item_name') String? itemName,
       String? uom,
+      @JsonKey(name: 'stock_uom') String? stockUom,
+      @JsonKey(name: 'available_uoms') List<dynamic> availableUoms,
       @JsonKey(name: 'upc_code') String? upcCode,
       @JsonKey(name: 'ordered_qty') double orderedQty,
       @JsonKey(name: 'received_qty') double receivedQty,
@@ -769,6 +787,8 @@ class __$$PurchaseOrderItemLineImplCopyWithImpl<$Res>
     Object? itemCode = null,
     Object? itemName = freezed,
     Object? uom = freezed,
+    Object? stockUom = freezed,
+    Object? availableUoms = null,
     Object? upcCode = freezed,
     Object? orderedQty = null,
     Object? receivedQty = null,
@@ -793,6 +813,14 @@ class __$$PurchaseOrderItemLineImplCopyWithImpl<$Res>
           ? _value.uom
           : uom // ignore: cast_nullable_to_non_nullable
               as String?,
+      stockUom: freezed == stockUom
+          ? _value.stockUom
+          : stockUom // ignore: cast_nullable_to_non_nullable
+              as String?,
+      availableUoms: null == availableUoms
+          ? _value._availableUoms
+          : availableUoms // ignore: cast_nullable_to_non_nullable
+              as List<dynamic>,
       upcCode: freezed == upcCode
           ? _value.upcCode
           : upcCode // ignore: cast_nullable_to_non_nullable
@@ -829,12 +857,16 @@ class _$PurchaseOrderItemLineImpl implements _PurchaseOrderItemLine {
       @JsonKey(name: 'item_code') required this.itemCode,
       @JsonKey(name: 'item_name') this.itemName,
       this.uom,
+      @JsonKey(name: 'stock_uom') this.stockUom,
+      @JsonKey(name: 'available_uoms')
+      final List<dynamic> availableUoms = const [],
       @JsonKey(name: 'upc_code') this.upcCode,
       @JsonKey(name: 'ordered_qty') this.orderedQty = 0,
       @JsonKey(name: 'received_qty') this.receivedQty = 0,
       @JsonKey(name: 'pending_qty') this.pendingQty = 0,
       this.rate = 0,
-      this.warehouse});
+      this.warehouse})
+      : _availableUoms = availableUoms;
 
   factory _$PurchaseOrderItemLineImpl.fromJson(Map<String, dynamic> json) =>
       _$$PurchaseOrderItemLineImplFromJson(json);
@@ -849,6 +881,18 @@ class _$PurchaseOrderItemLineImpl implements _PurchaseOrderItemLine {
   final String? itemName;
   @override
   final String? uom;
+  @override
+  @JsonKey(name: 'stock_uom')
+  final String? stockUom;
+  final List<dynamic> _availableUoms;
+  @override
+  @JsonKey(name: 'available_uoms')
+  List<dynamic> get availableUoms {
+    if (_availableUoms is EqualUnmodifiableListView) return _availableUoms;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_availableUoms);
+  }
+
   @override
   @JsonKey(name: 'upc_code')
   final String? upcCode;
@@ -869,7 +913,7 @@ class _$PurchaseOrderItemLineImpl implements _PurchaseOrderItemLine {
 
   @override
   String toString() {
-    return 'PurchaseOrderItemLine(name: $name, itemCode: $itemCode, itemName: $itemName, uom: $uom, upcCode: $upcCode, orderedQty: $orderedQty, receivedQty: $receivedQty, pendingQty: $pendingQty, rate: $rate, warehouse: $warehouse)';
+    return 'PurchaseOrderItemLine(name: $name, itemCode: $itemCode, itemName: $itemName, uom: $uom, stockUom: $stockUom, availableUoms: $availableUoms, upcCode: $upcCode, orderedQty: $orderedQty, receivedQty: $receivedQty, pendingQty: $pendingQty, rate: $rate, warehouse: $warehouse)';
   }
 
   @override
@@ -883,6 +927,10 @@ class _$PurchaseOrderItemLineImpl implements _PurchaseOrderItemLine {
             (identical(other.itemName, itemName) ||
                 other.itemName == itemName) &&
             (identical(other.uom, uom) || other.uom == uom) &&
+            (identical(other.stockUom, stockUom) ||
+                other.stockUom == stockUom) &&
+            const DeepCollectionEquality()
+                .equals(other._availableUoms, _availableUoms) &&
             (identical(other.upcCode, upcCode) || other.upcCode == upcCode) &&
             (identical(other.orderedQty, orderedQty) ||
                 other.orderedQty == orderedQty) &&
@@ -897,8 +945,20 @@ class _$PurchaseOrderItemLineImpl implements _PurchaseOrderItemLine {
 
   @JsonKey(ignore: true)
   @override
-  int get hashCode => Object.hash(runtimeType, name, itemCode, itemName, uom,
-      upcCode, orderedQty, receivedQty, pendingQty, rate, warehouse);
+  int get hashCode => Object.hash(
+      runtimeType,
+      name,
+      itemCode,
+      itemName,
+      uom,
+      stockUom,
+      const DeepCollectionEquality().hash(_availableUoms),
+      upcCode,
+      orderedQty,
+      receivedQty,
+      pendingQty,
+      rate,
+      warehouse);
 
   @JsonKey(ignore: true)
   @override
@@ -921,6 +981,8 @@ abstract class _PurchaseOrderItemLine implements PurchaseOrderItemLine {
       @JsonKey(name: 'item_code') required final String itemCode,
       @JsonKey(name: 'item_name') final String? itemName,
       final String? uom,
+      @JsonKey(name: 'stock_uom') final String? stockUom,
+      @JsonKey(name: 'available_uoms') final List<dynamic> availableUoms,
       @JsonKey(name: 'upc_code') final String? upcCode,
       @JsonKey(name: 'ordered_qty') final double orderedQty,
       @JsonKey(name: 'received_qty') final double receivedQty,
@@ -941,6 +1003,12 @@ abstract class _PurchaseOrderItemLine implements PurchaseOrderItemLine {
   String? get itemName;
   @override
   String? get uom;
+  @override
+  @JsonKey(name: 'stock_uom')
+  String? get stockUom;
+  @override
+  @JsonKey(name: 'available_uoms')
+  List<dynamic> get availableUoms;
   @override
   @JsonKey(name: 'upc_code')
   String? get upcCode;

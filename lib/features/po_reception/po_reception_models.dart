@@ -43,6 +43,8 @@ class PurchaseOrderItemLine with _$PurchaseOrderItemLine {
     @JsonKey(name: 'item_code') required String itemCode,
     @JsonKey(name: 'item_name') String? itemName,
     String? uom,
+    @JsonKey(name: 'stock_uom') String? stockUom,
+    @JsonKey(name: 'available_uoms') @Default([]) List<dynamic> availableUoms,
     @JsonKey(name: 'upc_code') String? upcCode,
     @JsonKey(name: 'ordered_qty') @Default(0) double orderedQty,
     @JsonKey(name: 'received_qty') @Default(0) double receivedQty,
