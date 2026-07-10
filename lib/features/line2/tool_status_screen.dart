@@ -28,15 +28,23 @@ class _ToolStatusScreenState extends ConsumerState<ToolStatusScreen> {
     'All',
     'Mold',
     'Airbag',
-    'Mandrel',
+    'Grinding Wheel',
+    'Curing Pot',
+    'Liner',
+    'Cylinder',
+    'Other',
   ];
   final List<String> _statusOptions = [
     'All',
     'Available',
+    'Staged',
     'In Use',
+    'Under Maintenance',
+    'Retired',
     'Pending Conversion',
-    'Maintenance',
   ];
+
+  String? _returningToolId;
 
   @override
   void initState() {
@@ -251,11 +259,13 @@ class _ToolStatusScreenState extends ConsumerState<ToolStatusScreen> {
     final toolName = tool['tool_name']?.toString() ?? toolCode;
     final toolType = tool['tool_type']?.toString() ?? '';
     final status = tool['status']?.toString() ?? 'Available';
-    final currentJc = tool['current_jc']?.toString();
+    final currentJc = tool['current_job_card']?.toString();
+    final currentWorkstation = tool['current_workstation']?.toString();
     final isPendingConversion = status == 'Pending Conversion';
     final isAirbag = toolType.toLowerCase() == 'airbag';
-    final weight = (tool['weight'] as num?)?.toDouble();
-    final threshold = (tool['weight_threshold'] as num?)?.toDouble();
+    final weight = (tool['current_weight_kg'] as num?)?.toDouble();
+    final threshold = (tool['weight_conversion_threshold_kg'] as num?)?.toDouble();
+    final isStaged = status == 'Staged';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -306,6 +316,12 @@ class _ToolStatusScreenState extends ConsumerState<ToolStatusScreen> {
                   style: const TextStyle(
                       color: AppTheme.textSecondary, fontSize: 12)),
             ],
+            if (currentWorkstation != null && currentWorkstation.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text('At: $currentWorkstation',
+                  style: const TextStyle(
+                      color: AppTheme.textSecondary, fontSize: 12)),
+            ],
             if (isAirbag && weight != null) ...[
               const SizedBox(height: 8),
               Row(
@@ -352,9 +368,53 @@ class _ToolStatusScreenState extends ConsumerState<ToolStatusScreen> {
                 ],
               ),
             ],
+            if (isStaged) ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: OutlinedButton.icon(
+                  onPressed: _returningToolId == toolCode
+                      ? null
+                      : () => _returnToolToStore(toolCode),
+                  icon: _returningToolId == toolCode
+                      ? const SizedBox(
+                          width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.undo, size: 16),
+                  label: const Text('Return to Store', style: TextStyle(fontSize: 12)),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _returnToolToStore(String toolCode) async {
+    setState(() => _returningToolId = toolCode);
+    try {
+      await ref.read(line2RepositoryProvider).returnToolToStore(toolId: toolCode);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('$toolCode returned to store'),
+          backgroundColor: AppTheme.success,
+        ));
+        _loadTools();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: AppTheme.danger,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _returningToolId = null);
+    }
   }
 }

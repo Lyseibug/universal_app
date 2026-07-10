@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/menu/menu_models.dart';
+import '../../core/models/tool_request_models.dart';
 import '../../core/theme/app_theme.dart';
+import '../../providers/service_providers.dart';
 import '../../widgets/pdt_scaffold.dart';
 import '../../widgets/scan_input_field.dart';
+import '../tool_requests/tool_requests_screen.dart';
 import 'line2_repository.dart';
 import 'widgets/production_station_layout.dart';
 
@@ -20,23 +23,26 @@ class SleeveBuildingScreen extends ConsumerStatefulWidget {
 class _SleeveBuildingScreenState extends ConsumerState<SleeveBuildingScreen> {
   final _flowchartCtrl = TextEditingController();
   final _flowchartFocus = FocusNode();
-  final _moldCtrl = TextEditingController();
-  final _moldFocus = FocusNode();
 
   bool _scanning = false;
   bool _assigningTool = false;
   bool _completing = false;
+  bool _returningToStore = false;
   String? _error;
 
   Map<String, dynamic>? _scanResult;
   List<_LayerCheck> _layeringChecks = [];
   bool _moldAssigned = false;
+  String? _assignedToolId;
   DateTime? _timerStart;
 
   // Workstation
   List<String> _workstations = [];
   List<String> _assignedStations = [];
   String? _selectedWorkstation;
+
+  bool _loadingStaged = false;
+  List<StagedTool> _stagedMolds = [];
 
   @override
   void initState() {
@@ -48,8 +54,6 @@ class _SleeveBuildingScreenState extends ConsumerState<SleeveBuildingScreen> {
   void dispose() {
     _flowchartCtrl.dispose();
     _flowchartFocus.dispose();
-    _moldCtrl.dispose();
-    _moldFocus.dispose();
     super.dispose();
   }
 
@@ -72,6 +76,22 @@ class _SleeveBuildingScreenState extends ConsumerState<SleeveBuildingScreen> {
     } catch (_) {}
   }
 
+  Future<void> _loadStagedMolds() async {
+    if (_selectedWorkstation == null) return;
+    setState(() => _loadingStaged = true);
+    try {
+      final staged = await ref.read(line2RepositoryProvider).listStagedTools(
+            toolType: 'Mold',
+            workstation: _selectedWorkstation!,
+          );
+      if (mounted) setState(() => _stagedMolds = staged);
+    } catch (_) {
+      if (mounted) setState(() => _stagedMolds = []);
+    } finally {
+      if (mounted) setState(() => _loadingStaged = false);
+    }
+  }
+
   Future<void> _onFlowchartScanned(String barcode) async {
     final trimmed = barcode.trim();
     if (trimmed.isEmpty) return;
@@ -82,7 +102,7 @@ class _SleeveBuildingScreenState extends ConsumerState<SleeveBuildingScreen> {
       _scanResult = null;
       _layeringChecks = [];
       _moldAssigned = false;
-      _moldCtrl.clear();
+      _assignedToolId = null;
       _timerStart = null;
     });
 
@@ -99,6 +119,7 @@ class _SleeveBuildingScreenState extends ConsumerState<SleeveBuildingScreen> {
         _scanning = false;
         _timerStart = DateTime.now();
       });
+      await _loadStagedMolds();
     } catch (e) {
       setState(() {
         _error = 'Scan failed: $e';
@@ -107,10 +128,10 @@ class _SleeveBuildingScreenState extends ConsumerState<SleeveBuildingScreen> {
     }
   }
 
-  Future<void> _onMoldScanned(String barcode) async {
-    final trimmed = barcode.trim();
-    if (trimmed.isEmpty) return;
-
+  /// Operator selects from the Staged list — not a blind scan of any
+  /// barcode in the system. A tool must already be staged at this
+  /// workstation (via a fulfilled Tool Request) before it can be used.
+  Future<void> _onMoldSelected(String toolId) async {
     setState(() {
       _assigningTool = true;
       _error = null;
@@ -118,11 +139,12 @@ class _SleeveBuildingScreenState extends ConsumerState<SleeveBuildingScreen> {
 
     try {
       await ref.read(line2RepositoryProvider).assignTool(
-            toolId: trimmed,
+            toolId: toolId,
             jobCard: _scanResult!['job_card']?.toString() ?? '',
           );
       setState(() {
         _moldAssigned = true;
+        _assignedToolId = toolId;
         _assigningTool = false;
       });
       if (mounted) {
@@ -155,11 +177,15 @@ class _SleeveBuildingScreenState extends ConsumerState<SleeveBuildingScreen> {
             jobCard: _scanResult!['job_card']?.toString() ?? '',
           );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Sleeve building step completed'),
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(_selectedWorkstation != null
+              ? 'Sleeve building step completed - mold staged at $_selectedWorkstation'
+              : 'Sleeve building step completed - mold staged'),
           backgroundColor: AppTheme.success,
         ));
+        final toolId = _assignedToolId;
         _resetForm();
+        setState(() => _assignedToolId = toolId);
       }
     } catch (e) {
       if (mounted) {
@@ -173,47 +199,128 @@ class _SleeveBuildingScreenState extends ConsumerState<SleeveBuildingScreen> {
     }
   }
 
+  Future<void> _returnToolToStore() async {
+    if (_assignedToolId == null) return;
+    setState(() => _returningToStore = true);
+    try {
+      await ref.read(line2RepositoryProvider).returnToolToStore(toolId: _assignedToolId!);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Mold returned to store'), backgroundColor: AppTheme.success));
+        setState(() => _assignedToolId = null);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error: $e'), backgroundColor: AppTheme.danger));
+      }
+    } finally {
+      if (mounted) setState(() => _returningToStore = false);
+    }
+  }
+
   void _resetForm() {
     setState(() {
       _scanResult = null;
       _layeringChecks = [];
       _moldAssigned = false;
+      _assignedToolId = null;
+      _stagedMolds = [];
       _error = null;
       _timerStart = null;
       _flowchartCtrl.clear();
-      _moldCtrl.clear();
     });
+  }
+
+  void _goToToolRequests() {
+    final menuAsync = ref.read(menuProvider);
+    MenuScreen? trScreen;
+    menuAsync.whenData((menu) {
+      if (menu == null) return;
+      for (final mod in menu.menu) {
+        for (final s in mod.screens) {
+          if (s.screenKey == 'tool_requests') {
+            trScreen = s;
+            return;
+          }
+        }
+      }
+    });
+
+    trScreen ??= const MenuScreen(
+      screenKey: 'tool_requests',
+      label: 'Tool Requests',
+      route: '/tool-requests',
+      apiModule: 'tool_requests',
+      actions: ['create', 'fulfill'],
+    );
+
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => ToolRequestsScreen(screen: trScreen!),
+    ));
   }
 
   Widget _buildStepContent() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Mold scan
-        ScanInputField(
-          controller: _moldCtrl,
-          focusNode: _moldFocus,
-          labelText: 'Scan Mold',
-          hintText: 'Scan mold barcode',
-          onScanned: _onMoldScanned,
-          onSubmitted: _onMoldScanned,
-        ),
+        const Text('Select Mold (Staged here)',
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.textSecondary)),
+        const SizedBox(height: 8),
+        if (_loadingStaged)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: LinearProgressIndicator(),
+          )
+        else if (_moldAssigned)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: [
+                const Icon(Icons.check_circle, color: AppTheme.success, size: 20),
+                const SizedBox(width: 8),
+                Text('Mold assigned: ${_assignedToolId ?? ''}',
+                    style: const TextStyle(color: AppTheme.success, fontWeight: FontWeight.w600)),
+              ],
+            ),
+          )
+        else if (_stagedMolds.isEmpty)
+          Card(
+            color: AppTheme.warningLight,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('No molds staged at this workstation.',
+                      style: TextStyle(color: AppTheme.warning, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: _goToToolRequests,
+                    child: const Text('Raise a Tool Request'),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          Card(
+            child: Column(
+              children: _stagedMolds
+                  .map((t) => ListTile(
+                        dense: true,
+                        leading: const Icon(Icons.category_outlined),
+                        title: Text(t.toolCode),
+                        subtitle: t.toolName != null ? Text(t.toolName!) : null,
+                        onTap: _assigningTool ? null : () => _onMoldSelected(t.toolCode),
+                      ))
+                  .toList(),
+            ),
+          ),
         if (_assigningTool)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 8),
             child: LinearProgressIndicator(),
-          ),
-        if (_moldAssigned)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              children: [
-                Icon(Icons.check_circle, color: AppTheme.success, size: 20),
-                SizedBox(width: 8),
-                Text('Mold assigned',
-                    style: TextStyle(color: AppTheme.success, fontWeight: FontWeight.w600)),
-              ],
-            ),
           ),
         const SizedBox(height: 12),
 
@@ -252,13 +359,57 @@ class _SleeveBuildingScreenState extends ConsumerState<SleeveBuildingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Post-completion state: job scan cleared, but a just-used tool is still
+    // known and can be manually returned to the store.
+    if (_scanResult == null && _assignedToolId != null) {
+      return PdtScaffold(
+        title: widget.screen.label,
+        body: Padding(
+          padding: const EdgeInsets.all(AppTheme.horizontalPad),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.category_outlined, color: AppTheme.success),
+                  title: Text('Mold $_assignedToolId'),
+                  subtitle: const Text('Staged here — scan the next flowchart, or return it'),
+                ),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: _returningToStore ? null : _returnToolToStore,
+                icon: _returningToStore
+                    ? const SizedBox(
+                        width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.undo),
+                label: const Text('Return to Store'),
+              ),
+              const SizedBox(height: 24),
+              ScanInputField(
+                controller: _flowchartCtrl,
+                focusNode: _flowchartFocus,
+                labelText: 'Scan Flowchart Barcode',
+                hintText: 'Scan next job',
+                onScanned: _onFlowchartScanned,
+                onSubmitted: _onFlowchartScanned,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return PdtScaffold(
       title: widget.screen.label,
       body: ProductionStationLayout(
         title: widget.screen.label,
         availableWorkstations: _workstations,
         selectedWorkstation: _selectedWorkstation,
-        onWorkstationChanged: (ws) => setState(() => _selectedWorkstation = ws),
+        onWorkstationChanged: (ws) {
+          setState(() => _selectedWorkstation = ws);
+          _loadStagedMolds();
+        },
         assignedStations: _assignedStations,
         scanController: _flowchartCtrl,
         scanFocusNode: _flowchartFocus,
@@ -268,7 +419,7 @@ class _SleeveBuildingScreenState extends ConsumerState<SleeveBuildingScreen> {
         stepContent: _scanResult != null ? _buildStepContent() : null,
         timerStartTime: _timerStart,
         targetMinutes: (_scanResult?['target_time_minutes'] as num?)?.toInt(),
-        onFinish: _finishStep,
+        onFinish: _moldAssigned ? _finishStep : null,
         onBack: _resetForm,
         finishing: _completing,
         error: _error,

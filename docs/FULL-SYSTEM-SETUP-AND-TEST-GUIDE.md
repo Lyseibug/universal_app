@@ -36,7 +36,7 @@ State on this bench has reverted after DB restores before — re-verify this tab
 | 2 | Manufacturing Settings URBM — all warehouses | Search "Manufacturing Settings URBM" (it's a single record, not a Single doctype) | ✅ all Line-1 + Line-2 + Cutting warehouses linked (see §1.1) |
 | 3 | WMS Settings → Finance Approver Role | WMS Settings (Single) | ✅ "Finance Approver"; swalih has the role |
 | 4 | Stock Settings → auto-pick batches FIFO | Stock Settings → Serial & Batch section | ✅ `auto_create_serial_and_batch_bundle_for_outward=1`, FIFO — **required** for machine/manual production records |
-| 5 | PDT Modules (7) + Screens (26) | PDT Module / PDT Screen list | ✅ incl. all 10 `line2_*`, `cutting`, `sleeve_calculator` |
+| 5 | PDT Modules (7) + Screens (27) | PDT Module / PDT Screen list | ✅ incl. all 10 `line2_*`, `cutting`, `sleeve_calculator`, `tool_requests` (added 2026-07-10) |
 | 6 | swalih Worker Workstation Assignment + active Worker Session | Worker Workstation Assignment `v7u5pnffpl`; Worker Session | ✅ WS-0012 active |
 | 7 | Tank Lot Assignment (12: 6 silos + oils) | Tank Lot Assignment list | ✅ items+capacities set; `min_qty_kg` all 0 (you deferred) |
 | 8 | Formula-BOM Mapping (258, 207 active w/ BOM) | Formula-BOM Mapping list | ✅ Mixer CMB/FMB/PM + Chemical Weighing |
@@ -49,12 +49,14 @@ State on this bench has reverted after DB restores before — re-verify this tab
 | 15 | Belt/sleeve BOMs | BOM list | ❌ 0/1,196 real belt items have BOMs. Worked example exists: `107 YU CR 22-BOM-0469` (template `20100747`, placeholder qtys). Brand-variant mechanism proven — see §6.3 |
 | 16 | Sleeve Build Layer rows (per-item layering) | Sleeve Build Specification → Layers table | ❌ empty on all 4,115 records — layering checklist on PDT building screen will be empty until populated |
 | 17 | Production Type `label_stage` | Production Type Master (7 records) | ⚠️ unset on all — labelling step won't be spliced into routes until set (Before Curing / After Grinding) |
-| 18 | Tool Master (molds/airbags/pots) | Tool Master list | ✅ 3 test tools seeded (`MOLD-3PK-0855`, `AIRBAG-3PK-0855`, `CURING-POT-01`); real tooling data is yours to load |
+| 18 | Tool Master (molds/airbags/pots + rolls) | Tool Master list | ✅ 3 Line-2 test tools (`MOLD-3PK-0855`, `AIRBAG-3PK-0855`, `CURING-POT-01`) + 371 Liner/Cylinder units migrated 2026-07-10 from the old pooled Bin qty (364 Available / 5 Staged / 2 In Use) — see §4a |
 
 ### 1.1 Warehouse wiring (Manufacturing Settings URBM)
 Silo/Oil/Weighing inside+outside pairs, `wip_bags`, `fmb_zone`, `cmb_zone`, `mixer_staging`, `mixer_wip`, `wip_calendering`, `finished_sheet`, `calendering`, `calender_tools_store/in_use` — all set previously. Set 2026-07-08: `building_material` → `Sleeve Building WH  - URBM` (double space is real), `building_wip`/`sleeve_wip` → `Sleeve Building WIP - URBM`, `finished_belt` → `Finished Belt WH - URBM` (new), `line2_scrap` → `Scrap - URBM`, `cutting` → `Cutting WH - URBM`. Unset & unreferenced by code (leave alone): `compound_warehouse`, `cutting_wip`, generic `scrap`, `default_*_mr` warehouses.
 
-**Note (2026-07-09):** `calendering_warehouse` ("Calendering WH") and `wip_calendering_warehouse` ("WIP Calendering") are **two different things**, previously conflated in this doc's prose. `calendering_warehouse` is where scanned-in FMB batches sit while being calendered — the destination of a fulfilled **Calendering FMB** Material Request (Store: `fmb_zone_warehouse`). `wip_calendering_warehouse` was dead code until now and is repurposed as the **roll staging bin** — the destination of a fulfilled **Calendering Tools** Material Request (Store: `calender_tools_store_warehouse`), holding Liner/Cylinder rolls ready for Complete Run to auto-match and consume. See §4.
+**Note (2026-07-09):** `calendering_warehouse` ("Calendering WH") is where scanned-in FMB batches sit while being calendered — the destination of a fulfilled **Calendering FMB** Material Request (Store: `fmb_zone_warehouse`). See §4.
+
+**Note (2026-07-10, supersedes the above for rolls):** `wip_calendering_warehouse`, `calender_tools_store_warehouse`, and `calender_tools_in_use_warehouse` are **no longer used for Liner/Cylinder rolls at all** — rolls are individually tracked `Tool Master` records now (see §4a), not pooled stock in those warehouses. The "Calendering Tools" Manufacturing MR stream that used to move stock between them was removed; use the **Tool Requests** screen instead. These 3 warehouse fields remain configured but are vestigial for this purpose.
 
 ---
 
@@ -113,16 +115,34 @@ PDT → Compound Production → Compound Lab Test (or Desk → Compound Lab Test
 
 ## 4. Flow C — Calendering & cutting (FMB → sheets → cut sheets)
 
-**Redesigned 2026-07-09**: FMB and roll tooling are no longer silently auto-transferred by the calendering screen itself — both now go through a real **Material Request → fulfill** trail (Manufacturing MR screen, §3.1), and Complete Run is a 3-step wizard instead of one long form.
+**Redesigned 2026-07-09, rolls re-redesigned 2026-07-10**: FMB goes through a real **Material Request → fulfill** trail (Manufacturing MR screen, §3.1). Liner/Cylinder rolls are no longer pooled warehouse stock at all — every physical roll is its own tracked **Tool Master** record, requested/staged via the **Tool Requests** screen (§4a, shared with Line 2). Complete Run is a 3-step wizard.
 
 1. **Stage the FMB** (PDT → Manufacturing MR → New, stream **Calendering FMB**): request the FMB item + qty needed → Submit → **Mark Fulfilled** (picker action, FIFO-selects lab-passed batches from **FMB Zone**, one Material Transfer into **Calendering WH**). No Warehouse LOT infra for this stream — direct fulfillment, no pick list.
-2. **Stage the rolls** (PDT → Manufacturing MR → New, stream **Calendering Tools**): request the Liner/Cylinder item + qty needed (40-series items, e.g. liner `40100003`, cylinder `40100009`) → Submit → **Mark Fulfilled** (one Material Transfer from **Calender Tools Store** into **WIP Calendering**, the new roll-staging bin — see §1.1 note).
+2. **Stage the rolls** (PDT → **Tool Requests** → New): target workstation = the calendering line's Workstation (`Manufacturing Settings URBM.calender_workstation`, currently `"Calender"`); add an item row with tool_type **Liner** or **Cylinder** + qty + minimum width/length (mm) → Submit → **Fulfill** (stages the narrowest-fitting **Available** Tool Master units of that spec — Available→Staged, `current_workstation` set). Partial fulfillment is normal, not an error: fulfilling again later tops up whatever's still short.
 3. **Start Run — scan to build** (PDT → Compound Production → Calendering, "New Run" tab): scan the FMB batch now sitting in Calendering WH (list of what's available shown as a fallback) → confirm quantity → `start_run_from_batches` creates the **Calendering Run** (no stock movement — the batch is already there). Scan again to claim a second batch of the same item into the same run if one batch isn't enough, then **Proceed to Sheets**.
 4. **Complete Run — 3-step wizard**:
    - **Step 1, Sheets**: "Add Sheet" opens a picker scoped to finished sheet Items (`Item Group = Rubber Sheets`) sharing the FMB item's `compound` field — no more typing an item code. Only Qty/Thickness/Width/Length are manual inputs (thickness/width pre-fill from the picked Item, still editable).
-   - **Step 2, Liner & Cylinder**: auto-matched per sheet from **WIP Calendering** stock — narrowest roll whose `width ≥ sheet width` and `length(m)×1000 ≥ sheet length(mm)`. Green = matched+available; amber = matched but short on staged stock (**Raise MR** button pre-fills a Calendering Tools request for the shortfall, right from this screen); red = no roll spec wide/long enough at all (a data problem, not a stock one).
-   - **Step 3, Returns**: unchanged — liner/calendar return qty, excruder sludge, balance check, **Complete Run**. Sheets land in **Finished Sheet WH** as new Batches; returns go back to FMB Zone via Repack; roll consumption moves WIP Calendering → Calender Tools In Use (auto-released back to Store once the sheet batch it's wound with is fully consumed — unchanged). Desk: Calendering Run list shows the full trace, including the `fmb_sources` child table for multi-batch runs.
+   - **Step 2, Liner & Cylinder**: auto-matched per sheet against **Staged** Tool Master units — narrowest spec whose `width ≥ sheet width` and `length(m)×1000 ≥ sheet length(mm)`. Green = matched+enough staged units; amber = matched but short (**Raise Tool Request** button pre-fills a request for the shortfall, right from this screen); red = no roll spec wide/long enough at all (a data problem, not a stock one).
+   - **Step 3, Returns**: unchanged — liner/calendar return qty, excruder sludge, balance check, **Complete Run**. Sheets land in **Finished Sheet WH** as new Batches; returns go back to FMB Zone via Repack; the specific matched Liner/Cylinder Tool Master units are claimed (Staged→In Use, `batch_no` = the sheet batch) — no Stock Entry for rolls anymore. `Calendering Output.liner_tool`/`cylinder_tool` link the exact physical units used. Auto-released back to **Staged** (not Available — see §4a) once the sheet batch it's wound with is fully consumed elsewhere. Desk: Calendering Run list shows the full trace, including the `fmb_sources` child table for multi-batch runs.
 5. **Cutting & Splicing** (PDT → Compound Production → Cutting & Splicing, built Phase 2): scan a sheet batch in Finished Sheet WH → enter target item, input/output qty → Repack into **Cutting WH** + **Cutting Log** row.
+
+### 4a. Tool Master lifecycle & Tool Requests (shared by Line 1 rolls and Line 2 Mold/Airbag/Grinding Wheel/Curing Pot)
+
+**Redesigned 2026-07-10**: every physical tool — Liner, Cylinder, Mold, Airbag, Grinding Wheel, Curing Pot — is a `Tool Master` record moving through a uniform 3-state lifecycle instead of silent status flips:
+
+- **Available** — sitting in the warehouse/store, not assigned anywhere.
+- **Staged** — issued to a specific `current_workstation` via a fulfilled **Tool Request**, ready to use. Rolls: matched by width/length spec (narrowest-fit). Line 2 types: any Available unit of that tool_type (+ optional item_code filter).
+- **In Use** — checked out to a Job Card (Line 2, `Tool Usage Log` open) or wound onto a sheet batch (Line 1, `Tool Master.batch_no` set).
+
+Finishing a job/run does **not** return a tool to Available automatically — it lands back on **Staged** (still physically at the workstation). Returning a tool to the warehouse is a separate, **manual** action: the "Return to Store" button on the Tool Status screen (any Staged tool) or on the Line 2 station screens (the just-used tool, shown after step completion).
+
+**Requesting tools** (PDT → **Tool Requests**, shared screen for both lines): New → target workstation + one or more item rows (tool_type, qty; width/length only for Liner/Cylinder) → Submit → **Fulfill**. Fulfillment reports per-line shortfalls (spec/type exists, not enough Available units — register more via Desk, or wait for return-to-store elsewhere) separately from "no spec found" (a data problem). The Calendering Rolls-step shortfall button and Line 2's "No tools staged here" prompt both create requests here under the hood.
+
+**Line 2 station screens (Curing, Sleeve/Belt Building)**: tool selection is a picker restricted to what's actually **Staged at the operator's workstation** (`list_staged_tools`) — not a blind scan of any barcode in the system. If nothing is staged, the screen prompts to raise a Tool Request instead of failing at scan time.
+
+**Tool Status screen** (`line2_tools`): filters now include all 7 tool_types (was missing Liner/Cylinder, had a stale "Mandrel" option) and all 6 real statuses (was missing Staged, and filtered on "Maintenance" instead of the real "Under Maintenance" value — both silently broken before this redesign). Shows `current_workstation`; "Return to Store" on any Staged tool.
+
+**Migration note**: the 11 pre-existing Liner/Cylinder Items' pooled Bin qty (Store/WIP Calendering/In Use warehouses) was one-time converted into 371 individual Tool Master rows (`patches/v1_0/tool_master_roll_migration.py`) and the old Bins zeroed — those 3 warehouses and the "Calendering Tools" Manufacturing MR stream are no longer used for rolls at all.
 
 ---
 
@@ -138,7 +158,7 @@ PDT → Compound Production → Compound Lab Test (or Desk → Compound Lab Test
 
 ### 6.1 Building (PDT, module Belt/Sleeve Building)
 - **Sleeve Creation** (`line2_sleeve`): consume fabric from Sleeve Building WH → produce sleeve batches into Sleeve Building WIP (+ **Sleeve Creation Log**). Layering checklist comes from **Sleeve Build Specification → Layers** (❌ empty today — screen works, checklist just empty).
-- **Active Jobs** (`line2_active_jobs`) / **Sleeve/Belt Building** (`line2_building`): scan the WO's flowchart barcode → current step, allowed workstations (filtered by the **physical capacity fields** on Workstation vs the item's spec dims), step inputs → `complete_step`. Tools: `assign_tool`/`release_tool` (Tool Master status + **Tool Usage Log** checkout/checkin audit; curing pots support multi-occupancy via `pot_capacity`).
+- **Active Jobs** (`line2_active_jobs`) / **Sleeve/Belt Building** (`line2_building`): scan the WO's flowchart barcode → current step, allowed workstations (filtered by the **physical capacity fields** on Workstation vs the item's spec dims), step inputs → `complete_step`. Tools: pick from the **Staged** list at your workstation (raise a Tool Request first if empty — see §4a), `assign_tool` (Staged→In Use, opens **Tool Usage Log**), auto-`release_tool` on step completion (In Use→Staged, not Available; curing pots support multi-occupancy via `pot_capacity`), manual "Return to Store" (Staged→Available) when you're done with it.
 - **Curing / Processing** (`line2_curing`, `line2_processing`): same scan→complete backend as building; separate menu tiles per station.
 - **Rejection** (`create_rejection` on the building screen): Rework (routes a new Job Card back to the chosen step, max `max_rework_attempts`=2 then auto-escalates) or Full Scrap (stock → Scrap via **Rejection Log**).
 - **Labelling** (`line2_labelling`): `print_label` — position in the route comes from Production Type `label_stage` (⚠️ unset today).

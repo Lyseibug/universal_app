@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/models/tool_request_models.dart';
 import '../../core/sync/write_queue.dart';
 import '../../providers/service_providers.dart';
 
@@ -125,6 +126,36 @@ class Line2Repository {
       'tool_id': toolId,
     });
     return Map<String, dynamic>.from(result);
+  }
+
+  /// Manual, operator-triggered Staged -> Available. Never called
+  /// automatically — releaseTool only ever lands a tool back on Staged.
+  Future<Map<String, dynamic>> returnToolToStore({
+    required String toolId,
+  }) async {
+    final result = await _writeQueue.run('line2.return_tool_to_store', {
+      'tool_id': toolId,
+    });
+    return Map<String, dynamic>.from(result);
+  }
+
+  /// Tools actually Staged at [workstation] — the source for the
+  /// station-side "pick from what's staged here" selector (not a blind
+  /// scan against every tool in the system).
+  Future<List<StagedTool>> listStagedTools({
+    required String toolType,
+    required String workstation,
+  }) async {
+    final data = await _api.call('line2.list_staged_tools', body: {
+      'tool_type': toolType,
+      'workstation': workstation,
+    });
+    if (data is List) {
+      return data
+          .map((j) => StagedTool.fromJson(Map<String, dynamic>.from(j)))
+          .toList();
+    }
+    return const [];
   }
 
   // ── Rejection ───────────────────────────────────────────────────────────

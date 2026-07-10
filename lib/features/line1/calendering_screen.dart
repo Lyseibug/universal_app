@@ -6,7 +6,7 @@ import '../../core/models/line1_models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../widgets/pdt_scaffold.dart';
 import '../../widgets/scan_input_field.dart';
-import '../manufacturing_mr/manufacturing_mr_repository.dart';
+import '../tool_requests/tool_request_repository.dart';
 import 'line1_repository.dart';
 
 class CalenderingScreen extends ConsumerStatefulWidget {
@@ -493,12 +493,12 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Raise Material Request'),
+        title: const Text('Raise Tool Request'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('${shortfall.itemName ?? shortfall.itemCode}'),
+            Text('${shortfall.rollType}: ${shortfall.itemName ?? shortfall.itemCode}'),
             const SizedBox(height: 12),
             TextField(
               controller: qtyCtrl,
@@ -522,25 +522,33 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
     );
     if (confirmed != true) return;
 
-    final qty = double.tryParse(qtyCtrl.text) ?? shortfall.shortfallQty;
+    final qty = int.tryParse(qtyCtrl.text) ?? shortfall.shortfallQty.round();
     try {
-      final result = await ref.read(manufacturingMRRepositoryProvider).create(
+      final workstation =
+          await ref.read(line1RepositoryProvider).getCalenderingWorkstation();
+      if (workstation == null || workstation.isEmpty) {
+        throw Exception('Calendering line has no Workstation configured');
+      }
+
+      final result = await ref.read(toolRequestRepositoryProvider).create(
+        targetWorkstation: workstation,
         items: [
           {
-            'item_code': shortfall.itemCode,
-            'required_qty': qty,
-            'target_stream': 'Calendering Tools',
+            'tool_type': shortfall.rollType,
+            'qty': qty,
+            'width_in_mm': shortfall.width,
+            'length_in_mm': shortfall.length,
           }
         ],
         remarks: 'Calendering roll shortfall for run ${_activeRun?.name}',
       );
-      final mrName = result is Map ? (result['name'] ?? '') : '';
-      if (mrName != '') {
-        await ref.read(manufacturingMRRepositoryProvider).submitMR(mrName);
+      final reqName = result is Map ? (result['name'] ?? '') : '';
+      if (reqName != '') {
+        await ref.read(toolRequestRepositoryProvider).submit(reqName);
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Material Request $mrName raised — fulfill it, then Refresh'),
+          content: Text('Tool Request $reqName raised — fulfill it, then Refresh'),
           backgroundColor: AppTheme.success,
         ));
       }
@@ -598,18 +606,16 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
 
     setState(() => _completing = true);
     try {
-      final sheets = _sheetEntries.asMap().entries.map((entry) {
-        final i = entry.key;
-        final e = entry.value;
-        final match = _rollMatch!.sheets[i];
+      // Liner/Cylinder are not sent — complete_run re-derives and claims
+      // the specific Tool Master units server-side from width/length,
+      // rather than trusting a client-supplied match.
+      final sheets = _sheetEntries.map((e) {
         return {
           'item_code': e.selectedItem!.itemCode,
           'qty': double.tryParse(e.qtyCtrl.text) ?? 0,
           'thickness_mm': double.tryParse(e.thicknessCtrl.text) ?? 0,
           'width_in_mm': double.tryParse(e.widthCtrl.text) ?? 0,
           'length_in_mm': double.tryParse(e.lengthCtrl.text) ?? 0,
-          'liner_item_code': match.liner.itemCode,
-          'cylinder_item_code': match.cylinder.itemCode,
         };
       }).toList();
 
@@ -1403,7 +1409,7 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
                 onPressed: () => _raiseShortfallMR(
                   _rollMatch!.shortfalls.firstWhere((s) => s.itemCode == m.itemCode),
                 ),
-                child: const Text('Raise MR', style: TextStyle(fontSize: 11)),
+                child: const Text('Raise Tool Request', style: TextStyle(fontSize: 11)),
               )
             : null,
       );

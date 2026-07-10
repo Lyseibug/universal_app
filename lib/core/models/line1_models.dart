@@ -434,6 +434,9 @@ class SheetRollMatch {
 class RollShortfall {
   final String itemCode;
   final String? itemName;
+  final String rollType; // 'Liner' | 'Cylinder'
+  final double width;
+  final double length;
   final double needed;
   final double available;
   final double shortfallQty;
@@ -441,6 +444,9 @@ class RollShortfall {
   const RollShortfall({
     required this.itemCode,
     this.itemName,
+    this.rollType = 'Liner',
+    this.width = 0,
+    this.length = 0,
     this.needed = 0,
     this.available = 0,
     this.shortfallQty = 0,
@@ -449,6 +455,9 @@ class RollShortfall {
   factory RollShortfall.fromJson(Map<String, dynamic> json) => RollShortfall(
         itemCode: json['item_code']?.toString() ?? '',
         itemName: json['item_name']?.toString(),
+        rollType: json['roll_type']?.toString() ?? 'Liner',
+        width: (json['width'] as num?)?.toDouble() ?? 0,
+        length: (json['length'] as num?)?.toDouble() ?? 0,
         needed: (json['needed'] as num?)?.toDouble() ?? 0,
         available: (json['available'] as num?)?.toDouble() ?? 0,
         shortfallQty: (json['shortfall_qty'] as num?)?.toDouble() ?? 0,

@@ -253,6 +253,13 @@ class Line1Repository {
     return const [];
   }
 
+  /// The calendering line's Workstation — used to target a Tool Request
+  /// raised from a Rolls-step shortfall, without hardcoding it client-side.
+  Future<String?> getCalenderingWorkstation() async {
+    final data = await _api.call('line1_calendering.get_calendering_workstation');
+    return data?.toString();
+  }
+
   Future<List<CalenderingRun>> listCalenderingRuns({String? status}) async {
     final data = await _api.call('line1_calendering.list_runs', body: {
       if (status != null) 'status': status,

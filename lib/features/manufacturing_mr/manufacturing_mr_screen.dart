@@ -367,12 +367,13 @@ class _ManufacturingMRScreenState
     }
   }
 
-  /// Calendering Tools / Calendering FMB have no Warehouse LOT infra, so
-  /// submit_mr leaves them at 'MR Raised' without a pick list — this is
-  /// their equivalent of _createPickList: one direct Material Transfer.
+  /// Calendering FMB has no Warehouse LOT infra, so submit_mr leaves it at
+  /// 'MR Raised' without a pick list — this is its equivalent of
+  /// _createPickList: one direct Material Transfer. (Calendering Tools was
+  /// the other direct-fulfill stream; rolls are now individually tracked
+  /// Tool Master records requested via the Tool Requests screen instead.)
   bool _isDirectFulfillStream(ManufacturingMRDetail d) =>
-      d.items.isNotEmpty &&
-      const {'Calendering Tools', 'Calendering FMB'}.contains(d.items.first.targetStream);
+      d.items.isNotEmpty && d.items.first.targetStream == 'Calendering FMB';
 
   Future<void> _fulfillDirect() async {
     setState(() => _fulfillingDirect = true);
@@ -788,8 +789,8 @@ class _ManufacturingMRScreenState
             ),
 
           // Recovery: submitted MR without a pick list (normally created on submit).
-          // Doesn't apply to Calendering Tools/FMB — those never get a pick
-          // list by design (no Warehouse LOT infra for those streams).
+          // Doesn't apply to Calendering FMB — it never gets a pick list by
+          // design (no Warehouse LOT infra for that stream).
           if (!isDraft &&
               d.pickList == null &&
               !_isDirectFulfillStream(d) &&
@@ -801,8 +802,8 @@ class _ManufacturingMRScreenState
               onPressed: _createPickList,
             ),
 
-          // Calendering Tools/FMB: direct fulfillment (one Material
-          // Transfer) instead of a lot-based pick list.
+          // Calendering FMB: direct fulfillment (one Material Transfer)
+          // instead of a lot-based pick list.
           if (!isDraft &&
               d.status == 'MR Raised' &&
               _isDirectFulfillStream(d) &&
@@ -912,8 +913,6 @@ class _ManufacturingMRScreenState
         return AppTheme.success;
       case 'Mixer':
         return AppTheme.primary;
-      case 'Calendering Tools':
-        return AppTheme.amber;
       case 'Calendering FMB':
         return AppTheme.primaryDark;
       default:
@@ -1177,9 +1176,6 @@ class _ManufacturingMRScreenState
                         DropdownMenuItem(
                             value: 'Mixer',
                             child: Text('Mixer')),
-                        DropdownMenuItem(
-                            value: 'Calendering Tools',
-                            child: Text('Calendering Tools')),
                         DropdownMenuItem(
                             value: 'Calendering FMB',
                             child: Text('Calendering FMB')),
