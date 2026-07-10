@@ -40,9 +40,11 @@ class Line2Repository {
     return Map<String, dynamic>.from(data);
   }
 
-  Future<List<Map<String, dynamic>>> getActiveJobs({String? workstation}) async {
+  /// mine_only defaults true server-side — this is a personal "what's
+  /// still running for me" view, not an unscoped supervisor one.
+  Future<List<Map<String, dynamic>>> getActiveJobs({String? buildingLine}) async {
     final data = await _api.call('line2.get_active_jobs', body: {
-      if (workstation != null) 'workstation': workstation,
+      if (buildingLine != null) 'building_line': buildingLine,
     });
     if (data is List) {
       return data

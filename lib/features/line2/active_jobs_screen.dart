@@ -5,9 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/menu/menu_models.dart';
 import '../../core/theme/app_theme.dart';
+import '../../providers/service_providers.dart';
 import '../../widgets/pdt_scaffold.dart';
 import '../../widgets/status_chip.dart';
+import 'curing_screen.dart';
 import 'line2_repository.dart';
+import 'processing_screen.dart';
+import 'sleeve_building_screen.dart';
 
 class ActiveJobsScreen extends ConsumerStatefulWidget {
   final MenuScreen screen;
@@ -22,6 +26,7 @@ class _ActiveJobsScreenState extends ConsumerState<ActiveJobsScreen> {
   String? _error;
   List<Map<String, dynamic>> _jobs = [];
   Timer? _elapsedTimer;
+  bool _resuming = false;
 
   @override
   void initState() {
@@ -46,7 +51,15 @@ class _ActiveJobsScreenState extends ConsumerState<ActiveJobsScreen> {
     try {
       final data = await ref.read(line2RepositoryProvider).getActiveJobs();
       setState(() {
-        _jobs = List<Map<String, dynamic>>.from(data);
+        // elapsed_seconds is the real server-computed elapsed time (from
+        // the Job Card's open time log) — freeze it into a local DateTime
+        // once per load so the 1s ticker below just re-renders, it doesn't
+        // re-fetch.
+        _jobs = data.map((j) {
+          final elapsed = (j['elapsed_seconds'] as num?)?.toInt() ?? 0;
+          j['_localStart'] = DateTime.now().subtract(Duration(seconds: elapsed));
+          return j;
+        }).toList();
         _loading = false;
       });
     } catch (e) {
@@ -57,18 +70,94 @@ class _ActiveJobsScreenState extends ConsumerState<ActiveJobsScreen> {
     }
   }
 
-  String _formatElapsed(String? startTime) {
-    if (startTime == null) return '--:--:--';
-    try {
-      final start = DateTime.parse(startTime);
-      final diff = DateTime.now().difference(start);
-      final h = diff.inHours.toString().padLeft(2, '0');
-      final m = (diff.inMinutes % 60).toString().padLeft(2, '0');
-      final s = (diff.inSeconds % 60).toString().padLeft(2, '0');
-      return '$h:$m:$s';
-    } catch (_) {
-      return '--:--:--';
+  String _formatElapsed(DateTime? start) {
+    if (start == null) return '--:--:--';
+    final diff = DateTime.now().difference(start);
+    final h = diff.inHours.toString().padLeft(2, '0');
+    final m = (diff.inMinutes % 60).toString().padLeft(2, '0');
+    final s = (diff.inSeconds % 60).toString().padLeft(2, '0');
+    return '$h:$m:$s';
+  }
+
+  /// Tap a job to jump straight back into its station screen, pre-loaded —
+  /// re-resolves via scan_flowchart (idempotent: a rescan of an
+  /// in-progress job is a safe read, it doesn't touch the running timer)
+  /// rather than duplicating that whole payload shape here.
+  Future<void> _resumeJob(Map<String, dynamic> job) async {
+    final screenKey = job['screen_key']?.toString();
+    if (screenKey == null || screenKey.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text(
+            "This workstation isn't set up for resume — ask your supervisor to configure its PDT screen."),
+        backgroundColor: AppTheme.warning,
+      ));
+      return;
     }
+    final barcode = job['flowchart_barcode']?.toString();
+    if (barcode == null || barcode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('This job has no flowchart barcode to resume.'),
+        backgroundColor: AppTheme.danger,
+      ));
+      return;
+    }
+
+    setState(() => _resuming = true);
+    try {
+      final scanResult = await ref.read(line2RepositoryProvider).scanFlowchart(barcode);
+      if (!mounted) return;
+
+      final menuScreen = _resolveMenuScreen(screenKey);
+      final resumedScreen = switch (screenKey) {
+        'line2_curing' => CuringScreen(screen: menuScreen, resumeJob: scanResult),
+        'line2_building' => SleeveBuildingScreen(screen: menuScreen, resumeJob: scanResult),
+        'line2_processing' => ProcessingScreen(screen: menuScreen, resumeJob: scanResult),
+        _ => null,
+      };
+      if (resumedScreen == null) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text("Screen '$screenKey' isn't supported for resume."),
+          backgroundColor: AppTheme.warning,
+        ));
+        return;
+      }
+      await Navigator.of(context).push(MaterialPageRoute(builder: (_) => resumedScreen));
+      _loadJobs();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error: $e'), backgroundColor: AppTheme.danger));
+      }
+    } finally {
+      if (mounted) setState(() => _resuming = false);
+    }
+  }
+
+  /// Same "look up MenuScreen by key in the loaded menu, else construct a
+  /// fallback literal" idiom used elsewhere in this app (e.g.
+  /// curing_screen.dart's _goToToolRequests, manufacturing_mr_screen.dart's
+  /// _goToPickList).
+  MenuScreen _resolveMenuScreen(String screenKey) {
+    MenuScreen? found;
+    ref.read(menuProvider).whenData((menu) {
+      if (menu == null) return;
+      for (final mod in menu.menu) {
+        for (final s in mod.screens) {
+          if (s.screenKey == screenKey) {
+            found = s;
+            return;
+          }
+        }
+      }
+    });
+    return found ??
+        MenuScreen(
+          screenKey: screenKey,
+          label: screenKey,
+          route: '/$screenKey',
+          apiModule: 'line2',
+          actions: const ['complete_step', 'assign_tool', 'release_tool'],
+        );
   }
 
   void _showJobDetail(Map<String, dynamic> job) {
@@ -93,9 +182,11 @@ class _ActiveJobsScreenState extends ConsumerState<ActiveJobsScreen> {
             _detailRow('Item', job['item_name']?.toString() ?? ''),
             _detailRow('Work Order', job['work_order']?.toString() ?? ''),
             _detailRow('Operation', job['operation']?.toString() ?? ''),
-            _detailRow('Step', job['step']?.toString() ?? ''),
+            _detailRow('Step', job['step_name']?.toString() ?? ''),
+            _detailRow('Workstation', job['workstation']?.toString() ?? ''),
+            _detailRow('Operator', job['custom_operator']?.toString() ?? ''),
             _detailRow('Status', job['status']?.toString() ?? ''),
-            _detailRow('Elapsed', _formatElapsed(job['start_time']?.toString())),
+            _detailRow('Elapsed', _formatElapsed(job['_localStart'] as DateTime?)),
             if (job['is_rework'] == true)
               _detailRow('Rework', 'Yes'),
             if (job['remarks'] != null)
@@ -174,10 +265,12 @@ class _ActiveJobsScreenState extends ConsumerState<ActiveJobsScreen> {
         itemBuilder: (context, index) {
           final job = _jobs[index];
           final isRework = job['is_rework'] == true;
+          final localStart = job['_localStart'] as DateTime?;
           return Card(
             margin: const EdgeInsets.only(bottom: 8),
             child: InkWell(
-              onTap: () => _showJobDetail(job),
+              onTap: _resuming ? null : () => _resumeJob(job),
+              onLongPress: () => _showJobDetail(job),
               borderRadius: BorderRadius.circular(12),
               child: Padding(
                 padding: const EdgeInsets.all(12),
@@ -220,7 +313,7 @@ class _ActiveJobsScreenState extends ConsumerState<ActiveJobsScreen> {
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
-                            '${job['operation'] ?? ''} / ${job['step'] ?? ''}',
+                            '${job['operation'] ?? ''} / ${job['step_name'] ?? ''}',
                             style: const TextStyle(
                                 color: AppTheme.textSecondary, fontSize: 13),
                           ),
@@ -229,7 +322,7 @@ class _ActiveJobsScreenState extends ConsumerState<ActiveJobsScreen> {
                             color: AppTheme.primary),
                         const SizedBox(width: 4),
                         Text(
-                          _formatElapsed(job['start_time']?.toString()),
+                          _formatElapsed(localStart),
                           style: const TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 15,

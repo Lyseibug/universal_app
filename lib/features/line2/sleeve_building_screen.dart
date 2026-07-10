@@ -13,7 +13,11 @@ import 'widgets/production_station_layout.dart';
 
 class SleeveBuildingScreen extends ConsumerStatefulWidget {
   final MenuScreen screen;
-  const SleeveBuildingScreen({required this.screen, super.key});
+  /// Pre-resolved scan_flowchart payload — used by Active Jobs' "resume"
+  /// action to open this screen already loaded on an in-progress job,
+  /// without requiring a fresh barcode scan.
+  final Map<String, dynamic>? resumeJob;
+  const SleeveBuildingScreen({required this.screen, this.resumeJob, super.key});
 
   @override
   ConsumerState<SleeveBuildingScreen> createState() =>
@@ -47,7 +51,27 @@ class _SleeveBuildingScreenState extends ConsumerState<SleeveBuildingScreen> {
   @override
   void initState() {
     super.initState();
-    _loadWorkerStations();
+    _loadWorkerStations().then((_) {
+      if (widget.resumeJob != null && mounted) {
+        final data = widget.resumeJob!;
+        final layering = data['layering_sequence'];
+        List<_LayerCheck> checks = [];
+        if (layering is List) {
+          checks = layering.map((l) => _LayerCheck(label: l.toString())).toList();
+        }
+        setState(() {
+          _scanResult = data;
+          _layeringChecks = checks;
+          _timerStart = _timerStartFromScan(data);
+        });
+        _loadStagedMolds();
+      }
+    });
+  }
+
+  DateTime _timerStartFromScan(Map<String, dynamic> scan) {
+    final elapsed = (scan['elapsed_seconds'] as num?)?.toInt() ?? 0;
+    return DateTime.now().subtract(Duration(seconds: elapsed));
   }
 
   @override
@@ -117,7 +141,7 @@ class _SleeveBuildingScreenState extends ConsumerState<SleeveBuildingScreen> {
         _scanResult = data;
         _layeringChecks = checks;
         _scanning = false;
-        _timerStart = DateTime.now();
+        _timerStart = _timerStartFromScan(data);
       });
       await _loadStagedMolds();
     } catch (e) {

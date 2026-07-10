@@ -9,7 +9,11 @@ import 'widgets/production_station_layout.dart';
 
 class ProcessingScreen extends ConsumerStatefulWidget {
   final MenuScreen screen;
-  const ProcessingScreen({required this.screen, super.key});
+  /// Pre-resolved scan_flowchart payload — used by Active Jobs' "resume"
+  /// action to open this screen already loaded on an in-progress job,
+  /// without requiring a fresh barcode scan.
+  final Map<String, dynamic>? resumeJob;
+  const ProcessingScreen({required this.screen, this.resumeJob, super.key});
 
   @override
   ConsumerState<ProcessingScreen> createState() => _ProcessingScreenState();
@@ -34,7 +38,36 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
   @override
   void initState() {
     super.initState();
-    _loadWorkerStations();
+    _loadWorkerStations().then((_) {
+      if (widget.resumeJob != null && mounted) {
+        final data = widget.resumeJob!;
+        final params = data['measurement_params'];
+        List<_MeasurementField> fields = [];
+        if (params is List) {
+          fields = params.map((p) {
+            final param = Map<String, dynamic>.from(p);
+            return _MeasurementField(
+              name: param['param_name']?.toString() ?? param['name']?.toString() ?? '',
+              code: param['param_code']?.toString() ?? '',
+              unit: param['uom']?.toString() ?? '',
+              expectedMin: (param['expected_min'] as num?)?.toDouble() ?? 0,
+              expectedMax: (param['expected_max'] as num?)?.toDouble() ?? 0,
+              isMandatory: (param['is_mandatory'] ?? 0) == 1,
+            );
+          }).toList();
+        }
+        setState(() {
+          _scanResult = data;
+          _measurements = fields;
+          _timerStart = _timerStartFromScan(data);
+        });
+      }
+    });
+  }
+
+  DateTime _timerStartFromScan(Map<String, dynamic> scan) {
+    final elapsed = (scan['elapsed_seconds'] as num?)?.toInt() ?? 0;
+    return DateTime.now().subtract(Duration(seconds: elapsed));
   }
 
   @override
@@ -100,7 +133,7 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
         _scanResult = data;
         _measurements = fields;
         _scanning = false;
-        _timerStart = DateTime.now();
+        _timerStart = _timerStartFromScan(data);
       });
     } catch (e) {
       setState(() { _error = 'Scan failed: $e'; _scanning = false; });

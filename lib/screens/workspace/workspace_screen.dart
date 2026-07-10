@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/auth/session_models.dart';
+import '../../core/menu/menu_models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/logger.dart';
 import '../../providers/auth_provider.dart';
@@ -10,6 +11,7 @@ import '../../providers/service_providers.dart';
 import '../../providers/workstation_provider.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
+import '../home/screen_registry.dart';
 
 /// Workspace + workstation selection screen shown after login.
 ///
@@ -105,7 +107,9 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
         helperName: _helperCtrl.text.trim().isNotEmpty ? _helperCtrl.text.trim() : null,
       );
 
-      if (mounted) context.go('/home');
+      if (!mounted) return;
+      context.go('/home');
+      await _autoRouteToScreen(session.screenKey);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -113,6 +117,42 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
         _confirming = false;
       });
     }
+  }
+
+  /// If this workstation has a mapped PDT screen (Workstation.
+  /// custom_pdt_screen_key), open it directly instead of leaving the
+  /// worker on the tile menu. No mapping configured -> unchanged behavior.
+  Future<void> _autoRouteToScreen(String? screenKey) async {
+    if (screenKey == null || screenKey.isEmpty) return;
+    final builder = screenRegistry[screenKey];
+    if (builder == null) return;
+
+    MenuScreen? menuScreen;
+    try {
+      final menu = await ref.read(menuProvider.future);
+      if (menu != null) {
+        outer:
+        for (final mod in menu.menu) {
+          for (final s in mod.screens) {
+            if (s.screenKey == screenKey) {
+              menuScreen = s;
+              break outer;
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
+    menuScreen ??= MenuScreen(
+      screenKey: screenKey,
+      label: screenKey,
+      route: '/$screenKey',
+      apiModule: 'line2',
+      actions: const ['complete_step', 'assign_tool', 'release_tool'],
+    );
+
+    if (!mounted) return;
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => builder(menuScreen!)));
   }
 
   @override

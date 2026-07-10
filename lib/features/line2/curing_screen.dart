@@ -13,7 +13,11 @@ import 'widgets/production_station_layout.dart';
 
 class CuringScreen extends ConsumerStatefulWidget {
   final MenuScreen screen;
-  const CuringScreen({required this.screen, super.key});
+  /// Pre-resolved scan_flowchart payload — used by Active Jobs' "resume"
+  /// action to open this screen already loaded on an in-progress job,
+  /// without requiring a fresh barcode scan.
+  final Map<String, dynamic>? resumeJob;
+  const CuringScreen({required this.screen, this.resumeJob, super.key});
 
   @override
   ConsumerState<CuringScreen> createState() => _CuringScreenState();
@@ -44,7 +48,20 @@ class _CuringScreenState extends ConsumerState<CuringScreen> {
   @override
   void initState() {
     super.initState();
-    _loadWorkerStations();
+    _loadWorkerStations().then((_) {
+      if (widget.resumeJob != null && mounted) {
+        setState(() {
+          _scanResult = widget.resumeJob;
+          _timerStart = _timerStartFromScan(widget.resumeJob!);
+        });
+        _loadStagedAirbags();
+      }
+    });
+  }
+
+  DateTime _timerStartFromScan(Map<String, dynamic> scan) {
+    final elapsed = (scan['elapsed_seconds'] as num?)?.toInt() ?? 0;
+    return DateTime.now().subtract(Duration(seconds: elapsed));
   }
 
   @override
@@ -107,7 +124,7 @@ class _CuringScreenState extends ConsumerState<CuringScreen> {
       setState(() {
         _scanResult = result;
         _scanning = false;
-        _timerStart = DateTime.now();
+        _timerStart = _timerStartFromScan(result);
       });
       await _loadStagedAirbags();
     } catch (e) {

@@ -38,6 +38,10 @@ class SessionInfo {
   final String? workspaceLabel;
   final String? productionLine;
   final List<String> assignedStations;
+  /// PDT screen to auto-open for the selected workstation (e.g.
+  /// 'line2_curing') — null/empty means no auto-routing, land on the tile
+  /// menu as before.
+  final String? screenKey;
 
   const SessionInfo({
     this.employee,
@@ -47,6 +51,7 @@ class SessionInfo {
     this.workspaceLabel,
     this.productionLine,
     this.assignedStations = const [],
+    this.screenKey,
   });
 
   factory SessionInfo.fromJson(Map<String, dynamic> json) => SessionInfo(
@@ -57,6 +62,7 @@ class SessionInfo {
         workspaceLabel: json['workspace_label']?.toString(),
         productionLine: json['production_line']?.toString(),
         assignedStations: (json['assigned_stations'] as List?)?.map((s) => s.toString()).toList() ?? const [],
+        screenKey: json['screen_key']?.toString(),
       );
 
   Map<String, dynamic> toJson() => {
@@ -67,5 +73,6 @@ class SessionInfo {
         'workspace_label': workspaceLabel,
         'production_line': productionLine,
         'assigned_stations': assignedStations,
+        'screen_key': screenKey,
       };
 }
