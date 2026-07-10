@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../widgets/custom_button.dart';
 import '../../../widgets/scan_input_field.dart';
+import '../../../widgets/workstation_picker_field.dart';
 import 'product_details_card.dart';
 import 'session_timer_widget.dart';
 import 'support_help_section.dart';
@@ -88,13 +89,10 @@ class ProductionStationLayout extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 6),
-                DropdownButtonFormField<String>(
-                  value: selectedWorkstation,
-                  decoration: const InputDecoration(hintText: 'Select workstation'),
-                  items: availableWorkstations.map((ws) {
-                    return DropdownMenuItem(value: ws, child: Text(ws));
-                  }).toList(),
-                  onChanged: onWorkstationChanged,
+                WorkstationPickerField(
+                  availableWorkstations: availableWorkstations,
+                  selectedWorkstation: selectedWorkstation,
+                  onWorkstationChanged: onWorkstationChanged,
                 ),
                 if (assignedStations != null && assignedStations!.isNotEmpty) ...[
                   const SizedBox(height: 4),

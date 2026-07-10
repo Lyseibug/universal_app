@@ -6,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/pdt_scaffold.dart';
 import '../../widgets/scan_input_field.dart';
+import '../../widgets/workstation_picker_field.dart';
 import 'line2_repository.dart';
 import 'widgets/flowchart_photo_capture.dart';
 import 'widgets/product_details_card.dart';
@@ -210,11 +211,10 @@ class _QcFinalScreenState extends ConsumerState<QcFinalScreen> {
                   const Text('WORKSTATION ID',
                       style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary, letterSpacing: 1.0)),
                   const SizedBox(height: 6),
-                  DropdownButtonFormField<String>(
-                    value: _selectedWorkstation,
-                    decoration: const InputDecoration(hintText: 'Select workstation'),
-                    items: _workstations.map((ws) => DropdownMenuItem(value: ws, child: Text(ws))).toList(),
-                    onChanged: (ws) => setState(() => _selectedWorkstation = ws),
+                  WorkstationPickerField(
+                    availableWorkstations: _workstations,
+                    selectedWorkstation: _selectedWorkstation,
+                    onWorkstationChanged: (ws) => setState(() => _selectedWorkstation = ws),
                   ),
                   const SizedBox(height: 16),
                 ],
