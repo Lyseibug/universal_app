@@ -270,6 +270,8 @@ class TankStatus {
 
 // ── Calendering Models (plain Dart — no code generation needed) ─────────
 
+/// FMB batches ready to scan into a run — already delivered to Calendering
+/// WH via a fulfilled 'Calendering FMB' Material Request.
 class CalenderingFmb {
   final String batchNo;
   final String itemCode;
@@ -297,11 +299,50 @@ class CalenderingFmb {
       );
 }
 
+/// Result of scan-resolving a single FMB batch (validated, not yet claimed).
+class FmbScanResult {
+  final String batchNo;
+  final String item;
+  final String? itemName;
+  final String? compound;
+  final double availableQty;
+
+  const FmbScanResult({
+    required this.batchNo,
+    required this.item,
+    this.itemName,
+    this.compound,
+    this.availableQty = 0,
+  });
+
+  factory FmbScanResult.fromJson(Map<String, dynamic> json) => FmbScanResult(
+        batchNo: json['batch_no']?.toString() ?? '',
+        item: json['item']?.toString() ?? '',
+        itemName: json['item_name']?.toString(),
+        compound: json['compound']?.toString(),
+        availableQty: (json['available_qty'] as num?)?.toDouble() ?? 0,
+      );
+}
+
+/// One FMB batch scanned into a run's fmb_sources.
+class FmbSource {
+  final String batchNo;
+  final double qty;
+
+  const FmbSource({required this.batchNo, this.qty = 0});
+
+  factory FmbSource.fromJson(Map<String, dynamic> json) => FmbSource(
+        batchNo: json['batch_no']?.toString() ?? '',
+        qty: (json['qty'] as num?)?.toDouble() ?? 0,
+      );
+}
+
 class RollStock {
   final String itemCode;
   final String? itemName;
   final String rollType; // 'Liner' | 'Cylinder'
   final double availableQty;
+  final double stagedQty;
   final double inUseQty;
 
   const RollStock({
@@ -309,6 +350,7 @@ class RollStock {
     this.itemName,
     this.rollType = 'Liner',
     this.availableQty = 0,
+    this.stagedQty = 0,
     this.inUseQty = 0,
   });
 
@@ -317,7 +359,117 @@ class RollStock {
         itemName: json['item_name']?.toString(),
         rollType: json['roll_type']?.toString() ?? 'Liner',
         availableQty: (json['available_qty'] as num?)?.toDouble() ?? 0,
+        stagedQty: (json['staged_qty'] as num?)?.toDouble() ?? 0,
         inUseQty: (json['in_use_qty'] as num?)?.toDouble() ?? 0,
+      );
+}
+
+/// A finished sheet Item this FMB's compound can produce — Step-1 pick
+/// list source. thickness/width are pre-fill defaults, not locked values.
+class CalenderingEligibleSheet {
+  final String itemCode;
+  final String? itemName;
+  final double thickness;
+  final double width;
+
+  const CalenderingEligibleSheet({
+    required this.itemCode,
+    this.itemName,
+    this.thickness = 0,
+    this.width = 0,
+  });
+
+  factory CalenderingEligibleSheet.fromJson(Map<String, dynamic> json) =>
+      CalenderingEligibleSheet(
+        itemCode: json['item_code']?.toString() ?? '',
+        itemName: json['item_name']?.toString(),
+        thickness: (json['thickness'] as num?)?.toDouble() ?? 0,
+        width: (json['width'] as num?)?.toDouble() ?? 0,
+      );
+}
+
+/// A single roll match for a sheet — null fields mean no roll spec is
+/// wide/long enough (a data problem, not a stock problem).
+class RollMatch {
+  final String? itemCode;
+  final String? itemName;
+  final double width;
+  final double length;
+  final double availableQty;
+
+  const RollMatch({
+    this.itemCode,
+    this.itemName,
+    this.width = 0,
+    this.length = 0,
+    this.availableQty = 0,
+  });
+
+  bool get isMatched => itemCode != null;
+
+  factory RollMatch.fromJson(Map<String, dynamic>? json) {
+    if (json == null) return const RollMatch();
+    return RollMatch(
+      itemCode: json['item_code']?.toString(),
+      itemName: json['item_name']?.toString(),
+      width: (json['width'] as num?)?.toDouble() ?? 0,
+      length: (json['length'] as num?)?.toDouble() ?? 0,
+      availableQty: (json['available_qty'] as num?)?.toDouble() ?? 0,
+    );
+  }
+}
+
+class SheetRollMatch {
+  final RollMatch liner;
+  final RollMatch cylinder;
+
+  const SheetRollMatch({this.liner = const RollMatch(), this.cylinder = const RollMatch()});
+
+  factory SheetRollMatch.fromJson(Map<String, dynamic> json) => SheetRollMatch(
+        liner: RollMatch.fromJson(json['liner'] as Map<String, dynamic>?),
+        cylinder: RollMatch.fromJson(json['cylinder'] as Map<String, dynamic>?),
+      );
+}
+
+class RollShortfall {
+  final String itemCode;
+  final String? itemName;
+  final double needed;
+  final double available;
+  final double shortfallQty;
+
+  const RollShortfall({
+    required this.itemCode,
+    this.itemName,
+    this.needed = 0,
+    this.available = 0,
+    this.shortfallQty = 0,
+  });
+
+  factory RollShortfall.fromJson(Map<String, dynamic> json) => RollShortfall(
+        itemCode: json['item_code']?.toString() ?? '',
+        itemName: json['item_name']?.toString(),
+        needed: (json['needed'] as num?)?.toDouble() ?? 0,
+        available: (json['available'] as num?)?.toDouble() ?? 0,
+        shortfallQty: (json['shortfall_qty'] as num?)?.toDouble() ?? 0,
+      );
+}
+
+class RollMatchResult {
+  final List<SheetRollMatch> sheets;
+  final List<RollShortfall> shortfalls;
+
+  const RollMatchResult({this.sheets = const [], this.shortfalls = const []});
+
+  factory RollMatchResult.fromJson(Map<String, dynamic> json) => RollMatchResult(
+        sheets: (json['sheets'] as List?)
+                ?.map((e) => SheetRollMatch.fromJson(Map<String, dynamic>.from(e)))
+                .toList() ??
+            const [],
+        shortfalls: (json['shortfalls'] as List?)
+                ?.map((e) => RollShortfall.fromJson(Map<String, dynamic>.from(e)))
+                .toList() ??
+            const [],
       );
 }
 
@@ -368,6 +520,7 @@ class CalenderingRun {
   final String? inputStockEntry;
   final String? outputStockEntry;
   final String? returnStockEntry;
+  final List<FmbSource> fmbSources;
   final List<CalenderingSheet> sheets;
 
   const CalenderingRun({
@@ -389,6 +542,7 @@ class CalenderingRun {
     this.inputStockEntry,
     this.outputStockEntry,
     this.returnStockEntry,
+    this.fmbSources = const [],
     this.sheets = const [],
   });
 
@@ -414,6 +568,10 @@ class CalenderingRun {
         inputStockEntry: json['input_stock_entry']?.toString(),
         outputStockEntry: json['output_stock_entry']?.toString(),
         returnStockEntry: json['return_stock_entry']?.toString(),
+        fmbSources: (json['fmb_sources'] as List?)
+                ?.map((e) => FmbSource.fromJson(Map<String, dynamic>.from(e)))
+                .toList() ??
+            const [],
         sheets: (json['sheets'] as List?)
                 ?.map((e) =>
                     CalenderingSheet.fromJson(Map<String, dynamic>.from(e)))
@@ -422,31 +580,33 @@ class CalenderingRun {
       );
 }
 
+/// Result of start_run_from_batches / add_fmb_batch — both return the same
+/// shape (name, fmb_sources so far, running input_qty, status).
 class CalenderingStartResult {
   final String name;
-  final String fmbBatch;
   final String? fmbItem;
+  final List<FmbSource> fmbSources;
   final double inputQty;
   final String status;
-  final String? inputStockEntry;
 
   const CalenderingStartResult({
     required this.name,
-    required this.fmbBatch,
     this.fmbItem,
+    this.fmbSources = const [],
     this.inputQty = 0,
     this.status = 'In Progress',
-    this.inputStockEntry,
   });
 
   factory CalenderingStartResult.fromJson(Map<String, dynamic> json) =>
       CalenderingStartResult(
         name: json['name']?.toString() ?? '',
-        fmbBatch: json['fmb_batch']?.toString() ?? '',
         fmbItem: json['fmb_item']?.toString(),
+        fmbSources: (json['fmb_sources'] as List?)
+                ?.map((e) => FmbSource.fromJson(Map<String, dynamic>.from(e)))
+                .toList() ??
+            const [],
         inputQty: (json['input_qty'] as num?)?.toDouble() ?? 0,
         status: json['status']?.toString() ?? 'In Progress',
-        inputStockEntry: json['input_stock_entry']?.toString(),
       );
 }
 

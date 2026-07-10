@@ -57,6 +57,7 @@ class _ManufacturingMRScreenState
   bool _saving = false;
   bool _submittingMR = false;
   bool _creatingPickList = false;
+  bool _fulfillingDirect = false;
 
   @override
   void initState() {
@@ -363,6 +364,47 @@ class _ManufacturingMRScreenState
       }
     } finally {
       if (mounted) setState(() => _creatingPickList = false);
+    }
+  }
+
+  /// Calendering Tools / Calendering FMB have no Warehouse LOT infra, so
+  /// submit_mr leaves them at 'MR Raised' without a pick list — this is
+  /// their equivalent of _createPickList: one direct Material Transfer.
+  bool _isDirectFulfillStream(ManufacturingMRDetail d) =>
+      d.items.isNotEmpty &&
+      const {'Calendering Tools', 'Calendering FMB'}.contains(d.items.first.targetStream);
+
+  Future<void> _fulfillDirect() async {
+    setState(() => _fulfillingDirect = true);
+    try {
+      await ref
+          .read(manufacturingMRRepositoryProvider)
+          .fulfillDirect(_detail!.name);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Fulfilled — stock moved'),
+            backgroundColor: AppTheme.success),
+      );
+      _loadDetail(_detail!.name);
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(messageFor(e)),
+              backgroundColor: AppTheme.danger),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Error: $e'), backgroundColor: AppTheme.danger),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _fulfillingDirect = false);
     }
   }
 
@@ -745,15 +787,31 @@ class _ManufacturingMRScreenState
               onPressed: _goToPickList,
             ),
 
-          // Recovery: submitted MR without a pick list (normally created on submit)
+          // Recovery: submitted MR without a pick list (normally created on submit).
+          // Doesn't apply to Calendering Tools/FMB — those never get a pick
+          // list by design (no Warehouse LOT infra for those streams).
           if (!isDraft &&
               d.pickList == null &&
+              !_isDirectFulfillStream(d) &&
               widget.screen.can('create_pick_list'))
             CustomButton(
               text: 'Create Pick List',
               icon: Icons.playlist_add,
               isLoading: _creatingPickList,
               onPressed: _createPickList,
+            ),
+
+          // Calendering Tools/FMB: direct fulfillment (one Material
+          // Transfer) instead of a lot-based pick list.
+          if (!isDraft &&
+              d.status == 'MR Raised' &&
+              _isDirectFulfillStream(d) &&
+              widget.screen.can('create_pick_list'))
+            CustomButton(
+              text: 'Mark Fulfilled',
+              icon: Icons.local_shipping_outlined,
+              isLoading: _fulfillingDirect,
+              onPressed: _fulfillDirect,
             ),
           const SizedBox(height: 24),
         ],
@@ -854,6 +912,10 @@ class _ManufacturingMRScreenState
         return AppTheme.success;
       case 'Mixer':
         return AppTheme.primary;
+      case 'Calendering Tools':
+        return AppTheme.amber;
+      case 'Calendering FMB':
+        return AppTheme.primaryDark;
       default:
         return AppTheme.textSecondary;
     }
@@ -1113,8 +1175,14 @@ class _ManufacturingMRScreenState
                             value: 'Weighing',
                             child: Text('Weighing')),
                         DropdownMenuItem(
-                            value: 'Mixer', 
+                            value: 'Mixer',
                             child: Text('Mixer')),
+                        DropdownMenuItem(
+                            value: 'Calendering Tools',
+                            child: Text('Calendering Tools')),
+                        DropdownMenuItem(
+                            value: 'Calendering FMB',
+                            child: Text('Calendering FMB')),
                       ],
                       onChanged: (v) {
                         if (v != null) {

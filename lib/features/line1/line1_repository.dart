@@ -162,9 +162,9 @@ class Line1Repository {
 
   // ── Calendering ─────────────────────────────────────────────────────────
 
-  Future<List<CalenderingFmb>> listFmbForCalendering() async {
+  Future<List<CalenderingFmb>> listFmbInCalenderingWh() async {
     final data =
-        await _api.call('line1_calendering.list_fmb_for_calendering');
+        await _api.call('line1_calendering.list_fmb_in_calendering_wh');
     if (data is List) {
       return data
           .map((j) => CalenderingFmb.fromJson(Map<String, dynamic>.from(j)))
@@ -173,13 +173,29 @@ class Line1Repository {
     return const [];
   }
 
-  Future<CalenderingStartResult> startCalenderingRun({
-    required String fmbBatch,
-    required double inputQty,
+  Future<FmbScanResult> resolveFmbScan(String batchNo) async {
+    final data = await _api.call('line1_calendering.resolve_fmb_scan',
+        body: {'batch_no': batchNo});
+    return FmbScanResult.fromJson(Map<String, dynamic>.from(data));
+  }
+
+  Future<CalenderingStartResult> startRunFromBatches(
+      List<Map<String, dynamic>> fmbBatches) async {
+    final result = await _writeQueue.run(
+        'line1_calendering.start_run_from_batches',
+        {'fmb_batches': fmbBatches});
+    return CalenderingStartResult.fromJson(Map<String, dynamic>.from(result));
+  }
+
+  Future<CalenderingStartResult> addFmbBatchToRun({
+    required String runName,
+    required String batchNo,
+    required double qty,
   }) async {
-    final result = await _writeQueue.run('line1_calendering.start_run', {
-      'fmb_batch': fmbBatch,
-      'input_qty': inputQty,
+    final result = await _writeQueue.run('line1_calendering.add_fmb_batch', {
+      'run_name': runName,
+      'batch_no': batchNo,
+      'qty': qty,
     });
     return CalenderingStartResult.fromJson(Map<String, dynamic>.from(result));
   }
@@ -188,6 +204,25 @@ class Line1Repository {
     final data =
         await _api.call('line1_calendering.get_run', body: {'name': name});
     return CalenderingRun.fromJson(Map<String, dynamic>.from(data));
+  }
+
+  Future<List<CalenderingEligibleSheet>> listSheetsForFmb(
+      String fmbBatch) async {
+    final data = await _api.call('line1_calendering.list_sheets_for_fmb',
+        body: {'fmb_batch': fmbBatch});
+    if (data is List) {
+      return data
+          .map((j) =>
+              CalenderingEligibleSheet.fromJson(Map<String, dynamic>.from(j)))
+          .toList();
+    }
+    return const [];
+  }
+
+  Future<RollMatchResult> matchRolls(List<Map<String, dynamic>> sheets) async {
+    final data = await _api
+        .call('line1_calendering.match_rolls', body: {'sheets': sheets});
+    return RollMatchResult.fromJson(Map<String, dynamic>.from(data));
   }
 
   Future<CalenderingCompleteResult> completeCalenderingRun({

@@ -54,6 +54,8 @@ State on this bench has reverted after DB restores before — re-verify this tab
 ### 1.1 Warehouse wiring (Manufacturing Settings URBM)
 Silo/Oil/Weighing inside+outside pairs, `wip_bags`, `fmb_zone`, `cmb_zone`, `mixer_staging`, `mixer_wip`, `wip_calendering`, `finished_sheet`, `calendering`, `calender_tools_store/in_use` — all set previously. Set 2026-07-08: `building_material` → `Sleeve Building WH  - URBM` (double space is real), `building_wip`/`sleeve_wip` → `Sleeve Building WIP - URBM`, `finished_belt` → `Finished Belt WH - URBM` (new), `line2_scrap` → `Scrap - URBM`, `cutting` → `Cutting WH - URBM`. Unset & unreferenced by code (leave alone): `compound_warehouse`, `cutting_wip`, generic `scrap`, `default_*_mr` warehouses.
 
+**Note (2026-07-09):** `calendering_warehouse` ("Calendering WH") and `wip_calendering_warehouse` ("WIP Calendering") are **two different things**, previously conflated in this doc's prose. `calendering_warehouse` is where scanned-in FMB batches sit while being calendered — the destination of a fulfilled **Calendering FMB** Material Request (Store: `fmb_zone_warehouse`). `wip_calendering_warehouse` was dead code until now and is repurposed as the **roll staging bin** — the destination of a fulfilled **Calendering Tools** Material Request (Store: `calender_tools_store_warehouse`), holding Liner/Cylinder rolls ready for Complete Run to auto-match and consume. See §4.
+
 ---
 
 ## 2. Flow A — Procure to stock (PO → PR → lab → finance → putaway → LOT)
@@ -73,7 +75,7 @@ Silo/Oil/Weighing inside+outside pairs, `wip_bags`, `fmb_zone`, `cmb_zone`, `mix
 ## 3. Flow B — Compound production (Line 1: materials → bags/PM/CMB/FMB → lab)
 
 ### 3.1 Stage materials to the lines
-1. **Manufacturing MR** (PDT → Compound Production → Manufacturing MR): pick items+qty → creates **Material Request** (type Material Transfer) and optionally a **WMS Pick List** (action `create_pick_list`).
+1. **Manufacturing MR** (PDT → Compound Production → Manufacturing MR): pick items+qty+stream → creates **Material Request** (type Material Transfer). Six streams: **Silo / Oil / Weighing / Mixer** are lot-based — submit creates a **WMS Pick List** (`create_pick_list`) resolved via `wms_universal.lot_suggestion` against **Warehouse LOT** bins. **Calendering Tools / Calendering FMB** (added 2026-07-09, see §4) have no Warehouse LOT infrastructure — submit leaves them at status `MR Raised` and a **Mark Fulfilled** button (`fulfill_mmr_direct`) does one direct Material Transfer instead (FIFO batch selection for the batch-tracked Calendering FMB stream).
 2. **Pick** (PDT → Picking → Pick List): claim → scan LOT/bin → pick → stock moves to the *Outside* warehouses (Outside Silo WH / Outside Oil WH / Outside Weighing Machine WH). Suggested LOTs come from `wms_universal.lot_suggestion`; `override_suggested_lot` action exists.
 3. **Material Loading** (PDT → Compound Production → Material Loading): scan item → stream resolves via **Tank Lot Assignment** (Silo/Oil tanks are authoritative) or the **stream_item_group_map** (weighing items — ❌ currently empty, add rows first) → moves Outside→Inside warehouse for that stream, respecting tank capacity. Tank state: PDT tank-status list or Desk → Tank Lot Assignment.
 4. **Weighing Load** (PDT → `weighing_load`): box-scan based load into Inside Weighing Machine WH (needs stream map rows for its items).
@@ -111,9 +113,16 @@ PDT → Compound Production → Compound Lab Test (or Desk → Compound Lab Test
 
 ## 4. Flow C — Calendering & cutting (FMB → sheets → cut sheets)
 
-1. **Calendering** (PDT → Compound Production → Calendering): pick a **lab-passed FMB batch** from FMB Zone + input qty → `start_run` creates a **Calendering Run** and moves FMB into WIP Calendering. Liner/cylinder roll tools come from **Calender Tools Store** (pooled roll tools; 40-series items, e.g. liner `40100003`, cylinder `40100009`).
-2. **Complete Run** (`complete_run`): enter produced **sheets** (item + qty per sheet roll — sheet items are 20-series `RS-…`, e.g. `20100722`), liner/calender returns and sludge → sheets land in **Finished Sheet WH** as new Batches; returns go back via Repack; run status Completed. Desk: Calendering Run list shows the full trace.
-3. **Cutting & Splicing** (PDT → Compound Production → Cutting & Splicing, built Phase 2): scan a sheet batch in Finished Sheet WH → enter target item, input/output qty → Repack into **Cutting WH** + **Cutting Log** row.
+**Redesigned 2026-07-09**: FMB and roll tooling are no longer silently auto-transferred by the calendering screen itself — both now go through a real **Material Request → fulfill** trail (Manufacturing MR screen, §3.1), and Complete Run is a 3-step wizard instead of one long form.
+
+1. **Stage the FMB** (PDT → Manufacturing MR → New, stream **Calendering FMB**): request the FMB item + qty needed → Submit → **Mark Fulfilled** (picker action, FIFO-selects lab-passed batches from **FMB Zone**, one Material Transfer into **Calendering WH**). No Warehouse LOT infra for this stream — direct fulfillment, no pick list.
+2. **Stage the rolls** (PDT → Manufacturing MR → New, stream **Calendering Tools**): request the Liner/Cylinder item + qty needed (40-series items, e.g. liner `40100003`, cylinder `40100009`) → Submit → **Mark Fulfilled** (one Material Transfer from **Calender Tools Store** into **WIP Calendering**, the new roll-staging bin — see §1.1 note).
+3. **Start Run — scan to build** (PDT → Compound Production → Calendering, "New Run" tab): scan the FMB batch now sitting in Calendering WH (list of what's available shown as a fallback) → confirm quantity → `start_run_from_batches` creates the **Calendering Run** (no stock movement — the batch is already there). Scan again to claim a second batch of the same item into the same run if one batch isn't enough, then **Proceed to Sheets**.
+4. **Complete Run — 3-step wizard**:
+   - **Step 1, Sheets**: "Add Sheet" opens a picker scoped to finished sheet Items (`Item Group = Rubber Sheets`) sharing the FMB item's `compound` field — no more typing an item code. Only Qty/Thickness/Width/Length are manual inputs (thickness/width pre-fill from the picked Item, still editable).
+   - **Step 2, Liner & Cylinder**: auto-matched per sheet from **WIP Calendering** stock — narrowest roll whose `width ≥ sheet width` and `length(m)×1000 ≥ sheet length(mm)`. Green = matched+available; amber = matched but short on staged stock (**Raise MR** button pre-fills a Calendering Tools request for the shortfall, right from this screen); red = no roll spec wide/long enough at all (a data problem, not a stock one).
+   - **Step 3, Returns**: unchanged — liner/calendar return qty, excruder sludge, balance check, **Complete Run**. Sheets land in **Finished Sheet WH** as new Batches; returns go back to FMB Zone via Repack; roll consumption moves WIP Calendering → Calender Tools In Use (auto-released back to Store once the sheet batch it's wound with is fully consumed — unchanged). Desk: Calendering Run list shows the full trace, including the `fmb_sources` child table for multi-batch runs.
+5. **Cutting & Splicing** (PDT → Compound Production → Cutting & Splicing, built Phase 2): scan a sheet batch in Finished Sheet WH → enter target item, input/output qty → Repack into **Cutting WH** + **Cutting Log** row.
 
 ---
 
@@ -160,7 +169,10 @@ The compound chain below was executed live on 2026-07-08 via manual MPRs and ver
 | 5 | Compound Lab Test | pass the PM batch | `custom_lab_status = Pass` |
 | 6 | Mixer Loading (PDT) | scan PM batch + bags into Mixer WIP | lab gate passes |
 | 7 | Manual MPR (Mixer, FMB) | formula `PAB201-P-FMB`, qty **125.543**; consume row: item 20100023 @ 84.7 from CMB Zone, batch = the PM batch | FMB batch `20100024` in **FMB Zone** |
-| 8 | Lab test → pass, Calendering | FMB batch, liner 40100003 | sheet `20100722` batch in Finished Sheet WH |
+| 8 | Lab test → pass | FMB batch | `custom_lab_status = Pass` |
+| 8a | Manufacturing MR (Calendering FMB) → Mark Fulfilled | FMB item, qty | FMB batch moved FMB Zone → Calendering WH |
+| 8b | Manufacturing MR (Calendering Tools) → Mark Fulfilled | liner 40100003, cylinder 40100009 | rolls moved Calender Tools Store → WIP Calendering |
+| 8c | Calendering: scan FMB batch → Start Run → 3-step Complete Run | FMB batch scanned; sheet picked from compound-matched list; liner/cylinder auto-matched in Step 2 | sheet `20100722` batch in Finished Sheet WH |
 | 9 | SO + Building Production Plan | SO for `20100747-Raykalton`; plan linked to SO | plan submitted |
 | 10 | Work Order | `20100747-Raykalton`, template BOM `107 YU CR 22-BOM-0469` | brand BOM auto-generated, label → `60100001-Raykalton` |
 | 11 | Build → QC → complete | PDT Line-2 screens | belt batch in Finished Belt WH |

@@ -80,6 +80,15 @@ class ManufacturingMRRepository {
       'name': name,
     });
   }
+
+  /// Direct fulfillment for Calendering Tools / Calendering FMB requests —
+  /// no Warehouse LOT infra for those streams, so this replaces
+  /// createPickList for them (see submit_mr's direct_fulfillment flag).
+  Future<dynamic> fulfillDirect(String name) async {
+    return _writeQueue.run('manufacturing_mr.fulfill_direct', {
+      'name': name,
+    });
+  }
 }
 
 final manufacturingMRRepositoryProvider =

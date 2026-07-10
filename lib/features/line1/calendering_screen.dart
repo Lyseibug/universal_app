@@ -5,6 +5,8 @@ import '../../core/menu/menu_models.dart';
 import '../../core/models/line1_models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../widgets/pdt_scaffold.dart';
+import '../../widgets/scan_input_field.dart';
+import '../manufacturing_mr/manufacturing_mr_repository.dart';
 import 'line1_repository.dart';
 
 class CalenderingScreen extends ConsumerStatefulWidget {
@@ -15,26 +17,55 @@ class CalenderingScreen extends ConsumerStatefulWidget {
   ConsumerState<CalenderingScreen> createState() => _CalenderingScreenState();
 }
 
+enum _CompleteStep { sheets, rolls, returns }
+
 class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabCtrl;
 
-  // ── New Run tab ──
-  bool _loadingFmb = true;
-  String? _fmbError;
-  List<CalenderingFmb> _eligibleFmb = [];
+  // ── New Run tab: scan FMB batches already delivered to Calendering WH ──
+  bool _loadingFmbInWh = true;
+  String? _fmbInWhError;
+  List<CalenderingFmb> _fmbInWh = [];
+
+  final _scanCtrl = TextEditingController();
+  final _scanFocus = FocusNode();
+  bool _scanning = false;
+  String? _scanError;
+  FmbScanResult? _pendingScan;
+  final _scanQtyCtrl = TextEditingController();
+  bool _startingRun = false;
 
   // ── Active Runs tab ──
   bool _loadingRuns = true;
   String? _runsError;
   List<CalenderingRun> _runs = [];
 
-  // ── Run Detail view ──
+  // ── Run Detail: scan-build (pre-wizard) + 3-step complete wizard ──
   CalenderingRun? _activeRun;
   bool _loadingRun = false;
+  bool _inWizard = false;
+  _CompleteStep _completeStep = _CompleteStep.sheets;
 
-  // ── Sheet entry ──
+  final _addScanCtrl = TextEditingController();
+  final _addScanFocus = FocusNode();
+  bool _addScanning = false;
+  String? _addScanError;
+  FmbScanResult? _pendingAddScan;
+  final _addScanQtyCtrl = TextEditingController();
+  bool _addingBatch = false;
+
+  // ── Sheets step ──
+  bool _loadingEligibleSheets = false;
+  List<CalenderingEligibleSheet> _eligibleSheets = [];
   final List<_SheetEntry> _sheetEntries = [];
+
+  // ── Rolls step ──
+  RollMatchResult? _rollMatch;
+  bool _matchingRolls = false;
+  String? _rollMatchError;
+
+  // ── Returns step ──
   final _linerReturnCtrl = TextEditingController(text: '0');
   final _calendarReturnCtrl = TextEditingController(text: '0');
   final _excruderSludgeCtrl = TextEditingController(text: '0');
@@ -49,13 +80,19 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 2, vsync: this);
-    _loadFmb();
+    _loadFmbInWh();
     _loadRuns();
   }
 
   @override
   void dispose() {
     _tabCtrl.dispose();
+    _scanCtrl.dispose();
+    _scanFocus.dispose();
+    _scanQtyCtrl.dispose();
+    _addScanCtrl.dispose();
+    _addScanFocus.dispose();
+    _addScanQtyCtrl.dispose();
     _linerReturnCtrl.dispose();
     _calendarReturnCtrl.dispose();
     _excruderSludgeCtrl.dispose();
@@ -67,19 +104,18 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
 
   // ── Data loading ────────────────────────────────────────────────────────
 
-  Future<void> _loadFmb() async {
+  Future<void> _loadFmbInWh() async {
     setState(() {
-      _loadingFmb = true;
-      _fmbError = null;
+      _loadingFmbInWh = true;
+      _fmbInWhError = null;
     });
     try {
-      _eligibleFmb =
-          await ref.read(line1RepositoryProvider).listFmbForCalendering();
-      setState(() => _loadingFmb = false);
+      _fmbInWh = await ref.read(line1RepositoryProvider).listFmbInCalenderingWh();
+      setState(() => _loadingFmbInWh = false);
     } catch (e) {
       setState(() {
-        _fmbError = 'Failed to load FMB batches';
-        _loadingFmb = false;
+        _fmbInWhError = 'Failed to load FMB in Calendering WH';
+        _loadingFmbInWh = false;
       });
     }
   }
@@ -116,20 +152,46 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
     }
   }
 
-  Future<void> _loadRunDetail(String name) async {
+  Future<void> _loadEligibleSheets(String fmbBatch) async {
+    setState(() => _loadingEligibleSheets = true);
+    try {
+      _eligibleSheets =
+          await ref.read(line1RepositoryProvider).listSheetsForFmb(fmbBatch);
+      setState(() => _loadingEligibleSheets = false);
+    } catch (e) {
+      setState(() => _loadingEligibleSheets = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Failed to load eligible sheets: $e'),
+          backgroundColor: AppTheme.danger,
+        ));
+      }
+    }
+  }
+
+  Future<void> _loadRunDetail(String name, {required bool enterWizard}) async {
     setState(() => _loadingRun = true);
     _loadRollStock();
     try {
-      final run =
-          await ref.read(line1RepositoryProvider).getCalenderingRun(name);
+      final run = await ref.read(line1RepositoryProvider).getCalenderingRun(name);
       setState(() {
         _activeRun = run;
         _loadingRun = false;
+        _inWizard = enterWizard;
+        _completeStep = _CompleteStep.sheets;
+        _rollMatch = null;
+        _rollMatchError = null;
+        for (final e in _sheetEntries) {
+          e.dispose();
+        }
         _sheetEntries.clear();
         _linerReturnCtrl.text = '0';
         _calendarReturnCtrl.text = '0';
         _excruderSludgeCtrl.text = '0';
       });
+      if (run.fmbBatch.isNotEmpty) {
+        _loadEligibleSheets(run.fmbBatch);
+      }
     } catch (e) {
       setState(() => _loadingRun = false);
       if (mounted) {
@@ -141,73 +203,214 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
     }
   }
 
-  // ── Actions ─────────────────────────────────────────────────────────────
+  // ── Scan-to-start actions ──────────────────────────────────────────────
 
-  void _showStartRunDialog(CalenderingFmb fmb) {
-    final qtyCtrl = TextEditingController(text: fmb.qty.toString());
+  void _onFmbScanned(String code) {
+    final trimmed = code.trim();
+    if (trimmed.isEmpty) return;
+    _resolveFmbScan(trimmed);
+  }
+
+  Future<void> _resolveFmbScan(String batchNo) async {
+    setState(() {
+      _scanning = true;
+      _scanError = null;
+      _pendingScan = null;
+    });
+    try {
+      final resolved =
+          await ref.read(line1RepositoryProvider).resolveFmbScan(batchNo);
+      setState(() {
+        _pendingScan = resolved;
+        _scanQtyCtrl.text = resolved.availableQty.toString();
+        _scanning = false;
+      });
+    } catch (e) {
+      setState(() {
+        _scanError = 'Error: $e';
+        _scanning = false;
+      });
+    }
+  }
+
+  void _cancelPendingScan() {
+    setState(() {
+      _pendingScan = null;
+      _scanError = null;
+      _scanCtrl.clear();
+      _scanQtyCtrl.clear();
+    });
+  }
+
+  Future<void> _confirmStartRun() async {
+    if (_pendingScan == null) return;
+    final qty = double.tryParse(_scanQtyCtrl.text);
+    if (qty == null || qty <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Enter a valid quantity'),
+        backgroundColor: AppTheme.danger,
+      ));
+      return;
+    }
+
+    setState(() => _startingRun = true);
+    try {
+      final result =
+          await ref.read(line1RepositoryProvider).startRunFromBatches([
+        {'batch_no': _pendingScan!.batchNo, 'qty': qty},
+      ]);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Run ${result.name} started'),
+          backgroundColor: AppTheme.success,
+        ));
+      }
+      setState(() {
+        _pendingScan = null;
+        _scanCtrl.clear();
+        _scanQtyCtrl.clear();
+        _startingRun = false;
+      });
+      await _loadFmbInWh();
+      await _loadRuns();
+      await _loadRunDetail(result.name, enterWizard: false);
+    } catch (e) {
+      setState(() => _startingRun = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: AppTheme.danger,
+        ));
+      }
+    }
+  }
+
+  // ── Scan-build actions (add more FMB batches to an already-started run) ─
+
+  void _onAddScanned(String code) {
+    final trimmed = code.trim();
+    if (trimmed.isEmpty) return;
+    _resolveAddScan(trimmed);
+  }
+
+  Future<void> _resolveAddScan(String batchNo) async {
+    setState(() {
+      _addScanning = true;
+      _addScanError = null;
+      _pendingAddScan = null;
+    });
+    try {
+      final resolved =
+          await ref.read(line1RepositoryProvider).resolveFmbScan(batchNo);
+      if (resolved.item != _activeRun?.fmbItem) {
+        setState(() {
+          _addScanError =
+              "Batch is item '${resolved.item}', but this run is for "
+              "'${_activeRun?.fmbItem}' — can't mix FMB items";
+          _addScanning = false;
+        });
+        return;
+      }
+      setState(() {
+        _pendingAddScan = resolved;
+        _addScanQtyCtrl.text = resolved.availableQty.toString();
+        _addScanning = false;
+      });
+    } catch (e) {
+      setState(() {
+        _addScanError = 'Error: $e';
+        _addScanning = false;
+      });
+    }
+  }
+
+  void _cancelPendingAddScan() {
+    setState(() {
+      _pendingAddScan = null;
+      _addScanError = null;
+      _addScanCtrl.clear();
+      _addScanQtyCtrl.clear();
+    });
+  }
+
+  Future<void> _confirmAddBatch() async {
+    if (_pendingAddScan == null || _activeRun == null) return;
+    final qty = double.tryParse(_addScanQtyCtrl.text);
+    if (qty == null || qty <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Enter a valid quantity'),
+        backgroundColor: AppTheme.danger,
+      ));
+      return;
+    }
+
+    setState(() => _addingBatch = true);
+    try {
+      await ref.read(line1RepositoryProvider).addFmbBatchToRun(
+            runName: _activeRun!.name,
+            batchNo: _pendingAddScan!.batchNo,
+            qty: qty,
+          );
+      setState(() {
+        _pendingAddScan = null;
+        _addScanCtrl.clear();
+        _addScanQtyCtrl.clear();
+        _addingBatch = false;
+      });
+      await _loadRunDetail(_activeRun!.name, enterWizard: false);
+    } catch (e) {
+      setState(() => _addingBatch = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: AppTheme.danger,
+        ));
+      }
+    }
+  }
+
+  void _proceedToWizard() {
+    setState(() {
+      _inWizard = true;
+      _completeStep = _CompleteStep.sheets;
+    });
+  }
+
+  // ── Sheets step actions ─────────────────────────────────────────────────
+
+  void _showSheetPicker() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          left: 16,
-          right: 16,
-          top: 24,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (ctx, scrollCtrl) => Column(
           children: [
-            Text('Start Calendering Run',
-                style: Theme.of(ctx).textTheme.titleLarge),
-            const SizedBox(height: 16),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(fmb.itemName ?? fmb.itemCode,
-                        style: const TextStyle(fontWeight: FontWeight.bold)),
-                    Text('Batch: ${fmb.batchNo}'),
-                    Text('Available: ${fmb.qty} Kg'),
-                    _labStatusChip(fmb.labStatus),
-                  ],
-                ),
-              ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('Select Sheet', style: Theme.of(ctx).textTheme.titleLarge),
             ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: qtyCtrl,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
-                labelText: 'Input Quantity (Kg)',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.play_arrow),
-              label: const Text('Start Run'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primary,
-                foregroundColor: Colors.white,
-                minimumSize: const Size.fromHeight(48),
-              ),
-              onPressed: () async {
-                final qty = double.tryParse(qtyCtrl.text);
-                if (qty == null || qty <= 0) {
-                  ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
-                    content: Text('Enter a valid quantity'),
-                    backgroundColor: AppTheme.danger,
-                  ));
-                  return;
-                }
-                Navigator.of(ctx).pop();
-                await _startRun(fmb.batchNo, qty);
-              },
+            Expanded(
+              child: _eligibleSheets.isEmpty
+                  ? const Center(child: Text('No sheets found for this compound'))
+                  : ListView.builder(
+                      controller: scrollCtrl,
+                      itemCount: _eligibleSheets.length,
+                      itemBuilder: (context, index) {
+                        final item = _eligibleSheets[index];
+                        return ListTile(
+                          title: Text(item.itemName ?? item.itemCode),
+                          subtitle: Text(
+                              'Thickness: ${item.thickness} mm · Width: ${item.width} mm'),
+                          onTap: () {
+                            Navigator.of(ctx).pop();
+                            _addSheetEntry(item);
+                          },
+                        );
+                      },
+                    ),
             ),
           ],
         ),
@@ -215,38 +418,12 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
     );
   }
 
-  Future<void> _startRun(String fmbBatch, double qty) async {
-    setState(() => _loadingRun = true);
-    try {
-      final result =
-          await ref.read(line1RepositoryProvider).startCalenderingRun(
-                fmbBatch: fmbBatch,
-                inputQty: qty,
-              );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Run ${result.name} started'),
-          backgroundColor: AppTheme.success,
-        ));
-      }
-      _tabCtrl.animateTo(1);
-      await _loadFmb();
-      await _loadRuns();
-      await _loadRunDetail(result.name);
-    } catch (e) {
-      setState(() => _loadingRun = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: AppTheme.danger,
-        ));
-      }
-    }
-  }
-
-  void _addSheetEntry() {
+  void _addSheetEntry(CalenderingEligibleSheet item) {
     setState(() {
-      _sheetEntries.add(_SheetEntry());
+      final e = _SheetEntry()..selectedItem = item;
+      if (item.thickness > 0) e.thicknessCtrl.text = item.thickness.toString();
+      if (item.width > 0) e.widthCtrl.text = item.width.toString();
+      _sheetEntries.add(e);
     });
   }
 
@@ -256,6 +433,128 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
       _sheetEntries.removeAt(index);
     });
   }
+
+  bool _sheetsValid() {
+    if (_sheetEntries.isEmpty) return false;
+    for (final e in _sheetEntries) {
+      if (e.selectedItem == null) return false;
+      final qty = double.tryParse(e.qtyCtrl.text);
+      if (qty == null || qty <= 0) return false;
+    }
+    return true;
+  }
+
+  Future<void> _goToRollsStep() async {
+    setState(() => _completeStep = _CompleteStep.rolls);
+    await _matchRolls();
+  }
+
+  // ── Rolls step actions ─────────────────────────────────────────────────
+
+  Future<void> _matchRolls() async {
+    setState(() {
+      _matchingRolls = true;
+      _rollMatchError = null;
+    });
+    try {
+      final payload = _sheetEntries
+          .map((e) => {
+                'width_in_mm': double.tryParse(e.widthCtrl.text) ?? 0,
+                'length_in_mm': double.tryParse(e.lengthCtrl.text) ?? 0,
+              })
+          .toList();
+      final result = await ref.read(line1RepositoryProvider).matchRolls(payload);
+      setState(() {
+        _rollMatch = result;
+        _matchingRolls = false;
+      });
+    } catch (e) {
+      setState(() {
+        _rollMatchError = 'Error: $e';
+        _matchingRolls = false;
+      });
+    }
+  }
+
+  bool _rollsValid() {
+    if (_rollMatch == null || _rollMatch!.sheets.length < _sheetEntries.length) {
+      return false;
+    }
+    if (_rollMatch!.shortfalls.isNotEmpty) return false;
+    for (final s in _rollMatch!.sheets) {
+      if (!s.liner.isMatched || !s.cylinder.isMatched) return false;
+    }
+    return true;
+  }
+
+  Future<void> _raiseShortfallMR(RollShortfall shortfall) async {
+    final qtyCtrl =
+        TextEditingController(text: shortfall.shortfallQty.toStringAsFixed(0));
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Raise Material Request'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('${shortfall.itemName ?? shortfall.itemCode}'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: qtyCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Quantity (Nos)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Raise')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    final qty = double.tryParse(qtyCtrl.text) ?? shortfall.shortfallQty;
+    try {
+      final result = await ref.read(manufacturingMRRepositoryProvider).create(
+        items: [
+          {
+            'item_code': shortfall.itemCode,
+            'required_qty': qty,
+            'target_stream': 'Calendering Tools',
+          }
+        ],
+        remarks: 'Calendering roll shortfall for run ${_activeRun?.name}',
+      );
+      final mrName = result is Map ? (result['name'] ?? '') : '';
+      if (mrName != '') {
+        await ref.read(manufacturingMRRepositoryProvider).submitMR(mrName);
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Material Request $mrName raised — fulfill it, then Refresh'),
+          backgroundColor: AppTheme.success,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: AppTheme.danger,
+        ));
+      }
+    }
+  }
+
+  // ── Returns step ────────────────────────────────────────────────────────
 
   double get _sheetTotal =>
       _sheetEntries.fold(0.0, (sum, e) => sum + (double.tryParse(e.qtyCtrl.text) ?? 0));
@@ -274,74 +573,24 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
       _excruderSludge;
 
   Future<void> _completeRun() async {
-    if (_activeRun == null) return;
-
-    if (_sheetEntries.isEmpty) {
+    if (_activeRun == null || _rollMatch == null) return;
+    if (!_sheetsValid()) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Add at least one sheet output'),
+        content: Text('Add at least one valid sheet output'),
         backgroundColor: AppTheme.danger,
       ));
       return;
     }
-
-    for (int i = 0; i < _sheetEntries.length; i++) {
-      final e = _sheetEntries[i];
-      if (e.itemCodeCtrl.text.trim().isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Sheet ${i + 1}: Item code is required'),
-          backgroundColor: AppTheme.danger,
-        ));
-        return;
-      }
-      final qty = double.tryParse(e.qtyCtrl.text);
-      if (qty == null || qty <= 0) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Sheet ${i + 1}: Enter a valid quantity'),
-          backgroundColor: AppTheme.danger,
-        ));
-        return;
-      }
-      if (e.linerItemCode == null || e.linerItemCode!.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Sheet ${i + 1}: Liner roll spec is required'),
-          backgroundColor: AppTheme.danger,
-        ));
-        return;
-      }
-      if (e.cylinderItemCode == null || e.cylinderItemCode!.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Sheet ${i + 1}: Cylinder roll spec is required'),
-          backgroundColor: AppTheme.danger,
-        ));
-        return;
-      }
+    if (!_rollsValid()) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Liner/Cylinder not fully matched — go back to the Rolls step'),
+        backgroundColor: AppTheme.danger,
+      ));
+      return;
     }
-
-    // Each sheet checks out 1 Nos per selected roll spec (Store → In Use);
-    // catch over-allocation before the server rejects it.
-    final rollNeeded = <String, int>{};
-    for (final e in _sheetEntries) {
-      rollNeeded[e.linerItemCode!] = (rollNeeded[e.linerItemCode!] ?? 0) + 1;
-      rollNeeded[e.cylinderItemCode!] =
-          (rollNeeded[e.cylinderItemCode!] ?? 0) + 1;
-    }
-    for (final entry in rollNeeded.entries) {
-      final stock = _rollStock.where((r) => r.itemCode == entry.key).toList();
-      if (stock.isNotEmpty && entry.value > stock.first.availableQty) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(
-              'Not enough rolls of ${stock.first.itemName ?? entry.key}: '
-              'need ${entry.value}, only ${stock.first.availableQty.toStringAsFixed(0)} in store'),
-          backgroundColor: AppTheme.danger,
-        ));
-        return;
-      }
-    }
-
     if (_balance.abs() > 0.5) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(
-            'Quantity mismatch: ${_balance.toStringAsFixed(2)} Kg remaining'),
+        content: Text('Quantity mismatch: ${_balance.toStringAsFixed(2)} Kg remaining'),
         backgroundColor: AppTheme.danger,
       ));
       return;
@@ -349,15 +598,20 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
 
     setState(() => _completing = true);
     try {
-      final sheets = _sheetEntries.map((e) => {
-            'item_code': e.itemCodeCtrl.text.trim(),
-            'qty': double.tryParse(e.qtyCtrl.text) ?? 0,
-            'thickness_mm': double.tryParse(e.thicknessCtrl.text) ?? 0,
-            'width_in_mm': double.tryParse(e.widthCtrl.text) ?? 0,
-            'length_in_mm': double.tryParse(e.lengthCtrl.text) ?? 0,
-            'liner_item_code': e.linerItemCode,
-            'cylinder_item_code': e.cylinderItemCode,
-          }).toList();
+      final sheets = _sheetEntries.asMap().entries.map((entry) {
+        final i = entry.key;
+        final e = entry.value;
+        final match = _rollMatch!.sheets[i];
+        return {
+          'item_code': e.selectedItem!.itemCode,
+          'qty': double.tryParse(e.qtyCtrl.text) ?? 0,
+          'thickness_mm': double.tryParse(e.thicknessCtrl.text) ?? 0,
+          'width_in_mm': double.tryParse(e.widthCtrl.text) ?? 0,
+          'length_in_mm': double.tryParse(e.lengthCtrl.text) ?? 0,
+          'liner_item_code': match.liner.itemCode,
+          'cylinder_item_code': match.cylinder.itemCode,
+        };
+      }).toList();
 
       await ref.read(line1RepositoryProvider).completeCalenderingRun(
             name: _activeRun!.name,
@@ -372,9 +626,12 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
           content: Text('Calendering run completed'),
           backgroundColor: AppTheme.success,
         ));
-        setState(() => _activeRun = null);
+        setState(() {
+          _activeRun = null;
+          _inWizard = false;
+        });
         _loadRuns();
-        _loadFmb();
+        _loadFmbInWh();
       }
     } catch (e) {
       if (mounted) {
@@ -394,10 +651,21 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
   Widget build(BuildContext context) {
     if (_activeRun != null && _activeRun!.status == 'In Progress') {
       return PdtScaffold(
-        title: 'Calendering Run',
+        title: _inWizard ? 'Calendering Run' : 'Scan FMB Batches',
         body: _loadingRun
             ? const Center(child: CircularProgressIndicator())
-            : _buildRunDetail(),
+            : PopScope(
+                canPop: false,
+                onPopInvokedWithResult: (didPop, _) {
+                  if (!didPop) {
+                    setState(() {
+                      _activeRun = null;
+                      _inWizard = false;
+                    });
+                  }
+                },
+                child: _inWizard ? _buildWizard() : _buildScanBuildView(),
+              ),
       );
     }
 
@@ -417,7 +685,7 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
             child: TabBarView(
               controller: _tabCtrl,
               children: [
-                _buildFmbList(),
+                _buildScanToStartTab(),
                 _buildRunsList(),
               ],
             ),
@@ -427,59 +695,128 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
     );
   }
 
-  // ── Tab 1: Eligible FMB batches ─────────────────────────────────────────
+  // ── Tab 1: Scan FMB batch to start a run ────────────────────────────────
 
-  Widget _buildFmbList() {
-    if (_loadingFmb) return const Center(child: CircularProgressIndicator());
-    if (_fmbError != null) {
-      return Center(
+  Widget _buildScanToStartTab() {
+    return RefreshIndicator(
+      onRefresh: _loadFmbInWh,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          ScanInputField(
+            controller: _scanCtrl,
+            focusNode: _scanFocus,
+            labelText: 'Scan FMB Batch',
+            hintText: 'Scan the FMB batch delivered to Calendering WH',
+            onScanned: _onFmbScanned,
+            onSubmitted: _onFmbScanned,
+            autofocus: true,
+          ),
+          const SizedBox(height: 12),
+          if (_scanning)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: CircularProgressIndicator(),
+              ),
+            ),
+          if (_scanError != null)
+            Card(
+              color: AppTheme.dangerLight,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(_scanError!, style: const TextStyle(color: AppTheme.danger)),
+              ),
+            ),
+          if (_pendingScan != null) _buildPendingScanCard(),
+          const SizedBox(height: 16),
+          Text('Available in Calendering WH', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          if (_loadingFmbInWh)
+            const Center(child: CircularProgressIndicator())
+          else if (_fmbInWhError != null)
+            Text(_fmbInWhError!, style: const TextStyle(color: AppTheme.danger))
+          else if (_fmbInWh.isEmpty)
+            const Text(
+              'No FMB batches delivered yet.\nRaise a "Calendering FMB" Material Request '
+              'to have one moved from FMB Zone.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey),
+            )
+          else
+            ..._fmbInWh.map((b) => Card(
+                  child: ListTile(
+                    leading: const CircleAvatar(
+                      backgroundColor: AppTheme.success,
+                      radius: 16,
+                      child: Icon(Icons.check, color: Colors.white, size: 18),
+                    ),
+                    title: Text(b.itemName ?? b.itemCode,
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Batch: ${b.batchNo}'),
+                        Text('Available: ${b.qty} Kg'),
+                        _labStatusChip(b.labStatus),
+                      ],
+                    ),
+                    isThreeLine: true,
+                    onTap: () {
+                      _scanCtrl.text = b.batchNo;
+                      _resolveFmbScan(b.batchNo);
+                    },
+                  ),
+                )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPendingScanCard() {
+    final scan = _pendingScan!;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(_fmbError!, style: const TextStyle(color: AppTheme.danger)),
-            const SizedBox(height: 16),
-            ElevatedButton(onPressed: _loadFmb, child: const Text('Retry')),
+            Text(scan.itemName ?? scan.item, style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text('Batch: ${scan.batchNo}'),
+            Text('Available: ${scan.availableQty} Kg'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _scanQtyCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Quantity to claim (Kg)',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              icon: _startingRun
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.play_arrow),
+              label: Text(_startingRun ? 'Starting...' : 'Start Run'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primary,
+                foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(48),
+              ),
+              onPressed: _startingRun ? null : _confirmStartRun,
+            ),
+            TextButton(
+              onPressed: _startingRun ? null : _cancelPendingScan,
+              child: const Text('Cancel'),
+            ),
           ],
         ),
-      );
-    }
-
-    if (_eligibleFmb.isEmpty) {
-      return const Center(
-        child: Text('No eligible FMB batches\n(need Pass or Conditional Pass)',
-            textAlign: TextAlign.center),
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: _loadFmb,
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: _eligibleFmb.length,
-        itemBuilder: (context, index) {
-          final fmb = _eligibleFmb[index];
-          return Card(
-            child: ListTile(
-              leading: const CircleAvatar(
-                backgroundColor: AppTheme.success,
-                radius: 16,
-                child: Icon(Icons.check, color: Colors.white, size: 18),
-              ),
-              title: Text(fmb.itemName ?? fmb.itemCode,
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Batch: ${fmb.batchNo}'),
-                  Text('Available: ${fmb.qty} Kg'),
-                ],
-              ),
-              trailing: const Icon(Icons.play_arrow),
-              isThreeLine: true,
-              onTap: () => _showStartRunDialog(fmb),
-            ),
-          );
-        },
       ),
     );
   }
@@ -546,7 +883,9 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
                 ],
               ),
               isThreeLine: true,
-              onTap: isActive ? () => _loadRunDetail(run.name) : null,
+              onTap: isActive
+                  ? () => _loadRunDetail(run.name, enterWizard: true)
+                  : null,
             ),
           );
         },
@@ -554,416 +893,665 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
     );
   }
 
-  // ── Run Detail (In Progress) ────────────────────────────────────────────
+  // ── Scan-build view: batches scanned so far, add more or proceed ───────
 
-  Widget _buildRunDetail() {
+  Widget _buildScanBuildView() {
     final run = _activeRun!;
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) setState(() => _activeRun = null);
-      },
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // Back + header
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => setState(() => _activeRun = null),
-              ),
-              Expanded(
-                child: Text(run.name,
-                    style: Theme.of(context).textTheme.titleLarge),
-              ),
-              _runStatusChip(run.status),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // FMB info card
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('FMB Batch: ${run.fmbBatch}',
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
-                  Text('Item: ${run.itemName ?? run.fmbItem ?? ""}'),
-                  Text('Input Qty: ${run.fmbInputQty} Kg'),
-                  if (run.startTime != null) Text('Started: ${run.startTime}'),
-                ],
-              ),
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => setState(() {
+                _activeRun = null;
+                _inWizard = false;
+              }),
             ),
-          ),
-          const SizedBox(height: 16),
-
-          // Roll stock overview (pooled Liner/Cylinder specs)
-          Card(
-            child: ExpansionTile(
-              leading: const Icon(Icons.album_outlined),
-              title: const Text('Roll Stock',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-              subtitle: Text(
-                _rollStockError ?? 'Available in store / checked out in use',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: _rollStockError != null
-                      ? AppTheme.danger
-                      : Colors.grey[600],
-                ),
-              ),
+            Expanded(
+              child: Text(run.name, style: Theme.of(context).textTheme.titleLarge),
+            ),
+            _runStatusChip(run.status),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (_loadingRollStock)
-                  const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                else if (_rollStock.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Text('No roll specs found',
-                        style: TextStyle(color: Colors.grey)),
-                  )
-                else
-                  ..._rollStock.map((r) => ListTile(
-                        dense: true,
-                        title: Text(r.itemName ?? r.itemCode),
-                        subtitle: Text(r.rollType),
-                        trailing: Text(
-                          '${r.availableQty.toStringAsFixed(0)} avail / ${r.inUseQty.toStringAsFixed(0)} in use',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: r.availableQty > 0
-                                ? AppTheme.success
-                                : AppTheme.danger,
-                          ),
-                        ),
-                      )),
-                TextButton.icon(
-                  onPressed: _loadingRollStock ? null : _loadRollStock,
-                  icon: const Icon(Icons.refresh, size: 18),
-                  label: const Text('Refresh'),
-                ),
+                Text('Item: ${run.itemName ?? run.fmbItem ?? ""}',
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text('Claimed so far: ${run.fmbInputQty} Kg'),
               ],
             ),
           ),
-          const SizedBox(height: 16),
-
-          // Sheet outputs
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Sheet Outputs',
-                  style: Theme.of(context).textTheme.titleMedium),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Add Sheet'),
-                onPressed: _addSheetEntry,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primary,
-                  foregroundColor: Colors.white,
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                ),
+        ),
+        const SizedBox(height: 12),
+        Text('Scanned Batches', style: Theme.of(context).textTheme.titleMedium),
+        ...run.fmbSources.map((s) => Card(
+              margin: const EdgeInsets.only(top: 4),
+              child: ListTile(
+                dense: true,
+                leading: const Icon(Icons.qr_code, size: 18),
+                title: Text(s.batchNo),
+                trailing: Text('${s.qty} Kg'),
               ),
-            ],
+            )),
+        const SizedBox(height: 16),
+        ScanInputField(
+          controller: _addScanCtrl,
+          focusNode: _addScanFocus,
+          labelText: 'Scan another FMB batch (optional)',
+          hintText: 'Scan to add more input to this run',
+          onScanned: _onAddScanned,
+          onSubmitted: _onAddScanned,
+        ),
+        const SizedBox(height: 8),
+        if (_addScanning)
+          const Center(
+            child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()),
           ),
-          const SizedBox(height: 8),
-
-          if (_sheetEntries.isEmpty)
-            const Card(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Center(
-                  child: Text('No sheets added yet',
-                      style: TextStyle(color: Colors.grey)),
-                ),
-              ),
-            ),
-
-          ..._sheetEntries.asMap().entries.map((entry) {
-            final i = entry.key;
-            final e = entry.value;
-            return Card(
-              margin: const EdgeInsets.only(bottom: 8),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Text('Sheet ${i + 1}',
-                            style:
-                                const TextStyle(fontWeight: FontWeight.bold)),
-                        const Spacer(),
-                        IconButton(
-                          icon: const Icon(Icons.delete,
-                              color: AppTheme.danger, size: 20),
-                          onPressed: () => _removeSheetEntry(i),
-                        ),
-                      ],
-                    ),
-                    TextField(
-                      controller: e.itemCodeCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Item Code',
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                      onChanged: (_) => setState(() {}),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: e.qtyCtrl,
-                            keyboardType: const TextInputType.numberWithOptions(
-                                decimal: true),
-                            decoration: const InputDecoration(
-                              labelText: 'Qty (Kg)',
-                              border: OutlineInputBorder(),
-                              isDense: true,
-                            ),
-                            onChanged: (_) => setState(() {}),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextField(
-                            controller: e.thicknessCtrl,
-                            keyboardType: const TextInputType.numberWithOptions(
-                                decimal: true),
-                            decoration: const InputDecoration(
-                              labelText: 'Thickness (mm)',
-                              border: OutlineInputBorder(),
-                              isDense: true,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: e.widthCtrl,
-                            keyboardType: const TextInputType.numberWithOptions(
-                                decimal: true),
-                            decoration: const InputDecoration(
-                              labelText: 'Width (mm)',
-                              border: OutlineInputBorder(),
-                              isDense: true,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextField(
-                            controller: e.lengthCtrl,
-                            keyboardType: const TextInputType.numberWithOptions(
-                                decimal: true),
-                            decoration: const InputDecoration(
-                              labelText: 'Length (mm)',
-                              border: OutlineInputBorder(),
-                              isDense: true,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _rollDropdown(
-                            rollType: 'Liner',
-                            label: 'Liner (required)',
-                            value: e.linerItemCode,
-                            onChanged: (v) =>
-                                setState(() => e.linerItemCode = v),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _rollDropdown(
-                            rollType: 'Cylinder',
-                            label: 'Cylinder (required)',
-                            value: e.cylinderItemCode,
-                            onChanged: (v) =>
-                                setState(() => e.cylinderItemCode = v),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }),
-
-          const SizedBox(height: 16),
-
-          // Returns
-          Text('Returns', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _linerReturnCtrl,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    labelText: 'Liner Return (Kg)',
-                    helperText: 'Reusable — new batch',
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextField(
-                  controller: _calendarReturnCtrl,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    labelText: 'Calendar Return (Kg)',
-                    helperText: 'Reusable — new batch',
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _excruderSludgeCtrl,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              labelText: 'Excruder Sludge (Kg)',
-              helperText: 'Cleaned out, scrapped — cost absorbed, no batch',
-              border: OutlineInputBorder(),
-            ),
-            onChanged: (_) => setState(() {}),
-          ),
-          const SizedBox(height: 16),
-
-          // Balance indicator
+        if (_addScanError != null)
           Card(
-            color: _balance.abs() <= 0.5
-                ? AppTheme.success.withValues(alpha: 0.1)
-                : AppTheme.danger.withValues(alpha: 0.1),
+            color: AppTheme.dangerLight,
             child: Padding(
               padding: const EdgeInsets.all(12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Balance',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  Text(
-                    '${_balance.toStringAsFixed(2)} Kg',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      color: _balance.abs() <= 0.5
-                          ? AppTheme.success
-                          : AppTheme.danger,
-                    ),
-                  ),
-                ],
+              child: Text(_addScanError!, style: const TextStyle(color: AppTheme.danger)),
+            ),
+          ),
+        if (_pendingAddScan != null) _buildPendingAddScanCard(),
+        const SizedBox(height: 24),
+        ElevatedButton.icon(
+          icon: const Icon(Icons.arrow_forward),
+          label: const Text('Proceed to Sheets'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.success,
+            foregroundColor: Colors.white,
+            minimumSize: const Size.fromHeight(48),
+          ),
+          onPressed: _proceedToWizard,
+        ),
+        const SizedBox(height: 32),
+      ],
+    );
+  }
+
+  Widget _buildPendingAddScanCard() {
+    final scan = _pendingAddScan!;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(scan.itemName ?? scan.item, style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text('Batch: ${scan.batchNo}'),
+            Text('Available: ${scan.availableQty} Kg'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _addScanQtyCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Quantity to claim (Kg)',
+                border: OutlineInputBorder(),
+                isDense: true,
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-
-          // Summary row
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                children: [
-                  _summaryRow('Input', run.fmbInputQty),
-                  _summaryRow('Sheets', _sheetTotal),
-                  _summaryRow('Liner Return (reusable)', _linerReturn),
-                  _summaryRow('Calendar Return (reusable)', _calendarReturn),
-                  _summaryRow('Excruder Sludge (absorbed)', _excruderSludge),
-                ],
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              icon: _addingBatch
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.add),
+              label: Text(_addingBatch ? 'Adding...' : 'Add Batch'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primary,
+                foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(48),
               ),
+              onPressed: _addingBatch ? null : _confirmAddBatch,
             ),
-          ),
-          const SizedBox(height: 16),
+            TextButton(
+              onPressed: _addingBatch ? null : _cancelPendingAddScan,
+              child: const Text('Cancel'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-          // Complete button
-          ElevatedButton.icon(
-            icon: _completing
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white),
-                  )
-                : const Icon(Icons.check_circle),
-            label: Text(_completing ? 'Completing...' : 'Complete Run'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.success,
-              foregroundColor: Colors.white,
-              minimumSize: const Size.fromHeight(48),
-            ),
-            onPressed:
-                _completing || _balance.abs() > 0.5 ? null : _completeRun,
-          ),
-          const SizedBox(height: 32),
+  // ── Complete-run wizard ─────────────────────────────────────────────────
+
+  Widget _buildWizard() {
+    return Column(
+      children: [
+        _buildStepIndicator(),
+        Expanded(
+          child: switch (_completeStep) {
+            _CompleteStep.sheets => _buildSheetsStep(),
+            _CompleteStep.rolls => _buildRollsStep(),
+            _CompleteStep.returns => _buildReturnsStep(),
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStepIndicator() {
+    Widget chip(String label, _CompleteStep step) {
+      final active = _completeStep == step;
+      return Chip(
+        label: Text(label,
+            style: TextStyle(fontSize: 11, color: active ? Colors.white : null)),
+        backgroundColor: active ? AppTheme.primary : AppTheme.bgElevated,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        padding: EdgeInsets.zero,
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          chip('1. Sheets', _CompleteStep.sheets),
+          const Icon(Icons.chevron_right, size: 16, color: AppTheme.textSecondary),
+          chip('2. Rolls', _CompleteStep.rolls),
+          const Icon(Icons.chevron_right, size: 16, color: AppTheme.textSecondary),
+          chip('3. Returns', _CompleteStep.returns),
         ],
       ),
     );
   }
 
-  // ── Widgets ─────────────────────────────────────────────────────────────
+  // ── Step 1: Sheets ──────────────────────────────────────────────────────
 
-  Widget _rollDropdown({
-    required String rollType,
-    required String label,
-    required String? value,
-    required ValueChanged<String?> onChanged,
-  }) {
-    final specs = _rollStock.where((r) => r.rollType == rollType).toList();
-    final safeValue =
-        specs.any((r) => r.itemCode == value) ? value : null;
-    return DropdownButtonFormField<String>(
-      value: safeValue,
-      isExpanded: true,
-      decoration: InputDecoration(
-        labelText: label,
-        helperText: specs.isEmpty
-            ? (_loadingRollStock ? 'Loading…' : 'None in store')
-            : 'Auto-released when empty',
-        border: const OutlineInputBorder(),
-        isDense: true,
-      ),
-      items: specs
-          .map((r) => DropdownMenuItem<String>(
-                value: r.itemCode,
-                enabled: r.availableQty > 0,
-                child: Text(
-                  '${r.itemName ?? r.itemCode} (${r.availableQty.toStringAsFixed(0)})',
-                  overflow: TextOverflow.ellipsis,
-                  style: r.availableQty > 0
-                      ? null
-                      : const TextStyle(color: Colors.grey),
-                ),
-              ))
-          .toList(),
-      onChanged: onChanged,
+  Widget _buildSheetsStep() {
+    final run = _activeRun!;
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => setState(() {
+                _activeRun = null;
+                _inWizard = false;
+              }),
+            ),
+            Expanded(
+              child: Text(run.name, style: Theme.of(context).textTheme.titleLarge),
+            ),
+            _runStatusChip(run.status),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Item: ${run.itemName ?? run.fmbItem ?? ""}',
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text('Input Qty: ${run.fmbInputQty} Kg'),
+                ...run.fmbSources.map((s) => Text(
+                      '  • ${s.batchNo}: ${s.qty} Kg',
+                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                    )),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        _buildRollStockPanel(),
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Sheet Outputs', style: Theme.of(context).textTheme.titleMedium),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Add Sheet'),
+              onPressed: _loadingEligibleSheets ? null : _showSheetPicker,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primary,
+                foregroundColor: Colors.white,
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (_sheetEntries.isEmpty)
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(
+                child: Text('No sheets added yet', style: TextStyle(color: Colors.grey)),
+              ),
+            ),
+          ),
+        ..._sheetEntries.asMap().entries.map((entry) => _buildSheetCard(entry.key, entry.value)),
+        const SizedBox(height: 24),
+        ElevatedButton.icon(
+          icon: const Icon(Icons.arrow_forward),
+          label: const Text('Next: Liner & Cylinder'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.success,
+            foregroundColor: Colors.white,
+            minimumSize: const Size.fromHeight(48),
+          ),
+          onPressed: _sheetsValid() ? _goToRollsStep : null,
+        ),
+        const SizedBox(height: 32),
+      ],
     );
   }
+
+  Widget _buildSheetCard(int i, _SheetEntry e) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    e.selectedItem?.itemName ?? e.selectedItem?.itemCode ?? 'Sheet ${i + 1}',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete, color: AppTheme.danger, size: 20),
+                  onPressed: () => _removeSheetEntry(i),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: e.qtyCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Qty (Kg)',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: e.thicknessCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Thickness (mm)',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: e.widthCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Width (mm)',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: e.lengthCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Length (mm)',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRollStockPanel() {
+    return Card(
+      child: ExpansionTile(
+        leading: const Icon(Icons.album_outlined),
+        title: const Text('Roll Stock',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        subtitle: Text(
+          _rollStockError ?? 'Store / staged in WIP Calendering / in use',
+          style: TextStyle(
+            fontSize: 12,
+            color: _rollStockError != null ? AppTheme.danger : Colors.grey[600],
+          ),
+        ),
+        children: [
+          if (_loadingRollStock)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_rollStock.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('No roll specs found', style: TextStyle(color: Colors.grey)),
+            )
+          else
+            ..._rollStock.map((r) => ListTile(
+                  dense: true,
+                  title: Text(r.itemName ?? r.itemCode),
+                  subtitle: Text(r.rollType),
+                  trailing: Text(
+                    '${r.stagedQty.toStringAsFixed(0)} staged / '
+                    '${r.availableQty.toStringAsFixed(0)} store',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: r.stagedQty > 0 ? AppTheme.success : AppTheme.danger,
+                    ),
+                  ),
+                )),
+          TextButton.icon(
+            onPressed: _loadingRollStock ? null : _loadRollStock,
+            icon: const Icon(Icons.refresh, size: 18),
+            label: const Text('Refresh'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Step 2: Liner & Cylinder ─────────────────────────────────────────────
+
+  Widget _buildRollsStep() {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => setState(() => _completeStep = _CompleteStep.sheets),
+            ),
+            Expanded(
+              child: Text('Liner & Cylinder', style: Theme.of(context).textTheme.titleLarge),
+            ),
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _matchingRolls ? null : _matchRolls,
+            ),
+          ],
+        ),
+        if (_matchingRolls)
+          const Center(
+            child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()),
+          ),
+        if (_rollMatchError != null)
+          Card(
+            color: AppTheme.dangerLight,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Text(_rollMatchError!, style: const TextStyle(color: AppTheme.danger)),
+            ),
+          ),
+        if (_rollMatch != null)
+          ..._sheetEntries.asMap().entries.map((entry) {
+            final i = entry.key;
+            final e = entry.value;
+            final match = i < _rollMatch!.sheets.length
+                ? _rollMatch!.sheets[i]
+                : const SheetRollMatch();
+            return _buildRollMatchCard(i, e, match);
+          }),
+        const SizedBox(height: 24),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  minimumSize: Size.zero,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                onPressed: () => setState(() => _completeStep = _CompleteStep.sheets),
+                child: const Text('Back'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.success,
+                  foregroundColor: Colors.white,
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                onPressed: _rollsValid()
+                    ? () => setState(() => _completeStep = _CompleteStep.returns)
+                    : null,
+                child: const Text('Next: Returns'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 32),
+      ],
+    );
+  }
+
+  Widget _buildRollMatchCard(int i, _SheetEntry e, SheetRollMatch match) {
+    final shortfallItems = (_rollMatch?.shortfalls ?? const [])
+        .map((s) => s.itemCode)
+        .toSet();
+
+    Widget rollTile(String label, RollMatch m) {
+      if (!m.isMatched) {
+        return ListTile(
+          dense: true,
+          leading: const Icon(Icons.error, color: AppTheme.danger),
+          title: Text('$label: no matching spec'),
+          subtitle: const Text('No roll wide/long enough exists', style: TextStyle(fontSize: 11)),
+        );
+      }
+      final short = shortfallItems.contains(m.itemCode);
+      return ListTile(
+        dense: true,
+        leading: Icon(
+          short ? Icons.warning : Icons.check_circle,
+          color: short ? AppTheme.warning : AppTheme.success,
+        ),
+        title: Text('$label: ${m.itemName ?? m.itemCode}'),
+        subtitle: short
+            ? const Text('Insufficient staged stock',
+                style: TextStyle(fontSize: 11, color: AppTheme.warning))
+            : Text('${m.availableQty.toStringAsFixed(0)} staged',
+                style: const TextStyle(fontSize: 11)),
+        trailing: short
+            ? TextButton(
+                onPressed: () => _raiseShortfallMR(
+                  _rollMatch!.shortfalls.firstWhere((s) => s.itemCode == m.itemCode),
+                ),
+                child: const Text('Raise MR', style: TextStyle(fontSize: 11)),
+              )
+            : null,
+      );
+    }
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                e.selectedItem?.itemName ?? 'Sheet ${i + 1}',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            rollTile('Liner', match.liner),
+            rollTile('Cylinder', match.cylinder),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Step 3: Returns ──────────────────────────────────────────────────────
+
+  Widget _buildReturnsStep() {
+    final run = _activeRun!;
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => setState(() => _completeStep = _CompleteStep.rolls),
+            ),
+            Expanded(
+              child: Text('Returns', style: Theme.of(context).textTheme.titleLarge),
+            ),
+            _runStatusChip(run.status),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _linerReturnCtrl,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Liner Return (Kg)',
+                  helperText: 'Reusable — new batch',
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextField(
+                controller: _calendarReturnCtrl,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Calendar Return (Kg)',
+                  helperText: 'Reusable — new batch',
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _excruderSludgeCtrl,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(
+            labelText: 'Excruder Sludge (Kg)',
+            helperText: 'Cleaned out, scrapped — cost absorbed, no batch',
+            border: OutlineInputBorder(),
+          ),
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 16),
+        Card(
+          color: _balance.abs() <= 0.5
+              ? AppTheme.success.withValues(alpha: 0.1)
+              : AppTheme.danger.withValues(alpha: 0.1),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Balance', style: TextStyle(fontWeight: FontWeight.bold)),
+                Text(
+                  '${_balance.toStringAsFixed(2)} Kg',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                    color: _balance.abs() <= 0.5 ? AppTheme.success : AppTheme.danger,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              children: [
+                _summaryRow('Input', run.fmbInputQty),
+                _summaryRow('Sheets', _sheetTotal),
+                _summaryRow('Liner Return (reusable)', _linerReturn),
+                _summaryRow('Calendar Return (reusable)', _calendarReturn),
+                _summaryRow('Excruder Sludge (absorbed)', _excruderSludge),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        ElevatedButton.icon(
+          icon: _completing
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                )
+              : const Icon(Icons.check_circle),
+          label: Text(_completing ? 'Completing...' : 'Complete Run'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.success,
+            foregroundColor: Colors.white,
+            minimumSize: const Size.fromHeight(48),
+          ),
+          onPressed: _completing || _balance.abs() > 0.5 ? null : _completeRun,
+        ),
+        const SizedBox(height: 32),
+      ],
+    );
+  }
+
+  // ── Shared widgets ──────────────────────────────────────────────────────
 
   Widget _summaryRow(String label, double value) {
     return Padding(
@@ -1015,18 +1603,13 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
 }
 
 class _SheetEntry {
-  final itemCodeCtrl = TextEditingController();
+  CalenderingEligibleSheet? selectedItem;
   final qtyCtrl = TextEditingController();
   final thicknessCtrl = TextEditingController();
   final widthCtrl = TextEditingController();
   final lengthCtrl = TextEditingController();
 
-  /// Pooled roll specs (Item codes) — 1 Nos of each is checked out per sheet.
-  String? linerItemCode;
-  String? cylinderItemCode;
-
   void dispose() {
-    itemCodeCtrl.dispose();
     qtyCtrl.dispose();
     thicknessCtrl.dispose();
     widthCtrl.dispose();
