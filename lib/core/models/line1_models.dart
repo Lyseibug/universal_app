@@ -230,6 +230,42 @@ class LabTestParameterResult with _$LabTestParameterResult {
       _$LabTestParameterResultFromJson(json);
 }
 
+// ── Work Order picker (plain Dart — no code generation needed) ──────────
+//
+// Shared across Weighing, Mixer, and Calendering: the operator picks one of
+// these before scanning/loading anything, and every scan afterwards is
+// validated server-side against this Work Order's BOM.
+
+class WorkOrderSummary {
+  final String name;
+  final String productionItem;
+  final String? itemName;
+  final double qty;
+  final double producedQty;
+  final String? bomNo;
+  final String status;
+
+  const WorkOrderSummary({
+    required this.name,
+    required this.productionItem,
+    this.itemName,
+    this.qty = 0,
+    this.producedQty = 0,
+    this.bomNo,
+    this.status = '',
+  });
+
+  factory WorkOrderSummary.fromJson(Map<String, dynamic> json) => WorkOrderSummary(
+        name: json['name']?.toString() ?? '',
+        productionItem: json['production_item']?.toString() ?? '',
+        itemName: json['item_name']?.toString(),
+        qty: (json['qty'] as num?)?.toDouble() ?? 0,
+        producedQty: (json['produced_qty'] as num?)?.toDouble() ?? 0,
+        bomNo: json['bom_no']?.toString(),
+        status: json['status']?.toString() ?? '',
+      );
+}
+
 // ── Tank Status (plain Dart — no code generation needed) ────────────────
 
 class TankStatus {
@@ -364,30 +400,6 @@ class RollStock {
       );
 }
 
-/// A finished sheet Item this FMB's compound can produce — Step-1 pick
-/// list source. thickness/width are pre-fill defaults, not locked values.
-class CalenderingEligibleSheet {
-  final String itemCode;
-  final String? itemName;
-  final double thickness;
-  final double width;
-
-  const CalenderingEligibleSheet({
-    required this.itemCode,
-    this.itemName,
-    this.thickness = 0,
-    this.width = 0,
-  });
-
-  factory CalenderingEligibleSheet.fromJson(Map<String, dynamic> json) =>
-      CalenderingEligibleSheet(
-        itemCode: json['item_code']?.toString() ?? '',
-        itemName: json['item_name']?.toString(),
-        thickness: (json['thickness'] as num?)?.toDouble() ?? 0,
-        width: (json['width'] as num?)?.toDouble() ?? 0,
-      );
-}
-
 /// A single roll match for a sheet — null fields mean no roll spec is
 /// wide/long enough (a data problem, not a stock problem).
 class RollMatch {
@@ -512,6 +524,9 @@ class CalenderingSheet {
 
 class CalenderingRun {
   final String name;
+  final String? workOrder;
+  final String? productionItem;
+  final String? productionItemName;
   final String fmbBatch;
   final String? fmbItem;
   final String? itemName;
@@ -534,6 +549,9 @@ class CalenderingRun {
 
   const CalenderingRun({
     required this.name,
+    this.workOrder,
+    this.productionItem,
+    this.productionItemName,
     required this.fmbBatch,
     this.fmbItem,
     this.itemName,
@@ -557,6 +575,9 @@ class CalenderingRun {
 
   factory CalenderingRun.fromJson(Map<String, dynamic> json) => CalenderingRun(
         name: json['name']?.toString() ?? '',
+        workOrder: json['work_order']?.toString(),
+        productionItem: json['production_item']?.toString(),
+        productionItemName: json['production_item_name']?.toString(),
         fmbBatch: json['fmb_batch']?.toString() ?? '',
         fmbItem: json['fmb_item']?.toString(),
         itemName: json['item_name']?.toString(),
@@ -593,6 +614,7 @@ class CalenderingRun {
 /// shape (name, fmb_sources so far, running input_qty, status).
 class CalenderingStartResult {
   final String name;
+  final String? workOrder;
   final String? fmbItem;
   final List<FmbSource> fmbSources;
   final double inputQty;
@@ -600,6 +622,7 @@ class CalenderingStartResult {
 
   const CalenderingStartResult({
     required this.name,
+    this.workOrder,
     this.fmbItem,
     this.fmbSources = const [],
     this.inputQty = 0,
@@ -609,6 +632,7 @@ class CalenderingStartResult {
   factory CalenderingStartResult.fromJson(Map<String, dynamic> json) =>
       CalenderingStartResult(
         name: json['name']?.toString() ?? '',
+        workOrder: json['work_order']?.toString(),
         fmbItem: json['fmb_item']?.toString(),
         fmbSources: (json['fmb_sources'] as List?)
                 ?.map((e) => FmbSource.fromJson(Map<String, dynamic>.from(e)))

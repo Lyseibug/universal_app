@@ -23,7 +23,11 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabCtrl;
 
-  // ── New Run tab: scan FMB batches already delivered to Calendering WH ──
+  // ── New Run tab: pick a Work Order, then scan FMB batches already
+  // delivered to Calendering WH ──
+  List<WorkOrderSummary> _workOrders = [];
+  WorkOrderSummary? _selectedWorkOrder;
+
   bool _loadingFmbInWh = true;
   String? _fmbInWhError;
   List<CalenderingFmb> _fmbInWh = [];
@@ -55,9 +59,8 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
   final _addScanQtyCtrl = TextEditingController();
   bool _addingBatch = false;
 
-  // ── Sheets step ──
-  bool _loadingEligibleSheets = false;
-  List<CalenderingEligibleSheet> _eligibleSheets = [];
+  // ── Sheets step ── item is fixed by the run's Work Order; only physical
+  // sheet dimensions (qty/thickness/width/length) are recorded per row.
   final List<_SheetEntry> _sheetEntries = [];
 
   // ── Rolls step ──
@@ -80,6 +83,7 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 2, vsync: this);
+    _loadWorkOrders();
     _loadFmbInWh();
     _loadRuns();
   }
@@ -103,6 +107,21 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
   }
 
   // ── Data loading ────────────────────────────────────────────────────────
+
+  Future<void> _loadWorkOrders() async {
+    try {
+      final workOrders =
+          await ref.read(line1RepositoryProvider).listCalenderingWorkOrders();
+      if (mounted) setState(() => _workOrders = workOrders);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Failed to load Work Orders: $e'),
+          backgroundColor: AppTheme.danger,
+        ));
+      }
+    }
+  }
 
   Future<void> _loadFmbInWh() async {
     setState(() {
@@ -152,23 +171,6 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
     }
   }
 
-  Future<void> _loadEligibleSheets(String fmbBatch) async {
-    setState(() => _loadingEligibleSheets = true);
-    try {
-      _eligibleSheets =
-          await ref.read(line1RepositoryProvider).listSheetsForFmb(fmbBatch);
-      setState(() => _loadingEligibleSheets = false);
-    } catch (e) {
-      setState(() => _loadingEligibleSheets = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Failed to load eligible sheets: $e'),
-          backgroundColor: AppTheme.danger,
-        ));
-      }
-    }
-  }
-
   Future<void> _loadRunDetail(String name, {required bool enterWizard}) async {
     setState(() => _loadingRun = true);
     _loadRollStock();
@@ -189,9 +191,6 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
         _calendarReturnCtrl.text = '0';
         _excruderSludgeCtrl.text = '0';
       });
-      if (run.fmbBatch.isNotEmpty) {
-        _loadEligibleSheets(run.fmbBatch);
-      }
     } catch (e) {
       setState(() => _loadingRun = false);
       if (mounted) {
@@ -243,7 +242,7 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
   }
 
   Future<void> _confirmStartRun() async {
-    if (_pendingScan == null) return;
+    if (_pendingScan == null || _selectedWorkOrder == null) return;
     final qty = double.tryParse(_scanQtyCtrl.text);
     if (qty == null || qty <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -258,7 +257,7 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
       final result =
           await ref.read(line1RepositoryProvider).startRunFromBatches([
         {'batch_no': _pendingScan!.batchNo, 'qty': qty},
-      ]);
+      ], _selectedWorkOrder!.name);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Run ${result.name} started'),
@@ -378,53 +377,8 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
 
   // ── Sheets step actions ─────────────────────────────────────────────────
 
-  void _showSheetPicker() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        maxChildSize: 0.9,
-        expand: false,
-        builder: (ctx, scrollCtrl) => Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text('Select Sheet', style: Theme.of(ctx).textTheme.titleLarge),
-            ),
-            Expanded(
-              child: _eligibleSheets.isEmpty
-                  ? const Center(child: Text('No sheets found for this compound'))
-                  : ListView.builder(
-                      controller: scrollCtrl,
-                      itemCount: _eligibleSheets.length,
-                      itemBuilder: (context, index) {
-                        final item = _eligibleSheets[index];
-                        return ListTile(
-                          title: Text(item.itemName ?? item.itemCode),
-                          subtitle: Text(
-                              'Thickness: ${item.thickness} mm · Width: ${item.width} mm'),
-                          onTap: () {
-                            Navigator.of(ctx).pop();
-                            _addSheetEntry(item);
-                          },
-                        );
-                      },
-                    ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _addSheetEntry(CalenderingEligibleSheet item) {
-    setState(() {
-      final e = _SheetEntry()..selectedItem = item;
-      if (item.thickness > 0) e.thicknessCtrl.text = item.thickness.toString();
-      if (item.width > 0) e.widthCtrl.text = item.width.toString();
-      _sheetEntries.add(e);
-    });
+  void _addBlankSheetEntry() {
+    setState(() => _sheetEntries.add(_SheetEntry()));
   }
 
   void _removeSheetEntry(int index) {
@@ -437,7 +391,6 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
   bool _sheetsValid() {
     if (_sheetEntries.isEmpty) return false;
     for (final e in _sheetEntries) {
-      if (e.selectedItem == null) return false;
       final qty = double.tryParse(e.qtyCtrl.text);
       if (qty == null || qty <= 0) return false;
     }
@@ -606,12 +559,13 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
 
     setState(() => _completing = true);
     try {
-      // Liner/Cylinder are not sent — complete_run re-derives and claims
-      // the specific Tool Master units server-side from width/length,
-      // rather than trusting a client-supplied match.
+      // item_code is not sent — the produced item is fixed by the run's
+      // Work Order and derived server-side. Liner/Cylinder are not sent
+      // either — complete_run re-derives and claims the specific Tool
+      // Master units server-side from width/length, rather than trusting a
+      // client-supplied match.
       final sheets = _sheetEntries.map((e) {
         return {
-          'item_code': e.selectedItem!.itemCode,
           'qty': double.tryParse(e.qtyCtrl.text) ?? 0,
           'thickness_mm': double.tryParse(e.thicknessCtrl.text) ?? 0,
           'width_in_mm': double.tryParse(e.widthCtrl.text) ?? 0,
@@ -704,11 +658,16 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
   // ── Tab 1: Scan FMB batch to start a run ────────────────────────────────
 
   Widget _buildScanToStartTab() {
+    if (_selectedWorkOrder == null) {
+      return _buildWorkOrderPicker();
+    }
     return RefreshIndicator(
       onRefresh: _loadFmbInWh,
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          _buildSelectedWorkOrderCard(),
+          const SizedBox(height: 12),
           ScanInputField(
             controller: _scanCtrl,
             focusNode: _scanFocus,
@@ -775,6 +734,60 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
                   ),
                 )),
         ],
+      ),
+    );
+  }
+
+  Widget _buildWorkOrderPicker() {
+    return RefreshIndicator(
+      onRefresh: _loadWorkOrders,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Text('Select a Work Order', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 4),
+          const Text(
+            'Pick which Work Order this run is producing sheets for. '
+            'Scanned FMB batches must be a component of its BOM.',
+            style: TextStyle(color: Colors.grey),
+          ),
+          const SizedBox(height: 12),
+          if (_workOrders.isEmpty)
+            const Card(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('No open Work Orders for Calendering'),
+              ),
+            )
+          else
+            ..._workOrders.map((wo) => Card(
+                  child: ListTile(
+                    title: Text(wo.itemName ?? wo.productionItem,
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text('${wo.name} · Qty ${wo.qty}'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => setState(() => _selectedWorkOrder = wo),
+                  ),
+                )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelectedWorkOrderCard() {
+    final wo = _selectedWorkOrder!;
+    return Card(
+      color: AppTheme.primary.withValues(alpha: 0.05),
+      child: ListTile(
+        dense: true,
+        leading: const Icon(Icons.assignment, color: AppTheme.primary),
+        title: Text(wo.itemName ?? wo.productionItem,
+            style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text(wo.name),
+        trailing: TextButton(
+          onPressed: () => setState(() => _selectedWorkOrder = null),
+          child: const Text('Change'),
+        ),
       ),
     );
   }
@@ -874,6 +887,8 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
               subtitle: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (run.productionItemName != null || run.productionItem != null)
+                    Text('Producing: ${run.productionItemName ?? run.productionItem}'),
                   Text('FMB: ${run.fmbBatch}'),
                   Text('Input: ${run.fmbInputQty} Kg'),
                   if (run.status == 'Completed')
@@ -928,8 +943,9 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Item: ${run.itemName ?? run.fmbItem ?? ""}',
+                Text('Producing: ${run.productionItemName ?? run.productionItem ?? ""}',
                     style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text('FMB Compound: ${run.itemName ?? run.fmbItem ?? ""}'),
                 Text('Claimed so far: ${run.fmbInputQty} Kg'),
               ],
             ),
@@ -1106,8 +1122,9 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Item: ${run.itemName ?? run.fmbItem ?? ""}',
+                Text('Producing: ${run.productionItemName ?? run.productionItem ?? ""}',
                     style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text('FMB Compound: ${run.itemName ?? run.fmbItem ?? ""}'),
                 Text('Input Qty: ${run.fmbInputQty} Kg'),
                 ...run.fmbSources.map((s) => Text(
                       '  • ${s.batchNo}: ${s.qty} Kg',
@@ -1127,7 +1144,7 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
             ElevatedButton.icon(
               icon: const Icon(Icons.add, size: 18),
               label: const Text('Add Sheet'),
-              onPressed: _loadingEligibleSheets ? null : _showSheetPicker,
+              onPressed: _addBlankSheetEntry,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primary,
                 foregroundColor: Colors.white,
@@ -1177,7 +1194,7 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
               children: [
                 Expanded(
                   child: Text(
-                    e.selectedItem?.itemName ?? e.selectedItem?.itemCode ?? 'Sheet ${i + 1}',
+                    'Sheet ${i + 1}',
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -1335,11 +1352,10 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
         if (_rollMatch != null)
           ..._sheetEntries.asMap().entries.map((entry) {
             final i = entry.key;
-            final e = entry.value;
             final match = i < _rollMatch!.sheets.length
                 ? _rollMatch!.sheets[i]
                 : const SheetRollMatch();
-            return _buildRollMatchCard(i, e, match);
+            return _buildRollMatchCard(i, entry.value, match);
           }),
         const SizedBox(height: 24),
         Row(
@@ -1425,7 +1441,7 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Text(
-                e.selectedItem?.itemName ?? 'Sheet ${i + 1}',
+                'Sheet ${i + 1}',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
@@ -1609,7 +1625,6 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
 }
 
 class _SheetEntry {
-  CalenderingEligibleSheet? selectedItem;
   final qtyCtrl = TextEditingController();
   final thicknessCtrl = TextEditingController();
   final widthCtrl = TextEditingController();

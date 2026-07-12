@@ -143,6 +143,7 @@ class _QcMeasurementScreenState extends ConsumerState<QcMeasurementScreen> {
           .toList();
 
       await ref.read(line2RepositoryProvider).submitMeasurement(
+        workOrder: _scanResult!['work_order']?.toString() ?? '',
         jobCard: _scanResult!['job_card']?.toString() ?? '',
         measurements: measurements,
       );

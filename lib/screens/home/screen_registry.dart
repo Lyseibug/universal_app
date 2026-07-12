@@ -27,6 +27,7 @@ import '../../features/line2/qc_final_screen.dart';
 import '../../features/line2/sleeve_creation_screen.dart';
 import '../../features/line2/packing_screen.dart';
 import '../../features/line2/tool_status_screen.dart';
+import '../../features/fabric_stitching/fabric_stitching_screen.dart';
 
 /// Function type for building a WMS screen from its [MenuScreen] config.
 typedef ScreenBuilder = Widget Function(MenuScreen screen);
@@ -67,4 +68,5 @@ final Map<String, ScreenBuilder> screenRegistry = {
   'line2_sleeve':       (s) => SleeveCreationScreen(screen: s),
   'line2_packing':      (s) => PackingScreen(screen: s),
   'line2_tools':        (s) => ToolStatusScreen(screen: s),
+  'fabric_stitching':   (s) => FabricStitchingScreen(screen: s),
 };

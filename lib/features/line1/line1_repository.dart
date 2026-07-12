@@ -72,16 +72,23 @@ class Line1Repository {
   Future<Map<String, dynamic>> loadToMixer({
     required String itemCode,
     required double qty,
+    required String workOrder,
     String? batchNo,
     String? sourceWarehouse,
   }) async {
     final result = await _writeQueue.run('line1_mixer.load', {
       'item_code': itemCode,
       'qty': qty,
+      'work_order': workOrder,
       if (batchNo != null) 'batch_no': batchNo,
       if (sourceWarehouse != null) 'source_warehouse': sourceWarehouse,
     });
     return Map<String, dynamic>.from(result);
+  }
+
+  Future<List<WorkOrderSummary>> listMixerWorkOrders() async {
+    final data = await _api.call('line1_mixer.list_work_orders');
+    return _parseWorkOrderList(data);
   }
 
   // ── Weighing (Outside → Inside Weighing Machine WH) ─────────────────────
@@ -100,13 +107,20 @@ class Line1Repository {
     required String boxBarcode,
     required String itemCode,
     required double qty,
+    required String workOrder,
   }) async {
     final result = await _writeQueue.run('line1_weighing.weighing_load', {
       'box_barcode': boxBarcode,
       'item_code': itemCode,
       'qty': qty,
+      'work_order': workOrder,
     });
     return LoadResult.fromJson(Map<String, dynamic>.from(result));
+  }
+
+  Future<List<WorkOrderSummary>> listWeighingWorkOrders() async {
+    final data = await _api.call('line1_weighing.list_work_orders');
+    return _parseWorkOrderList(data);
   }
 
   // ── Bags ────────────────────────────────────────────────────────────────
@@ -180,11 +194,16 @@ class Line1Repository {
   }
 
   Future<CalenderingStartResult> startRunFromBatches(
-      List<Map<String, dynamic>> fmbBatches) async {
+      List<Map<String, dynamic>> fmbBatches, String workOrder) async {
     final result = await _writeQueue.run(
         'line1_calendering.start_run_from_batches',
-        {'fmb_batches': fmbBatches});
+        {'fmb_batches': fmbBatches, 'work_order': workOrder});
     return CalenderingStartResult.fromJson(Map<String, dynamic>.from(result));
+  }
+
+  Future<List<WorkOrderSummary>> listCalenderingWorkOrders() async {
+    final data = await _api.call('line1_calendering.list_work_orders');
+    return _parseWorkOrderList(data);
   }
 
   Future<CalenderingStartResult> addFmbBatchToRun({
@@ -204,19 +223,6 @@ class Line1Repository {
     final data =
         await _api.call('line1_calendering.get_run', body: {'name': name});
     return CalenderingRun.fromJson(Map<String, dynamic>.from(data));
-  }
-
-  Future<List<CalenderingEligibleSheet>> listSheetsForFmb(
-      String fmbBatch) async {
-    final data = await _api.call('line1_calendering.list_sheets_for_fmb',
-        body: {'fmb_batch': fmbBatch});
-    if (data is List) {
-      return data
-          .map((j) =>
-              CalenderingEligibleSheet.fromJson(Map<String, dynamic>.from(j)))
-          .toList();
-    }
-    return const [];
   }
 
   Future<RollMatchResult> matchRolls(List<Map<String, dynamic>> sheets) async {
@@ -312,6 +318,15 @@ class Line1Repository {
   List<Map<String, dynamic>> _parseMapList(dynamic data) {
     if (data is List) {
       return data.map((j) => Map<String, dynamic>.from(j)).toList();
+    }
+    return const [];
+  }
+
+  List<WorkOrderSummary> _parseWorkOrderList(dynamic data) {
+    if (data is List) {
+      return data
+          .map((j) => WorkOrderSummary.fromJson(Map<String, dynamic>.from(j)))
+          .toList();
     }
     return const [];
   }

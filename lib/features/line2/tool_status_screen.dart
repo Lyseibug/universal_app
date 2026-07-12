@@ -156,6 +156,84 @@ class _ToolStatusScreenState extends ConsumerState<ToolStatusScreen> {
     );
   }
 
+  void _showChangeWheelDialog(Map<String, dynamic> tool) {
+    final speedCtrl = TextEditingController();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 24,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Change Grinding Wheel', style: Theme.of(ctx).textTheme.titleLarge),
+            const SizedBox(height: 8),
+            Text(tool['tool_name']?.toString() ?? tool['tool_code']?.toString() ?? ''),
+            const SizedBox(height: 4),
+            const Text('Resets this wheel\'s usage clock to 0.',
+                style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: speedCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Feeding Speed (mm/min)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primary,
+                foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(48),
+              ),
+              onPressed: () async {
+                final speed = double.tryParse(speedCtrl.text.trim());
+                if (speed == null || speed <= 0) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                    content: Text('Enter a valid feeding speed'),
+                    backgroundColor: AppTheme.danger,
+                  ));
+                  return;
+                }
+                Navigator.pop(ctx);
+                try {
+                  await ref.read(line2RepositoryProvider).changeGrindingWheel(
+                        toolId: tool['tool_code']?.toString() ?? '',
+                        feedingSpeed: speed,
+                      );
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('Wheel change recorded'),
+                      backgroundColor: AppTheme.success,
+                    ));
+                    _loadTools();
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('Error: $e'),
+                      backgroundColor: AppTheme.danger,
+                    ));
+                  }
+                }
+              },
+              child: const Text('Record Wheel Change'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return PdtScaffold(
@@ -266,6 +344,10 @@ class _ToolStatusScreenState extends ConsumerState<ToolStatusScreen> {
     final weight = (tool['current_weight_kg'] as num?)?.toDouble();
     final threshold = (tool['weight_conversion_threshold_kg'] as num?)?.toDouble();
     final isStaged = status == 'Staged';
+    final isGrindingWheel = toolType == 'Grinding Wheel';
+    final feedingSpeed = (tool['feeding_speed_mm_per_min'] as num?)?.toDouble();
+    final usedMinutes = (tool['cumulative_usage_minutes'] as num?)?.toDouble();
+    final lifeLimit = (tool['wheel_life_limit_minutes'] as num?)?.toDouble();
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -363,6 +445,56 @@ class _ToolStatusScreenState extends ConsumerState<ToolStatusScreen> {
                       ),
                       onPressed: () => _showUpdateWeightDialog(tool),
                       child: const Text('Update Weight'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            if (isGrindingWheel) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          feedingSpeed != null
+                              ? 'Feed: ${feedingSpeed.toStringAsFixed(0)} mm/min · '
+                                  '${(usedMinutes ?? 0).toStringAsFixed(0)}'
+                                  '${lifeLimit != null && lifeLimit > 0 ? ' / ${lifeLimit.toStringAsFixed(0)}' : ''} min'
+                              : 'No wheel change recorded yet',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        if (lifeLimit != null && lifeLimit > 0) ...[
+                          const SizedBox(height: 4),
+                          LinearProgressIndicator(
+                            value: ((usedMinutes ?? 0) / lifeLimit).clamp(0.0, 1.0),
+                            backgroundColor: AppTheme.bgBorder,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              (usedMinutes ?? 0) / lifeLimit > 0.9
+                                  ? AppTheme.danger
+                                  : (usedMinutes ?? 0) / lifeLimit > 0.7
+                                      ? AppTheme.warning
+                                      : AppTheme.success,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    height: 32,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        textStyle: const TextStyle(fontSize: 12),
+                      ),
+                      onPressed: () => _showChangeWheelDialog(tool),
+                      child: const Text('Change Wheel'),
                     ),
                   ),
                 ],

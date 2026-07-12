@@ -19,9 +19,14 @@ class ProcessingScreen extends ConsumerStatefulWidget {
   ConsumerState<ProcessingScreen> createState() => _ProcessingScreenState();
 }
 
+/// Steps where pieces are physically lost and must be recorded as scrap
+/// with a reason code — see line2_building.complete_step.
+const _scrapCapableSteps = {'CUTTING', 'RIB_GRINDING'};
+
 class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
   final _flowchartCtrl = TextEditingController();
   final _flowchartFocus = FocusNode();
+  final _scrapQtyCtrl = TextEditingController();
 
   bool _scanning = false;
   bool _completing = false;
@@ -34,6 +39,9 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
   List<String> _workstations = [];
   List<String> _assignedStations = [];
   String? _selectedWorkstation;
+
+  List<Map<String, dynamic>> _reasonCodes = [];
+  String? _selectedScrapReason;
 
   @override
   void initState() {
@@ -61,6 +69,7 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
           _measurements = fields;
           _timerStart = _timerStartFromScan(data);
         });
+        _loadReasonCodesIfNeeded(data);
       }
     });
   }
@@ -74,10 +83,27 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
   void dispose() {
     _flowchartCtrl.dispose();
     _flowchartFocus.dispose();
+    _scrapQtyCtrl.dispose();
     for (final m in _measurements) {
       m.dispose();
     }
     super.dispose();
+  }
+
+  bool get _isScrapCapableStep =>
+      _scrapCapableSteps.contains(_scanResult?['current_step']?.toString());
+
+  Future<void> _loadReasonCodesIfNeeded(Map<String, dynamic> scan) async {
+    if (!_scrapCapableSteps.contains(scan['current_step']?.toString())) return;
+    final productionType = scan['production_type']?.toString();
+    if (productionType == null || productionType.isEmpty) return;
+    try {
+      final codes = await ref.read(line2RepositoryProvider).getRejectionCodes(productionType);
+      if (mounted) setState(() => _reasonCodes = codes);
+    } catch (_) {
+      // Non-critical — scrap qty entry without a reason will be rejected
+      // server-side with a clear error rather than silently failing here.
+    }
   }
 
   Future<void> _loadWorkerStations() async {
@@ -134,7 +160,11 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
         _measurements = fields;
         _scanning = false;
         _timerStart = _timerStartFromScan(data);
+        _reasonCodes = [];
+        _selectedScrapReason = null;
+        _scrapQtyCtrl.clear();
       });
+      await _loadReasonCodesIfNeeded(data);
     } catch (e) {
       setState(() { _error = 'Scan failed: $e'; _scanning = false; });
     }
@@ -155,6 +185,13 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
       }
     }
 
+    final scrapQty = double.tryParse(_scrapQtyCtrl.text.trim());
+    if (scrapQty != null && scrapQty > 0 && _selectedScrapReason == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Select a reason code for the scrap'), backgroundColor: AppTheme.danger));
+      return;
+    }
+
     setState(() => _completing = true);
     try {
       final measurementData = _measurements
@@ -171,6 +208,8 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
       await ref.read(line2RepositoryProvider).completeStep(
         jobCard: _scanResult!['job_card']?.toString() ?? '',
         measurements: measurementData,
+        scrapQty: (scrapQty != null && scrapQty > 0) ? scrapQty : null,
+        scrapReasonCode: (scrapQty != null && scrapQty > 0) ? _selectedScrapReason : null,
       );
 
       if (mounted) {
@@ -196,23 +235,37 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
       _error = null;
       _timerStart = null;
       _flowchartCtrl.clear();
+      _reasonCodes = [];
+      _selectedScrapReason = null;
+      _scrapQtyCtrl.clear();
     });
   }
 
   Widget _buildStepContent() {
     final stepName = _scanResult?['step_name']?.toString() ?? _scanResult?['current_step']?.toString() ?? 'Processing';
+    final qty = _scanResult?['qty'];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Step badge
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: AppTheme.primaryLight.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Text(stepName,
-              style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.primary, fontSize: 13)),
+        Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryLight.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(stepName,
+                  style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.primary, fontSize: 13)),
+            ),
+            if (qty != null)
+              Text('Qty at this station: $qty',
+                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          ],
         ),
         const SizedBox(height: 16),
 
@@ -234,6 +287,42 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
                   ),
                 ),
               )),
+        ],
+
+        if (_isScrapCapableStep) ...[
+          const Text('SCRAP',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary, letterSpacing: 1.0)),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _scrapQtyCtrl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              labelText: 'Scrap Qty',
+              helperText: 'Pieces lost at this station, if any',
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 12),
+          if ((double.tryParse(_scrapQtyCtrl.text.trim()) ?? 0) > 0)
+            DropdownButtonFormField<String>(
+              value: _selectedScrapReason,
+              decoration: const InputDecoration(
+                labelText: 'Scrap Reason *',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              items: _reasonCodes
+                  .map((r) => DropdownMenuItem(
+                        value: '${r['code']}: ${r['description'] ?? ''}',
+                        child: Text('${r['code']} — ${r['description'] ?? ''}',
+                            overflow: TextOverflow.ellipsis),
+                      ))
+                  .toList(),
+              onChanged: (v) => setState(() => _selectedScrapReason = v),
+            ),
+          const SizedBox(height: 12),
         ],
       ],
     );

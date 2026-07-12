@@ -164,15 +164,23 @@ class _QcFinalScreenState extends ConsumerState<QcFinalScreen> {
         acceptedQty: _acceptedQty,
       );
 
-      // Complete WO
-      await ref.read(line2RepositoryProvider).completeWo(
+      // Hand the accepted quantity over to the warehouse. If some of this
+      // flowchart is still out for rework, this only moves what's been
+      // accepted so far — status comes back "Partially Handed Over" and
+      // this same action can be run again later once rework returns.
+      final completeResult = await ref.read(line2RepositoryProvider).completeWo(
         workOrder: woName,
         qty: _acceptedQty,
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Work order completed'), backgroundColor: AppTheme.success));
+        final status = completeResult['status']?.toString() ?? 'Completed';
+        final moved = completeResult['moved_qty'];
+        final message = status == 'Completed'
+            ? 'Work order completed'
+            : 'Handed over $moved to warehouse — rest still in rework';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(message), backgroundColor: AppTheme.success));
         _resetForm();
       }
     } catch (e) {

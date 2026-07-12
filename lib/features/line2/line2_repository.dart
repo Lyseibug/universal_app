@@ -71,11 +71,15 @@ class Line2Repository {
     required String jobCard,
     List<Map<String, dynamic>>? measurements,
     String? remarks,
+    double? scrapQty,
+    String? scrapReasonCode,
   }) async {
     final result = await _writeQueue.run('line2.complete_step', {
       'job_card': jobCard,
       if (measurements != null) 'measurements': measurements,
       if (remarks != null) 'remarks': remarks,
+      if (scrapQty != null && scrapQty > 0) 'scrap_qty': scrapQty,
+      if (scrapReasonCode != null) 'scrap_reason_code': scrapReasonCode,
     });
     return Map<String, dynamic>.from(result);
   }
@@ -117,6 +121,17 @@ class Line2Repository {
     final result = await _writeQueue.run('line2.update_airbag_weight', {
       'tool_id': toolId,
       'weight_kg': weightKg,
+    });
+    return Map<String, dynamic>.from(result);
+  }
+
+  Future<Map<String, dynamic>> changeGrindingWheel({
+    required String toolId,
+    required double feedingSpeed,
+  }) async {
+    final result = await _writeQueue.run('line2.change_grinding_wheel', {
+      'tool_id': toolId,
+      'feeding_speed': feedingSpeed,
     });
     return Map<String, dynamic>.from(result);
   }
@@ -191,10 +206,12 @@ class Line2Repository {
   }
 
   Future<Map<String, dynamic>> submitMeasurement({
+    required String workOrder,
     required String jobCard,
     required List<Map<String, dynamic>> measurements,
   }) async {
     final result = await _writeQueue.run('line2_qc.submit_measurement', {
+      'work_order': workOrder,
       'job_card': jobCard,
       'measurements': measurements,
     });
@@ -253,44 +270,80 @@ class Line2Repository {
     return const [];
   }
 
+  // ── Dispatch receiving ──────────────────────────────────────────────────
+
+  /// Warehouse scans a finished flowchart and records how much was actually
+  /// received vs. what QC accepted (line2_packing.receive_flowchart).
+  Future<Map<String, dynamic>> receiveFlowchart({
+    required String barcode,
+    required double receivedQty,
+  }) async {
+    final result = await _writeQueue.run('packing.receive_flowchart', {
+      'barcode': barcode,
+      'received_qty': receivedQty,
+    });
+    return Map<String, dynamic>.from(result);
+  }
+
+  /// Items received at the warehouse for a Sales Order that still need
+  /// packing into a box/pallet (line2_packing.get_dispatch_pick_list).
+  Future<List<Map<String, dynamic>>> getDispatchPickList(String salesOrder) async {
+    final data = await _api.call('packing.get_dispatch_pick_list',
+        body: {'sales_order': salesOrder});
+    final items = (data is Map) ? data['items'] : null;
+    if (items is List) {
+      return items.map((j) => Map<String, dynamic>.from(j)).toList();
+    }
+    return const [];
+  }
+
   // ── Packing ─────────────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> createBox({
-    String? salesOrder,
+    required String salesOrder,
   }) async {
     final result = await _writeQueue.run('packing.create_box', {
-      if (salesOrder != null) 'sales_order': salesOrder,
+      'sales_order': salesOrder,
     });
     return Map<String, dynamic>.from(result);
   }
 
+  /// itemBarcode is a Batch barcode (Batch.name doubles as the scannable
+  /// code throughout this system) — the server resolves it to an item_code
+  /// via packing.add_to_box's caller in the mobile API layer.
   Future<Map<String, dynamic>> addToBox({
     required String boxBarcode,
     required String itemBarcode,
-    double? qty,
+    required double qty,
   }) async {
     final result = await _writeQueue.run('packing.add_to_box', {
       'box_barcode': boxBarcode,
-      'item_barcode': itemBarcode,
-      if (qty != null) 'qty': qty,
+      'batch_barcode': itemBarcode,
+      'qty': qty,
     });
     return Map<String, dynamic>.from(result);
   }
 
-  Future<Map<String, dynamic>> sealBox(String boxBarcode) async {
+  Future<Map<String, dynamic>> sealBox(
+    String boxBarcode, {
+    double? netWeight,
+    double? grossWeight,
+  }) async {
     final result = await _writeQueue.run('packing.seal_box', {
       'box_barcode': boxBarcode,
+      if (netWeight != null) 'net_weight': netWeight,
+      if (grossWeight != null) 'gross_weight': grossWeight,
     });
     return Map<String, dynamic>.from(result);
   }
 
   Future<Map<String, dynamic>> createPallet({
-    String? palletType,
-    String? salesOrder,
+    required String salesOrder,
+    String palletType = 'Belt',
   }) async {
     final result = await _writeQueue.run('packing.create_pallet', {
-      if (palletType != null) 'pallet_type': palletType,
-      if (salesOrder != null) 'sales_order': salesOrder,
+      'sales_order': salesOrder,
+      'pallet_type': palletType,
     });
     return Map<String, dynamic>.from(result);
   }
@@ -306,22 +359,30 @@ class Line2Repository {
     return Map<String, dynamic>.from(result);
   }
 
+  /// Direct sleeve-onto-pallet packing (pallet_type == "Sleeve" only).
+  /// itemBarcode is a Batch barcode, same as addToBox.
   Future<Map<String, dynamic>> addItemToPallet({
     required String palletBarcode,
     required String itemBarcode,
-    double? qty,
+    required double qty,
   }) async {
     final result = await _writeQueue.run('packing.add_item_to_pallet', {
       'pallet_barcode': palletBarcode,
-      'item_barcode': itemBarcode,
-      if (qty != null) 'qty': qty,
+      'batch_barcode': itemBarcode,
+      'qty': qty,
     });
     return Map<String, dynamic>.from(result);
   }
 
-  Future<Map<String, dynamic>> sealPallet(String palletBarcode) async {
+  Future<Map<String, dynamic>> sealPallet(
+    String palletBarcode, {
+    double? netWeight,
+    double? grossWeight,
+  }) async {
     final result = await _writeQueue.run('packing.seal_pallet', {
       'pallet_barcode': palletBarcode,
+      if (netWeight != null) 'net_weight': netWeight,
+      if (grossWeight != null) 'gross_weight': grossWeight,
     });
     return Map<String, dynamic>.from(result);
   }

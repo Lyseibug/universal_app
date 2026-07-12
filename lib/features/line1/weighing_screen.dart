@@ -22,6 +22,11 @@ class _WeighingScreenState extends ConsumerState<WeighingScreen> {
   List<StockItem> _outsideStock = [];
   List<StockItem> _insideStock = [];
 
+  // Operator must pick a Work Order before anything can be scanned — every
+  // scan afterwards is validated server-side against its BOM.
+  List<WorkOrderSummary> _workOrders = [];
+  WorkOrderSummary? _selectedWorkOrder;
+
   StockItem? _scannedItem;
   String? _boxBarcode;
   bool _submitting = false;
@@ -48,13 +53,13 @@ class _WeighingScreenState extends ConsumerState<WeighingScreen> {
     setState(() { _loading = true; _error = null; });
     try {
       final repo = ref.read(line1RepositoryProvider);
-      final results = await Future.wait([
-        repo.listWeighingOutsideStock(),
-        repo.listBoxes(),
-      ]);
+      final outsideStock = await repo.listWeighingOutsideStock();
+      final insideStock = await repo.listBoxes();
+      final workOrders = await repo.listWeighingWorkOrders();
       setState(() {
-        _outsideStock = results[0];
-        _insideStock = results[1];
+        _outsideStock = outsideStock;
+        _insideStock = insideStock;
+        _workOrders = workOrders;
         _loading = false;
       });
     } catch (e) {
@@ -103,7 +108,7 @@ class _WeighingScreenState extends ConsumerState<WeighingScreen> {
   }
 
   Future<void> _confirmAndLoad() async {
-    if (!_validateQty()) return;
+    if (_selectedWorkOrder == null || !_validateQty()) return;
     final qty = double.parse(_qtyCtrl.text.trim());
     final item = _scannedItem!;
 
@@ -126,6 +131,7 @@ class _WeighingScreenState extends ConsumerState<WeighingScreen> {
         boxBarcode: _boxBarcode!,
         itemCode: item.itemCode,
         qty: qty,
+        workOrder: _selectedWorkOrder!.name,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -164,31 +170,95 @@ class _WeighingScreenState extends ConsumerState<WeighingScreen> {
                     ElevatedButton(onPressed: _loadData, child: const Text('Retry')),
                   ],
                 ))
-              : RefreshIndicator(
-                  onRefresh: _loadData,
-                  child: ListView(
-                    padding: const EdgeInsets.all(16),
-                    children: [
-                      ScanInputField(
-                        controller: _scanCtrl,
-                        focusNode: _scanFocus,
-                        labelText: 'Scan Box Barcode',
-                        hintText: 'Scan barcode on weighing box',
-                        prefixIcon: Icons.inventory_2,
-                        onScanned: _onScanned,
-                        onSubmitted: _onScanned,
-                        autofocus: true,
+              : _selectedWorkOrder == null
+                  ? _buildWorkOrderPicker()
+                  : RefreshIndicator(
+                      onRefresh: _loadData,
+                      child: ListView(
+                        padding: const EdgeInsets.all(16),
+                        children: [
+                          _buildSelectedWorkOrderCard(),
+                          const SizedBox(height: 12),
+                          ScanInputField(
+                            controller: _scanCtrl,
+                            focusNode: _scanFocus,
+                            labelText: 'Scan Box Barcode',
+                            hintText: 'Scan barcode on weighing box',
+                            prefixIcon: Icons.inventory_2,
+                            onScanned: _onScanned,
+                            onSubmitted: _onScanned,
+                            autofocus: true,
+                          ),
+                          const SizedBox(height: 16),
+                          if (_scannedItem != null) _buildLoadCard(),
+                          if (_scannedItem == null) ...[
+                            _buildStockSection('Outside Weighing — Ready to Load', _outsideStock),
+                            const SizedBox(height: 24),
+                            _buildStockSection('Inside Weighing Machine', _insideStock),
+                          ],
+                        ],
                       ),
-                      const SizedBox(height: 16),
-                      if (_scannedItem != null) _buildLoadCard(),
-                      if (_scannedItem == null) ...[
-                        _buildStockSection('Outside Weighing — Ready to Load', _outsideStock),
-                        const SizedBox(height: 24),
-                        _buildStockSection('Inside Weighing Machine', _insideStock),
-                      ],
-                    ],
+                    ),
+    );
+  }
+
+  Widget _buildWorkOrderPicker() {
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Text('Select a Work Order', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 4),
+          const Text(
+            'Pick which Work Order you are weighing chemicals for. '
+            'Only items on its BOM can be loaded.',
+            style: TextStyle(color: Colors.grey),
+          ),
+          const SizedBox(height: 12),
+          if (_workOrders.isEmpty)
+            const Card(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('No open Work Orders for Chemical Weighing'),
+              ),
+            )
+          else
+            ..._workOrders.map((wo) => Card(
+                  child: ListTile(
+                    title: Text(wo.itemName ?? wo.productionItem,
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text('${wo.name} · Qty ${wo.qty}'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => setState(() => _selectedWorkOrder = wo),
                   ),
-                ),
+                )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelectedWorkOrderCard() {
+    final wo = _selectedWorkOrder!;
+    return Card(
+      color: AppTheme.primary.withValues(alpha: 0.05),
+      child: ListTile(
+        dense: true,
+        leading: const Icon(Icons.assignment, color: AppTheme.primary),
+        title: Text(wo.itemName ?? wo.productionItem,
+            style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text(wo.name),
+        trailing: TextButton(
+          onPressed: () => setState(() {
+            _selectedWorkOrder = null;
+            _scannedItem = null;
+            _boxBarcode = null;
+            _scanCtrl.clear();
+            _qtyCtrl.clear();
+          }),
+          child: const Text('Change'),
+        ),
+      ),
     );
   }
 

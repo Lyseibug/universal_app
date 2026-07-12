@@ -20,38 +20,125 @@ class _PackingScreenState extends ConsumerState<PackingScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabCtrl;
 
+  // ── Receive tab state ──
+  final _receiveScanCtrl = TextEditingController();
+  final _receiveScanFocus = FocusNode();
+  final _receiveQtyCtrl = TextEditingController(text: '1');
+  bool _receiving = false;
+  Map<String, dynamic>? _lastReceived;
+
   // ── Box tab state ──
   final _boxSoCtrl = TextEditingController();
   final _boxScanCtrl = TextEditingController();
   final _boxScanFocus = FocusNode();
+  final _boxQtyCtrl = TextEditingController(text: '1');
+  final _boxNetWeightCtrl = TextEditingController();
+  final _boxGrossWeightCtrl = TextEditingController();
   bool _creatingBox = false;
   bool _sealingBox = false;
   String? _activeBoxId;
+  String? _activeBoxSo;
   List<Map<String, dynamic>> _boxItems = [];
+  List<Map<String, dynamic>> _boxPickList = [];
 
   // ── Pallet tab state ──
+  final _palletSoCtrl = TextEditingController();
   final _palletScanCtrl = TextEditingController();
   final _palletScanFocus = FocusNode();
+  final _palletQtyCtrl = TextEditingController(text: '1');
+  final _palletNetWeightCtrl = TextEditingController();
+  final _palletGrossWeightCtrl = TextEditingController();
+  String _palletType = 'Belt';
   bool _creatingPallet = false;
   bool _sealingPallet = false;
   String? _activePalletId;
-  List<Map<String, dynamic>> _palletBoxes = [];
+  String? _activePalletSo;
+  String? _activePalletType;
+  List<Map<String, dynamic>> _palletContents = [];
+  List<Map<String, dynamic>> _palletPickList = [];
 
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 2, vsync: this);
+    _tabCtrl = TabController(length: 3, vsync: this);
   }
 
   @override
   void dispose() {
     _tabCtrl.dispose();
+    _receiveScanCtrl.dispose();
+    _receiveScanFocus.dispose();
+    _receiveQtyCtrl.dispose();
     _boxSoCtrl.dispose();
     _boxScanCtrl.dispose();
     _boxScanFocus.dispose();
+    _boxQtyCtrl.dispose();
+    _boxNetWeightCtrl.dispose();
+    _boxGrossWeightCtrl.dispose();
+    _palletSoCtrl.dispose();
     _palletScanCtrl.dispose();
     _palletScanFocus.dispose();
+    _palletQtyCtrl.dispose();
+    _palletNetWeightCtrl.dispose();
+    _palletGrossWeightCtrl.dispose();
     super.dispose();
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(message),
+      backgroundColor: AppTheme.danger,
+    ));
+  }
+
+  void _showSuccess(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(message),
+      backgroundColor: AppTheme.success,
+    ));
+  }
+
+  double? _parseWeight(String text) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return null;
+    return double.tryParse(trimmed);
+  }
+
+  // ── Receive actions ──
+
+  Future<void> _receiveFlowchart(String barcode) async {
+    final trimmed = barcode.trim();
+    if (trimmed.isEmpty) return;
+    final qty = double.tryParse(_receiveQtyCtrl.text.trim());
+    if (qty == null || qty <= 0) {
+      _showError('Enter a received quantity greater than 0');
+      return;
+    }
+
+    setState(() => _receiving = true);
+    try {
+      final result = await ref.read(line2RepositoryProvider).receiveFlowchart(
+            barcode: trimmed,
+            receivedQty: qty,
+          );
+      setState(() {
+        _lastReceived = result;
+        _receiving = false;
+      });
+      _receiveScanCtrl.clear();
+      final status = result['dispatch_status']?.toString() ?? '';
+      if (status == 'Not Completed') {
+        _showError(
+            'Received ${result['total_received_qty']} of ${result['qc_accepted_qty']} — ${result['shortfall_qty']} short, flowchart Not Completed');
+      } else {
+        _showSuccess('Flowchart fully received');
+      }
+    } catch (e) {
+      setState(() => _receiving = false);
+      _showError('Receive error: $e');
+    }
   }
 
   // ── Box actions ──
@@ -59,60 +146,56 @@ class _PackingScreenState extends ConsumerState<PackingScreen>
   Future<void> _createBox() async {
     final so = _boxSoCtrl.text.trim();
     if (so.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Enter a Sales Order'),
-        backgroundColor: AppTheme.danger,
-      ));
+      _showError('Enter a Sales Order');
       return;
     }
 
     setState(() => _creatingBox = true);
     try {
-      final result = await ref.read(line2RepositoryProvider).createBox(salesOrder: so);
-      final data = result;
+      final data = await ref.read(line2RepositoryProvider).createBox(salesOrder: so);
       setState(() {
-        _activeBoxId = data['box_id']?.toString();
+        _activeBoxId = data['box_barcode']?.toString();
+        _activeBoxSo = so;
         _boxItems = [];
         _creatingBox = false;
       });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Box ${_activeBoxId} created'),
-          backgroundColor: AppTheme.success,
-        ));
-      }
+      await _refreshBoxPickList();
+      _showSuccess('Box $_activeBoxId created');
     } catch (e) {
       setState(() => _creatingBox = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: AppTheme.danger,
-        ));
-      }
+      _showError('Error: $e');
+    }
+  }
+
+  Future<void> _refreshBoxPickList() async {
+    if (_activeBoxSo == null) return;
+    try {
+      final items = await ref.read(line2RepositoryProvider).getDispatchPickList(_activeBoxSo!);
+      if (mounted) setState(() => _boxPickList = items);
+    } catch (_) {
+      // Non-critical — the pick list is a convenience view, not a gate.
     }
   }
 
   Future<void> _onBoxItemScanned(String barcode) async {
     final trimmed = barcode.trim();
     if (trimmed.isEmpty || _activeBoxId == null) return;
+    final qty = double.tryParse(_boxQtyCtrl.text.trim());
+    if (qty == null || qty <= 0) {
+      _showError('Enter a quantity greater than 0');
+      return;
+    }
 
     try {
-      final result = await ref.read(line2RepositoryProvider).addToBox(
+      final data = await ref.read(line2RepositoryProvider).addToBox(
             boxBarcode: _activeBoxId!,
             itemBarcode: trimmed,
+            qty: qty,
           );
-      final data = result;
-      setState(() {
-        _boxItems.add(data);
-      });
+      setState(() => _boxItems.add(data));
       _boxScanCtrl.clear();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Scan error: $e'),
-          backgroundColor: AppTheme.danger,
-        ));
-      }
+      _showError('Scan error: $e');
     }
   }
 
@@ -120,25 +203,23 @@ class _PackingScreenState extends ConsumerState<PackingScreen>
     if (_activeBoxId == null) return;
     setState(() => _sealingBox = true);
     try {
-      await ref.read(line2RepositoryProvider).sealBox(_activeBoxId!);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Box $_activeBoxId sealed'),
-          backgroundColor: AppTheme.success,
-        ));
-        setState(() {
-          _activeBoxId = null;
-          _boxItems = [];
-          _boxSoCtrl.clear();
-        });
-      }
+      await ref.read(line2RepositoryProvider).sealBox(
+            _activeBoxId!,
+            netWeight: _parseWeight(_boxNetWeightCtrl.text),
+            grossWeight: _parseWeight(_boxGrossWeightCtrl.text),
+          );
+      _showSuccess('Box $_activeBoxId sealed');
+      setState(() {
+        _activeBoxId = null;
+        _activeBoxSo = null;
+        _boxItems = [];
+        _boxPickList = [];
+        _boxSoCtrl.clear();
+        _boxNetWeightCtrl.clear();
+        _boxGrossWeightCtrl.clear();
+      });
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: AppTheme.danger,
-        ));
-      }
+      _showError('Error: $e');
     } finally {
       if (mounted) setState(() => _sealingBox = false);
     }
@@ -150,48 +231,49 @@ class _PackingScreenState extends ConsumerState<PackingScreen>
       await ref
           .read(line2RepositoryProvider)
           .printLabel(barcode: _activeBoxId!, labelType: 'Box');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Box label sent to printer'),
-          backgroundColor: AppTheme.success,
-        ));
-      }
+      _showSuccess('Box label sent to printer');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Print error: $e'),
-          backgroundColor: AppTheme.danger,
-        ));
-      }
+      _showError('Print error: $e');
     }
   }
 
   // ── Pallet actions ──
 
   Future<void> _createPallet() async {
+    final so = _palletSoCtrl.text.trim();
+    if (so.isEmpty) {
+      _showError('Enter a Sales Order');
+      return;
+    }
+
     setState(() => _creatingPallet = true);
     try {
-      final result = await ref.read(line2RepositoryProvider).createPallet();
-      final data = result;
+      final data = await ref.read(line2RepositoryProvider).createPallet(
+            salesOrder: so,
+            palletType: _palletType,
+          );
       setState(() {
-        _activePalletId = data['pallet_id']?.toString();
-        _palletBoxes = [];
+        _activePalletId = data['pallet_barcode']?.toString();
+        _activePalletSo = so;
+        _activePalletType = data['pallet_type']?.toString() ?? _palletType;
+        _palletContents = [];
         _creatingPallet = false;
       });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Pallet ${_activePalletId} created'),
-          backgroundColor: AppTheme.success,
-        ));
-      }
+      await _refreshPalletPickList();
+      _showSuccess('Pallet $_activePalletId created');
     } catch (e) {
       setState(() => _creatingPallet = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: AppTheme.danger,
-        ));
-      }
+      _showError('Error: $e');
+    }
+  }
+
+  Future<void> _refreshPalletPickList() async {
+    if (_activePalletSo == null) return;
+    try {
+      final items = await ref.read(line2RepositoryProvider).getDispatchPickList(_activePalletSo!);
+      if (mounted) setState(() => _palletPickList = items);
+    } catch (_) {
+      // Non-critical — the pick list is a convenience view, not a gate.
     }
   }
 
@@ -200,22 +282,36 @@ class _PackingScreenState extends ConsumerState<PackingScreen>
     if (trimmed.isEmpty || _activePalletId == null) return;
 
     try {
-      final result = await ref.read(line2RepositoryProvider).addBoxToPallet(
+      final data = await ref.read(line2RepositoryProvider).addBoxToPallet(
             palletBarcode: _activePalletId!,
             boxBarcode: trimmed,
           );
-      final data = result;
-      setState(() {
-        _palletBoxes.add(data);
-      });
+      setState(() => _palletContents.add(data));
       _palletScanCtrl.clear();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Scan error: $e'),
-          backgroundColor: AppTheme.danger,
-        ));
-      }
+      _showError('Scan error: $e');
+    }
+  }
+
+  Future<void> _onPalletItemScanned(String barcode) async {
+    final trimmed = barcode.trim();
+    if (trimmed.isEmpty || _activePalletId == null) return;
+    final qty = double.tryParse(_palletQtyCtrl.text.trim());
+    if (qty == null || qty <= 0) {
+      _showError('Enter a quantity greater than 0');
+      return;
+    }
+
+    try {
+      final data = await ref.read(line2RepositoryProvider).addItemToPallet(
+            palletBarcode: _activePalletId!,
+            itemBarcode: trimmed,
+            qty: qty,
+          );
+      setState(() => _palletContents.add(data));
+      _palletScanCtrl.clear();
+    } catch (e) {
+      _showError('Scan error: $e');
     }
   }
 
@@ -223,26 +319,24 @@ class _PackingScreenState extends ConsumerState<PackingScreen>
     if (_activePalletId == null) return;
     setState(() => _sealingPallet = true);
     try {
-      await ref
-          .read(line2RepositoryProvider)
-          .sealPallet(_activePalletId!);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Pallet $_activePalletId sealed'),
-          backgroundColor: AppTheme.success,
-        ));
-        setState(() {
-          _activePalletId = null;
-          _palletBoxes = [];
-        });
-      }
+      await ref.read(line2RepositoryProvider).sealPallet(
+            _activePalletId!,
+            netWeight: _parseWeight(_palletNetWeightCtrl.text),
+            grossWeight: _parseWeight(_palletGrossWeightCtrl.text),
+          );
+      _showSuccess('Pallet $_activePalletId sealed');
+      setState(() {
+        _activePalletId = null;
+        _activePalletSo = null;
+        _activePalletType = null;
+        _palletContents = [];
+        _palletPickList = [];
+        _palletSoCtrl.clear();
+        _palletNetWeightCtrl.clear();
+        _palletGrossWeightCtrl.clear();
+      });
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: AppTheme.danger,
-        ));
-      }
+      _showError('Error: $e');
     } finally {
       if (mounted) setState(() => _sealingPallet = false);
     }
@@ -254,19 +348,9 @@ class _PackingScreenState extends ConsumerState<PackingScreen>
       await ref
           .read(line2RepositoryProvider)
           .printLabel(barcode: _activePalletId!, labelType: 'Pallet');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Pallet label sent to printer'),
-          backgroundColor: AppTheme.success,
-        ));
-      }
+      _showSuccess('Pallet label sent to printer');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Print error: $e'),
-          backgroundColor: AppTheme.danger,
-        ));
-      }
+      _showError('Print error: $e');
     }
   }
 
@@ -280,6 +364,7 @@ class _PackingScreenState extends ConsumerState<PackingScreen>
             controller: _tabCtrl,
             labelColor: AppTheme.primary,
             tabs: const [
+              Tab(text: 'Receive'),
               Tab(text: 'Boxes'),
               Tab(text: 'Pallets'),
             ],
@@ -288,6 +373,7 @@ class _PackingScreenState extends ConsumerState<PackingScreen>
             child: TabBarView(
               controller: _tabCtrl,
               children: [
+                _buildReceiveTab(),
                 _buildBoxTab(),
                 _buildPalletTab(),
               ],
@@ -298,12 +384,110 @@ class _PackingScreenState extends ConsumerState<PackingScreen>
     );
   }
 
+  Widget _buildPickListPanel(List<Map<String, dynamic>> items, VoidCallback onRefresh) {
+    return Card(
+      child: ExpansionTile(
+        leading: const Icon(Icons.checklist_outlined),
+        title: Text('Ready to Pack (${items.length})',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+        subtitle: const Text('Received at warehouse, not yet packed',
+            style: TextStyle(fontSize: 11)),
+        children: [
+          if (items.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(12),
+              child: Text('Nothing outstanding for this Sales Order',
+                  style: TextStyle(color: Colors.grey)),
+            )
+          else
+            ...items.map((it) => ListTile(
+                  dense: true,
+                  title: Text(it['item_name']?.toString() ?? it['item_code']?.toString() ?? ''),
+                  trailing: Text('${it['remaining_to_pack_qty']}',
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                )),
+          TextButton.icon(
+            onPressed: onRefresh,
+            icon: const Icon(Icons.refresh, size: 16),
+            label: const Text('Refresh'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReceiveTab() {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        const Text(
+          'Scan a finished flowchart barcode and enter how many were physically received.',
+          style: TextStyle(color: Colors.grey, fontSize: 12),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _receiveQtyCtrl,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(
+            labelText: 'Received Qty',
+            border: OutlineInputBorder(),
+            isDense: true,
+          ),
+        ),
+        const SizedBox(height: 12),
+        ScanInputField(
+          controller: _receiveScanCtrl,
+          focusNode: _receiveScanFocus,
+          labelText: 'Scan Flowchart',
+          hintText: 'Scan flowchart barcode',
+          onScanned: _receiving ? null : _receiveFlowchart,
+          onSubmitted: _receiving ? null : _receiveFlowchart,
+          autofocus: true,
+        ),
+        const SizedBox(height: 16),
+        if (_lastReceived != null) _buildReceiveResultCard(_lastReceived!),
+      ],
+    );
+  }
+
+  Widget _buildReceiveResultCard(Map<String, dynamic> result) {
+    final status = result['dispatch_status']?.toString() ?? '';
+    final isComplete = status == 'Received';
+    return Card(
+      color: (isComplete ? AppTheme.success : AppTheme.danger).withValues(alpha: 0.1),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(isComplete ? Icons.check_circle : Icons.warning,
+                    color: isComplete ? AppTheme.success : AppTheme.danger),
+                const SizedBox(width: 8),
+                Text(status,
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: isComplete ? AppTheme.success : AppTheme.danger)),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text('Work Order: ${result['work_order']}'),
+            Text('QC Accepted: ${result['qc_accepted_qty']}'),
+            Text('Total Received: ${result['total_received_qty']}'),
+            if (!isComplete) Text('Shortfall: ${result['shortfall_qty']}',
+                style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.danger)),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildBoxTab() {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         if (_activeBoxId == null) ...[
-          // Create box form
           TextField(
             controller: _boxSoCtrl,
             decoration: const InputDecoration(
@@ -323,7 +507,6 @@ class _PackingScreenState extends ConsumerState<PackingScreen>
             onPressed: _creatingBox ? null : _createBox,
           ),
         ] else ...[
-          // Active box
           Card(
             color: AppTheme.primaryLight.withValues(alpha: 0.1),
             child: Padding(
@@ -337,9 +520,8 @@ class _PackingScreenState extends ConsumerState<PackingScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('Box: $_activeBoxId',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 16)),
-                        Text('${_boxItems.length} items scanned'),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        Text('SO: $_activeBoxSo · ${_boxItems.length} items scanned'),
                       ],
                     ),
                   ),
@@ -353,40 +535,85 @@ class _PackingScreenState extends ConsumerState<PackingScreen>
             ),
           ),
           const SizedBox(height: 12),
+          _buildPickListPanel(_boxPickList, _refreshBoxPickList),
+          const SizedBox(height: 12),
 
-          // Scan items into box
-          ScanInputField(
-            controller: _boxScanCtrl,
-            focusNode: _boxScanFocus,
-            labelText: 'Scan Item into Box',
-            hintText: 'Scan item barcode',
-            onScanned: _onBoxItemScanned,
-            onSubmitted: _onBoxItemScanned,
-            autofocus: true,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 2,
+                child: ScanInputField(
+                  controller: _boxScanCtrl,
+                  focusNode: _boxScanFocus,
+                  labelText: 'Scan Batch into Box',
+                  hintText: 'Scan batch barcode',
+                  onScanned: _onBoxItemScanned,
+                  onSubmitted: _onBoxItemScanned,
+                  autofocus: true,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: _boxQtyCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Qty',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
 
-          // Items list
           if (_boxItems.isNotEmpty) ...[
-            Text('Items (${_boxItems.length})',
-                style: Theme.of(context).textTheme.titleSmall),
+            Text('Items (${_boxItems.length})', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 4),
             ..._boxItems.map((item) => Card(
                   child: ListTile(
                     dense: true,
                     title: Text(
-                        item['item_name']?.toString() ??
-                            item['item_code']?.toString() ?? '',
+                        item['item_name']?.toString() ?? item['item_code']?.toString() ?? '',
                         style: const TextStyle(fontWeight: FontWeight.w500)),
-                    trailing: Text(
-                        'Qty: ${item['qty'] ?? 1}',
+                    trailing: Text('Qty: ${item['qty'] ?? 1}',
                         style: const TextStyle(fontWeight: FontWeight.w600)),
                   ),
                 )),
             const SizedBox(height: 12),
           ],
 
-          // Seal box
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _boxNetWeightCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Net Weight (Kg)',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: _boxGrossWeightCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Gross Weight (Kg)',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
           CustomButton(
             text: _sealingBox ? 'Sealing...' : 'Seal Box',
             icon: Icons.lock,
@@ -405,6 +632,25 @@ class _PackingScreenState extends ConsumerState<PackingScreen>
       padding: const EdgeInsets.all(16),
       children: [
         if (_activePalletId == null) ...[
+          TextField(
+            controller: _palletSoCtrl,
+            decoration: const InputDecoration(
+              labelText: 'Sales Order',
+              hintText: 'Enter SO number',
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'Belt', label: Text('Belt (boxes)'), icon: Icon(Icons.inventory_2)),
+              ButtonSegment(value: 'Sleeve', label: Text('Sleeve (direct)'), icon: Icon(Icons.layers)),
+            ],
+            selected: {_palletType},
+            onSelectionChanged: (s) => setState(() => _palletType = s.first),
+          ),
+          const SizedBox(height: 12),
           CustomButton(
             text: _creatingPallet ? 'Creating...' : 'Create Pallet',
             icon: Icons.pallet,
@@ -414,7 +660,6 @@ class _PackingScreenState extends ConsumerState<PackingScreen>
             onPressed: _creatingPallet ? null : _createPallet,
           ),
         ] else ...[
-          // Active pallet
           Card(
             color: AppTheme.primaryLight.withValues(alpha: 0.1),
             child: Padding(
@@ -427,10 +672,9 @@ class _PackingScreenState extends ConsumerState<PackingScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Pallet: $_activePalletId',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 16)),
-                        Text('${_palletBoxes.length} boxes loaded'),
+                        Text('Pallet: $_activePalletId (${_activePalletType})',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        Text('SO: $_activePalletSo · ${_palletContents.length} loaded'),
                       ],
                     ),
                   ),
@@ -444,47 +688,107 @@ class _PackingScreenState extends ConsumerState<PackingScreen>
             ),
           ),
           const SizedBox(height: 12),
-
-          // Scan boxes onto pallet
-          ScanInputField(
-            controller: _palletScanCtrl,
-            focusNode: _palletScanFocus,
-            labelText: 'Scan Box onto Pallet',
-            hintText: 'Scan box barcode',
-            onScanned: _onPalletBoxScanned,
-            onSubmitted: _onPalletBoxScanned,
-            autofocus: true,
-          ),
+          _buildPickListPanel(_palletPickList, _refreshPalletPickList),
           const SizedBox(height: 12),
 
-          // Boxes list
-          if (_palletBoxes.isNotEmpty) ...[
-            Text('Boxes (${_palletBoxes.length})',
-                style: Theme.of(context).textTheme.titleSmall),
+          if (_activePalletType == 'Sleeve') ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: ScanInputField(
+                    controller: _palletScanCtrl,
+                    focusNode: _palletScanFocus,
+                    labelText: 'Scan Sleeve Batch onto Pallet',
+                    hintText: 'Scan batch barcode',
+                    onScanned: _onPalletItemScanned,
+                    onSubmitted: _onPalletItemScanned,
+                    autofocus: true,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _palletQtyCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Qty',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ] else
+            ScanInputField(
+              controller: _palletScanCtrl,
+              focusNode: _palletScanFocus,
+              labelText: 'Scan Box onto Pallet',
+              hintText: 'Scan box barcode',
+              onScanned: _onPalletBoxScanned,
+              onSubmitted: _onPalletBoxScanned,
+              autofocus: true,
+            ),
+          const SizedBox(height: 12),
+
+          if (_palletContents.isNotEmpty) ...[
+            Text('Loaded (${_palletContents.length})', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 4),
-            ..._palletBoxes.map((box) => Card(
+            ..._palletContents.map((row) => Card(
                   child: ListTile(
                     dense: true,
                     title: Text(
-                        box['box_id']?.toString() ?? '',
+                        row['box_barcode']?.toString() ??
+                            row['item_name']?.toString() ??
+                            row['item_code']?.toString() ??
+                            '',
                         style: const TextStyle(fontWeight: FontWeight.w500)),
                     trailing: Text(
-                        'Items: ${box['item_count'] ?? 0}',
+                        row.containsKey('qty') ? 'Qty: ${row['qty']}' : 'Boxes: ${row['total_boxes'] ?? 0}',
                         style: const TextStyle(fontWeight: FontWeight.w600)),
                   ),
                 )),
             const SizedBox(height: 12),
           ],
 
-          // Seal pallet
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _palletNetWeightCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Net Weight (Kg)',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: _palletGrossWeightCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Gross Weight (Kg)',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
           CustomButton(
             text: _sealingPallet ? 'Sealing...' : 'Seal Pallet',
             icon: Icons.lock,
             isLoading: _sealingPallet,
             backgroundColor: AppTheme.success,
             textColor: Colors.white,
-            onPressed:
-                _sealingPallet || _palletBoxes.isEmpty ? null : _sealPallet,
+            onPressed: _sealingPallet || _palletContents.isEmpty ? null : _sealPallet,
           ),
         ],
       ],

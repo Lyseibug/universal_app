@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/menu/menu_models.dart';
+import '../../core/models/line1_models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../widgets/pdt_scaffold.dart';
 import '../../widgets/scan_input_field.dart';
@@ -25,6 +26,11 @@ class _MixerLoadingScreenState extends ConsumerState<MixerLoadingScreen> {
   String? _error;
   List<Map<String, dynamic>> _stageable = [];
   List<Map<String, dynamic>> _wip = [];
+
+  // Operator must pick a Work Order before anything can be scanned — every
+  // scan afterwards is validated server-side against its BOM.
+  List<WorkOrderSummary> _workOrders = [];
+  WorkOrderSummary? _selectedWorkOrder;
 
   // Scan → resolve → load flow
   Map<String, dynamic>? _resolvedEntry;
@@ -53,13 +59,13 @@ class _MixerLoadingScreenState extends ConsumerState<MixerLoadingScreen> {
     setState(() { _loading = true; _error = null; });
     try {
       final repo = ref.read(line1RepositoryProvider);
-      final results = await Future.wait([
-        repo.listMixerStageable(),
-        repo.listMixerWip(),
-      ]);
+      final stageable = await repo.listMixerStageable();
+      final wip = await repo.listMixerWip();
+      final workOrders = await repo.listMixerWorkOrders();
       setState(() {
-        _stageable = results[0];
-        _wip = results[1];
+        _stageable = stageable;
+        _wip = wip;
+        _workOrders = workOrders;
         _loading = false;
       });
     } catch (e) {
@@ -135,7 +141,7 @@ class _MixerLoadingScreenState extends ConsumerState<MixerLoadingScreen> {
   }
 
   Future<void> _confirmAndLoad() async {
-    if (_resolvedEntry == null || !_validateQty()) return;
+    if (_selectedWorkOrder == null || _resolvedEntry == null || !_validateQty()) return;
     final entry = _resolvedEntry!;
     final qty = double.parse(_qtyCtrl.text.trim());
     final itemLabel = (entry['item_name'] ?? entry['item_code']).toString();
@@ -163,6 +169,7 @@ class _MixerLoadingScreenState extends ConsumerState<MixerLoadingScreen> {
       await ref.read(line1RepositoryProvider).loadToMixer(
             itemCode: entry['item_code'] as String,
             qty: qty,
+            workOrder: _selectedWorkOrder!.name,
             batchNo: batchNo,
             sourceWarehouse: entry['warehouse'] as String?,
           );
@@ -217,39 +224,100 @@ class _MixerLoadingScreenState extends ConsumerState<MixerLoadingScreen> {
                     ElevatedButton(onPressed: _loadData, child: const Text('Retry')),
                   ],
                 ))
-              : RefreshIndicator(
-                  onRefresh: _loadData,
-                  child: ListView(
-                    padding: const EdgeInsets.all(16),
-                    children: [
-                      ScanInputField(
-                        controller: _scanCtrl,
-                        focusNode: _scanFocus,
-                        labelText: 'Scan Batch / Item Barcode',
-                        hintText: 'Scan the bag, CMB batch or item label',
-                        onScanned: _onScanned,
-                        onSubmitted: _onScanned,
-                        autofocus: true,
+              : _selectedWorkOrder == null
+                  ? _buildWorkOrderPicker()
+                  : RefreshIndicator(
+                      onRefresh: _loadData,
+                      child: ListView(
+                        padding: const EdgeInsets.all(16),
+                        children: [
+                          _buildSelectedWorkOrderCard(),
+                          const SizedBox(height: 12),
+                          ScanInputField(
+                            controller: _scanCtrl,
+                            focusNode: _scanFocus,
+                            labelText: 'Scan Batch / Item Barcode',
+                            hintText: 'Scan the bag, CMB batch or item label',
+                            onScanned: _onScanned,
+                            onSubmitted: _onScanned,
+                            autofocus: true,
+                          ),
+                          const SizedBox(height: 16),
+
+                          if (_resolving)
+                            const Center(child: Padding(
+                              padding: EdgeInsets.all(24),
+                              child: CircularProgressIndicator(),
+                            )),
+
+                          if (_resolvedEntry != null && !_resolving) _buildLoadCard(),
+
+                          if (_resolvedEntry == null && !_resolving) ...[
+                            _buildStockSection('Staged for Mixer', _stageable,
+                                selectable: true),
+                            const SizedBox(height: 24),
+                            _buildStockSection('In Mixer (WIP)', _wip),
+                          ],
+                        ],
                       ),
-                      const SizedBox(height: 16),
+                    ),
+    );
+  }
 
-                      if (_resolving)
-                        const Center(child: Padding(
-                          padding: EdgeInsets.all(24),
-                          child: CircularProgressIndicator(),
-                        )),
-
-                      if (_resolvedEntry != null && !_resolving) _buildLoadCard(),
-
-                      if (_resolvedEntry == null && !_resolving) ...[
-                        _buildStockSection('Staged for Mixer', _stageable,
-                            selectable: true),
-                        const SizedBox(height: 24),
-                        _buildStockSection('In Mixer (WIP)', _wip),
-                      ],
-                    ],
+  Widget _buildWorkOrderPicker() {
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Text('Select a Work Order', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 4),
+          const Text(
+            'Pick which Work Order you are mixing for. '
+            'Only items on its BOM can be loaded into the mixer.',
+            style: TextStyle(color: Colors.grey),
+          ),
+          const SizedBox(height: 12),
+          if (_workOrders.isEmpty)
+            const Card(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('No open Work Orders for Mixer'),
+              ),
+            )
+          else
+            ..._workOrders.map((wo) => Card(
+                  child: ListTile(
+                    title: Text(wo.itemName ?? wo.productionItem,
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text('${wo.name} · Qty ${wo.qty}'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => setState(() => _selectedWorkOrder = wo),
                   ),
-                ),
+                )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelectedWorkOrderCard() {
+    final wo = _selectedWorkOrder!;
+    return Card(
+      color: Colors.deepPurple.withAlpha(13),
+      child: ListTile(
+        dense: true,
+        leading: const Icon(Icons.assignment, color: Colors.deepPurple),
+        title: Text(wo.itemName ?? wo.productionItem,
+            style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text(wo.name),
+        trailing: TextButton(
+          onPressed: () => setState(() {
+            _selectedWorkOrder = null;
+            _reset();
+          }),
+          child: const Text('Change'),
+        ),
+      ),
     );
   }
 

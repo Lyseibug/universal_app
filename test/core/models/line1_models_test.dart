@@ -45,4 +45,41 @@ void main() {
       expect(detail.consumeItems.first.qty, 2.5);
     });
   });
+
+  group('WorkOrderSummary payload parsing', () {
+    test('WorkOrderSummary.fromJson parses the Work Order picker fields', () {
+      final wo = WorkOrderSummary.fromJson({
+        'name': 'WO-0001',
+        'production_item': 'BAG-001',
+        'item_name': 'Test Bag',
+        'qty': 100,
+        'produced_qty': 25.5,
+        'bom_no': 'BOM-BAG-001',
+        'status': 'Not Started',
+      });
+
+      expect(wo.name, 'WO-0001');
+      expect(wo.productionItem, 'BAG-001');
+      expect(wo.itemName, 'Test Bag');
+      expect(wo.qty, 100);
+      expect(wo.producedQty, 25.5);
+      expect(wo.bomNo, 'BOM-BAG-001');
+      expect(wo.status, 'Not Started');
+    });
+
+    test('WorkOrderSummary.fromJson tolerates missing optional fields', () {
+      final wo = WorkOrderSummary.fromJson({
+        'name': 'WO-0002',
+        'production_item': 'CMB-001',
+      });
+
+      expect(wo.name, 'WO-0002');
+      expect(wo.productionItem, 'CMB-001');
+      expect(wo.itemName, isNull);
+      expect(wo.qty, 0);
+      expect(wo.producedQty, 0);
+      expect(wo.bomNo, isNull);
+      expect(wo.status, isEmpty);
+    });
+  });
 }
