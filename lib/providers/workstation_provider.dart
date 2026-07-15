@@ -31,3 +31,11 @@ class WorkstationState {
 final workstationProvider = StateProvider<WorkstationState>((ref) {
   return const WorkstationState();
 });
+
+/// Screen key to auto-open once HomeScreen finishes its first build after
+/// workspace selection (see WorkspaceScreen._confirm). Set right before
+/// `context.go('/home')` and consumed-and-cleared by HomeScreen's first
+/// post-frame callback — pushing only after Home is actually the current
+/// page avoids the imperative-push-on-top-of-a-page-being-replaced race.
+/// Null means no pending auto-open.
+final pendingAutoOpenScreenKeyProvider = StateProvider<String?>((ref) => null);

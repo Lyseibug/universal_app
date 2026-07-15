@@ -10,6 +10,7 @@ import '../../providers/service_providers.dart';
 import '../../providers/update_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../providers/socket_provider.dart';
+import '../../providers/workstation_provider.dart';
 import '../../widgets/update_dialog.dart';
 import 'screen_registry.dart';
 
@@ -33,6 +34,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // (e.g. splash fired the check and navigated here before it resolved).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _maybeShowUpdateDialog();
+      _maybeAutoOpenPendingScreen();
     });
   }
 
@@ -42,6 +44,46 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (phase == UpdatePhase.updateAvailable || phase == UpdatePhase.forceUpdate) {
       UpdateDialog.show(context);
     }
+  }
+
+  /// Opens the screen flagged by WorkspaceScreen (Workstation.
+  /// custom_pdt_screen_key) right after workstation selection. Must run
+  /// after the first frame — Home needs to actually be the current page
+  /// before we push on top of it (see WorkspaceScreen._confirm for why this
+  /// isn't done from there directly).
+  Future<void> _maybeAutoOpenPendingScreen() async {
+    final screenKey = ref.read(pendingAutoOpenScreenKeyProvider);
+    if (screenKey == null || screenKey.isEmpty) return;
+    ref.read(pendingAutoOpenScreenKeyProvider.notifier).state = null; // consume once
+
+    if (!screenRegistry.containsKey(screenKey)) return;
+
+    MenuScreen? target;
+    try {
+      final menu = await ref.read(menuProvider.future);
+      if (menu != null) {
+        outer:
+        for (final mod in menu.menu) {
+          for (final s in mod.screens) {
+            if (s.screenKey == screenKey) {
+              target = s;
+              break outer;
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
+    target ??= MenuScreen(
+      screenKey: screenKey,
+      label: screenKey,
+      route: '/$screenKey',
+      apiModule: 'line2',
+      actions: const ['complete_step', 'assign_tool', 'release_tool'],
+    );
+
+    if (!mounted) return;
+    _navigateToScreen(target);
   }
 
   @override

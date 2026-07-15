@@ -4,7 +4,6 @@ import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 
 import 'package:flutter/foundation.dart';
-import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 
 import '../auth/token_store.dart';
 import '../services/connectivity_service.dart';
@@ -57,27 +56,34 @@ class ApiClient {
     };
   }
 
-  /// Setup token authorization and global error handler interceptor
+  /// Setup token authorization and global error handler interceptor.
+  ///
+  /// Deliberately terse (method, path, status, timing — no headers/body):
+  /// full request/response dumps (e.g. via pretty_dio_logger) bury the
+  /// signal under noise like the ~55-entry Frappe `roles` array that comes
+  /// back on every session call. Bump this specific interceptor's logging
+  /// back up if you need to inspect a payload while debugging.
   void _setupInterceptors() {
-    if (kDebugMode) {
-      _dio.interceptors.add(PrettyDioLogger(
-        requestHeader: true,
-        requestBody: true,
-        responseBody: true,
-        responseHeader: false,
-        error: true,
-        compact: true,
-        maxWidth: 90,
-      ));
-    }
-
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
+        if (kDebugMode) options.extra['__reqStart'] = DateTime.now();
         final t = await _tokens.read();
         if (t != null) {
           options.headers['Authorization'] = 'token $t';
         }
         handler.next(options);
+      },
+      onResponse: (response, handler) {
+        if (kDebugMode) {
+          final start = response.requestOptions.extra['__reqStart'] as DateTime?;
+          final ms = start != null ? DateTime.now().difference(start).inMilliseconds : null;
+          AppLogger.info(
+            '${response.requestOptions.method} ${response.requestOptions.uri} → '
+            '${response.statusCode}${ms != null ? ' (${ms}ms)' : ''}',
+            tag: 'HTTP',
+          );
+        }
+        handler.next(response);
       },
       onError: (err, handler) {
         AppLogger.error('✖ ${err.response?.statusCode ?? 'N/A'} ${err.requestOptions.uri}', tag: 'HTTP');
