@@ -73,16 +73,11 @@ class ApiClient {
 
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
-        AppLogger.info('→ ${options.method} ${options.uri}', tag: 'HTTP');
         final t = await _tokens.read();
         if (t != null) {
           options.headers['Authorization'] = 'token $t';
         }
         handler.next(options);
-      },
-      onResponse: (response, handler) {
-        AppLogger.info('← ${response.statusCode} ${response.requestOptions.uri}', tag: 'HTTP');
-        handler.next(response);
       },
       onError: (err, handler) {
         AppLogger.error('✖ ${err.response?.statusCode ?? 'N/A'} ${err.requestOptions.uri}', tag: 'HTTP');

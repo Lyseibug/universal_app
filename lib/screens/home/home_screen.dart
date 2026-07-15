@@ -297,7 +297,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildScreenTile(MenuScreen screen) {
-    debugPrint('HomeScreen: screen "${screen.label}" (key: ${screen.screenKey}) parsed icon = "${screen.icon}"');
     final icon = IconHelper.getIcon(screen.icon, fallback: Icons.grid_view_outlined);
 
     return Padding(

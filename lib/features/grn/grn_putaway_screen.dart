@@ -8,6 +8,7 @@ import '../../core/errors/error_mapper.dart';
 import '../../core/menu/menu_models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/models/warehouse_models.dart';
+import '../../core/utils/logger.dart';
 import '../../providers/service_providers.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
@@ -205,7 +206,7 @@ class _GrnPutAwayScreenState extends ConsumerState<GrnPutAwayScreen> {
         });
       }
     } catch (e) {
-      debugPrint('suggest_lot error: $e');
+      AppLogger.warning('suggest_lot failed: $e', tag: 'GrnPutaway');
       if (mounted) {
         setState(() => _loadingSuggestion = false);
       }

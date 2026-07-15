@@ -50,11 +50,10 @@ class SessionRepository {
     } else {
       list = [];
     }
-    AppLogger.info('listWorkspaces raw response list: $list', tag: _tag);
     final parsed = list
         .map((e) => WorkspaceModel.fromJson(Map<String, dynamic>.from(e as Map)))
         .toList();
-    AppLogger.info('listWorkspaces parsed successfully: $parsed', tag: _tag);
+    AppLogger.info('listWorkspaces parsed: ${parsed.length} assignment(s)', tag: _tag);
     return parsed;
   }
 
@@ -89,7 +88,6 @@ class SessionRepository {
   Future<MenuPayload?> getMenu() async {
     try {
       final data = await _api.call('session.get_menu');
-      AppLogger.info('Menu raw API response: $data', tag: _tag);
       final payload = MenuPayload.fromJson(Map<String, dynamic>.from(data));
       
       // Cache the successfully loaded menu

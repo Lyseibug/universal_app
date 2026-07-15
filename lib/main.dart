@@ -14,6 +14,9 @@ import 'widgets/worker_prompt_dialog.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Initialize the rotating file logger (warnings/errors persisted to disk).
+  await AppLogger.init();
+
   // Initialize Hive (boxes: write_queue, settings, session, menus)
   await initHive();
 

@@ -1,8 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:open_filex/open_filex.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/file_logger.dart';
 import '../../core/utils/validators.dart';
 import '../../providers/settings_provider.dart';
 import '../../widgets/custom_button.dart';
@@ -66,6 +70,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _setScanMode(String mode) async {
     setState(() => _scanMode = mode);
     await Hive.box<dynamic>('settings').put('scan_mode', mode);
+  }
+
+  Future<void> _openLogFile() async {
+    final logDir = FileLogger.instance?.directoryPath;
+    if (logDir == null) return;
+    final file = File('$logDir/app.log');
+    if (!mounted) return;
+    if (!await file.exists()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No logs recorded yet')),
+      );
+      return;
+    }
+    final result = await OpenFilex.open(file.path);
+    if (!mounted) return;
+    if (result.type != ResultType.done) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not open log file: ${result.message}')),
+      );
+    }
   }
 
   @override
@@ -165,6 +189,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 description:
                     'Use the device camera to scan barcodes. For phones or tablets '
                     'without a laser scanner.',
+              ),
+
+              const SizedBox(height: 32),
+              const Divider(),
+              const SizedBox(height: 24),
+
+              // ── Diagnostics Section ──────────────────────────────────────
+              _buildSection(
+                icon: Icons.bug_report_outlined,
+                title: 'Diagnostics',
+                subtitle: 'App logs recorded on this device (warnings & errors)',
+              ),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: _openLogFile,
+                icon: const Icon(Icons.description_outlined, size: 18),
+                label: const Text('Open Log File'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(AppTheme.buttonHeight),
+                ),
               ),
 
               const SizedBox(height: 48),

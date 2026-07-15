@@ -9,6 +9,7 @@ import '../../core/utils/logger.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/service_providers.dart';
 import '../../providers/workstation_provider.dart';
+import '../../routes/app_router.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
 import '../home/screen_registry.dart';
@@ -108,8 +109,14 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
       );
 
       if (!mounted) return;
+      // Resolve the auto-route target *before* leaving this screen — once
+      // context.go('/home') fires, WorkspaceScreen starts getting disposed,
+      // and the menu fetch below is a real network call, so by the time it
+      // resolves `mounted` would already be false and the push silently no-ops.
+      final pendingScreen = await _resolveAutoRouteScreen(session.screenKey);
+      if (!mounted) return;
       context.go('/home');
-      await _autoRouteToScreen(session.screenKey);
+      _pushAutoRouteScreen(pendingScreen);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -120,12 +127,18 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
   }
 
   /// If this workstation has a mapped PDT screen (Workstation.
-  /// custom_pdt_screen_key), open it directly instead of leaving the
-  /// worker on the tile menu. No mapping configured -> unchanged behavior.
-  Future<void> _autoRouteToScreen(String? screenKey) async {
-    if (screenKey == null || screenKey.isEmpty) return;
+  /// custom_pdt_screen_key), resolve its [MenuScreen] config so it can be
+  /// opened directly instead of leaving the worker on the tile menu. No
+  /// mapping configured -> null, unchanged behavior.
+  ///
+  /// Must be awaited (and its result used) *before* navigating away from
+  /// this screen — `ref` and `context` are only guaranteed valid while
+  /// WorkspaceScreen is still mounted, and the menu fetch below is a real
+  /// network call.
+  Future<(ScreenBuilder, MenuScreen)?> _resolveAutoRouteScreen(String? screenKey) async {
+    if (screenKey == null || screenKey.isEmpty) return null;
     final builder = screenRegistry[screenKey];
-    if (builder == null) return;
+    if (builder == null) return null;
 
     MenuScreen? menuScreen;
     try {
@@ -151,8 +164,19 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
       actions: const ['complete_step', 'assign_tool', 'release_tool'],
     );
 
-    if (!mounted) return;
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => builder(menuScreen!)));
+    return (builder, menuScreen);
+  }
+
+  /// Pushes the screen resolved by [_resolveAutoRouteScreen] on top of the
+  /// current route. Uses [rootNavigatorKey] rather than this screen's own
+  /// BuildContext — by the time this runs, WorkspaceScreen has just been
+  /// replaced by `context.go('/home')` and its context is no longer safe to use.
+  void _pushAutoRouteScreen((ScreenBuilder, MenuScreen)? pending) {
+    if (pending == null) return;
+    final (builder, menuScreen) = pending;
+    rootNavigatorKey.currentState?.push(
+      MaterialPageRoute(builder: (_) => builder(menuScreen)),
+    );
   }
 
   @override
