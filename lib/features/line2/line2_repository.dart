@@ -183,15 +183,17 @@ class Line2Repository {
   // ── Rejection ───────────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> createRejection({
+    required String workOrder,
     required String jobCard,
     required String rejectionType,
     String? reason,
     double? qty,
   }) async {
     final result = await _writeQueue.run('line2.create_rejection', {
+      'wo_name': workOrder,
       'job_card': jobCard,
       'rejection_type': rejectionType,
-      if (reason != null) 'reason': reason,
+      if (reason != null) 'reason_code': reason,
       if (qty != null) 'qty': qty,
     });
     return Map<String, dynamic>.from(result);

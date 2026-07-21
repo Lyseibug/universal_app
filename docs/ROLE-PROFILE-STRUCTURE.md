@@ -336,3 +336,69 @@ Legacy Phase-1 profiles (`PDT - Line 1 Operator`, `PDT - Line 2 Operator`,
 (`Line1 Operator`, `Line2 Operator`, `Warehouse User`) no longer grant any
 PDT screen. Left in place rather than deleted; don't assign them to anyone
 new.
+
+### 8.11 Placeholder users created (2026-07-21)
+
+All 20 rows in the table above (every Role Profile except the two dead
+Phase-1 leftovers, `PDT - Line 1 Operator` and `PDT - Warehouse`) now have
+exactly one placeholder `User`, created by
+`apps/manufacturing_universal/manufacturing_universal/scripts/create_pdt_placeholder_users_phase4.py`
+(idempotent — re-run after a DB restore; skips any email already present).
+`@gmail.com` addresses per the doc examples (chosen to match the existing
+test-account convention, not real inboxes). All share one temporary
+password: **`Universal@2026`**.
+
+Supervisor accounts (Reception Supervisor, Compound Production Supervisor,
+Line 2 Supervisor, LOT Supervisor) came out `System User` automatically (via
+`has_desk_access()` on their bundled roles) and each got the Company-scoped
+`User Permission` from §8.6. Everyone else is `Website User` (mobile-only,
+no Desk access), matching the existing account convention.
+
+**Known gaps, deliberately not addressed by the script:**
+- No `Employee` record is linked to any of these accounts yet — §8.10's
+  requirement for `Worker Workstation Assignment`/`select_workspace` to
+  resolve them still needs real staff data (join date, ID, etc.) before
+  that can be done; these are placeholders pending real onboarding.
+- The 5 real QC inspectors' *own* accounts still don't hold `Quality
+  Inspector` (confirmed live: `list_inspectors()` still returns 0) — only
+  the one shared `qc.station@gmail.com` device login was created, per §8.7.
+  Onboarding real inspectors is a separate manual step.
+- Rotate `Universal@2026` (or replace these with individually-owned
+  credentials) before relying on this for real production access — it's a
+  shared onboarding default, not meant to be permanent.
+
+### 8.12 Placeholder Employees + Worker Workstation Assignments (2026-07-21)
+
+`create_pdt_placeholder_employees_phase4.py` (idempotent, same conventions as
+§8.11) closed both gaps flagged in §8.11: every one of the 20 accounts now
+has a linked `Employee` (`user_id` set) and an active `Worker Workstation
+Assignment`, verified live via `session.list_workspaces()` for a sample of
+accounts across Line 1, Line 2, QC, and Warehouse.
+
+- 4 new **logical** Workstation records were created — `Warehouse`,
+  `Packing`, `Tool Store`, `Lab` — for roles with no existing physical-machine
+  station, mirroring the pre-existing `Reception` record (also a logical,
+  non-machine Workstation).
+- Workstation lists per role were derived from real `Workstation` names, not
+  invented: Sleeve Building = `*B*` stations, Curing = `*P*` stations (Press
+  = the Curing Pot/Airbag stations), Sleeve Grinding = `S1G*`, Sleeve Cutting
+  = `S1C*`, Rib Grinding = `R1G*/R2G*/R3G*`, QC = `Q1S*`, Chemical
+  Weighing/Compound Building/Calendaring = the literal `Chemical
+  Weighing`/`Mixer`/`Calender` stations. Supervisor accounts (Compound
+  Production Supervisor, Line 2 Supervisor) got the union of their line's
+  stations.
+- `supervisor` was set on each worker's WWA to their role's supervisor
+  Employee where one exists in this role set (e.g. `building1@gmail.com` →
+  supervisor `line2.supervisor@gmail.com`'s Employee).
+- One pre-existing Employee/WWA pair was found already correctly linked
+  (`reception.supervisor@gmail.com` → `E0205`, `workstations: Reception`)
+  and left untouched — the script detected and skipped it.
+
+**Known placeholder/fictional data — correct before this touches anything
+real**: `gender` = "Prefer not to say", `nationality` = "Indian",
+`date_of_birth` = 1995-01-01, `attendance_id` starting at 9001 (clear of the
+real attendance-device ID range, which tops out ~2323 on this site) for all
+19 newly-created Employees. These are `status: Active` Employees and **will
+appear in any unfiltered payroll or attendance run** — flag this to whoever
+runs payroll before the next cycle, or update/deactivate these records once
+real staff replace the placeholders.

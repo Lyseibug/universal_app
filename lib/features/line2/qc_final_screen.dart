@@ -171,6 +171,7 @@ class _QcFinalScreenState extends ConsumerState<QcFinalScreen> {
       // Submit rejections first
       for (final r in _rejections) {
         await ref.read(line2RepositoryProvider).createRejection(
+          workOrder: woName,
           jobCard: _scanResult!['job_card']?.toString() ?? '',
           rejectionType: r.isFullScrap ? 'Full Scrap' : 'Rework',
           reason: '${r.code}: ${r.description}',
