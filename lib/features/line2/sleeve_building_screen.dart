@@ -35,7 +35,6 @@ class _SleeveBuildingScreenState extends ConsumerState<SleeveBuildingScreen> {
   String? _error;
 
   Map<String, dynamic>? _scanResult;
-  List<_LayerCheck> _layeringChecks = [];
   bool _moldAssigned = false;
   String? _assignedToolId;
   DateTime? _timerStart;
@@ -54,14 +53,8 @@ class _SleeveBuildingScreenState extends ConsumerState<SleeveBuildingScreen> {
     _loadWorkerStations().then((_) {
       if (widget.resumeJob != null && mounted) {
         final data = widget.resumeJob!;
-        final layering = data['layering_sequence'];
-        List<_LayerCheck> checks = [];
-        if (layering is List) {
-          checks = layering.map((l) => _LayerCheck(label: l.toString())).toList();
-        }
         setState(() {
           _scanResult = data;
-          _layeringChecks = checks;
           _timerStart = _timerStartFromScan(data);
         });
         _loadStagedMolds();
@@ -124,7 +117,6 @@ class _SleeveBuildingScreenState extends ConsumerState<SleeveBuildingScreen> {
       _scanning = true;
       _error = null;
       _scanResult = null;
-      _layeringChecks = [];
       _moldAssigned = false;
       _assignedToolId = null;
       _timerStart = null;
@@ -132,14 +124,8 @@ class _SleeveBuildingScreenState extends ConsumerState<SleeveBuildingScreen> {
 
     try {
       final data = await ref.read(line2RepositoryProvider).scanFlowchart(trimmed);
-      final layering = data['layering_sequence'];
-      List<_LayerCheck> checks = [];
-      if (layering is List) {
-        checks = layering.map((l) => _LayerCheck(label: l.toString())).toList();
-      }
       setState(() {
         _scanResult = data;
-        _layeringChecks = checks;
         _scanning = false;
         _timerStart = _timerStartFromScan(data);
       });
@@ -186,15 +172,6 @@ class _SleeveBuildingScreenState extends ConsumerState<SleeveBuildingScreen> {
   }
 
   Future<void> _finishStep() async {
-    final allChecked = _layeringChecks.every((c) => c.checked);
-    if (!allChecked) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Complete all layering steps before finishing'),
-        backgroundColor: AppTheme.danger,
-      ));
-      return;
-    }
-
     setState(() => _completing = true);
     try {
       await ref.read(line2RepositoryProvider).completeStep(
@@ -246,7 +223,6 @@ class _SleeveBuildingScreenState extends ConsumerState<SleeveBuildingScreen> {
   void _resetForm() {
     setState(() {
       _scanResult = null;
-      _layeringChecks = [];
       _moldAssigned = false;
       _assignedToolId = null;
       _stagedMolds = [];
@@ -347,36 +323,6 @@ class _SleeveBuildingScreenState extends ConsumerState<SleeveBuildingScreen> {
             child: LinearProgressIndicator(),
           ),
         const SizedBox(height: 12),
-
-        // Layering checklist
-        if (_layeringChecks.isNotEmpty) ...[
-          const Text(
-            'LAYERING CHECKLIST',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.textSecondary,
-              letterSpacing: 1.0,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Card(
-            child: Column(
-              children: _layeringChecks.asMap().entries.map((entry) {
-                final i = entry.key;
-                final check = entry.value;
-                return CheckboxListTile(
-                  title: Text('${i + 1}. ${check.label}'),
-                  value: check.checked,
-                  activeColor: AppTheme.success,
-                  onChanged: (val) {
-                    setState(() => check.checked = val ?? false);
-                  },
-                );
-              }).toList(),
-            ),
-          ),
-        ],
       ],
     );
   }
@@ -451,10 +397,4 @@ class _SleeveBuildingScreenState extends ConsumerState<SleeveBuildingScreen> {
       ),
     );
   }
-}
-
-class _LayerCheck {
-  final String label;
-  bool checked;
-  _LayerCheck({required this.label, this.checked = false});
 }
