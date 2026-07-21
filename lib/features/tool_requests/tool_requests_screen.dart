@@ -174,7 +174,25 @@ class _ToolRequestsScreenState extends ConsumerState<ToolRequestsScreen> {
   }
 
   void _addItemRow() {
-    setState(() => _newItems.add(_ToolItemRow()));
+    final row = _ToolItemRow();
+    setState(() => _newItems.add(row));
+    _loadAvailableTools(row);
+  }
+
+  Future<void> _loadAvailableTools(_ToolItemRow row) async {
+    if (_isRollType(row.toolType)) return; // rolls are matched by width/length spec, not a fixed list
+    setState(() => row.loadingTools = true);
+    try {
+      final tools = await ref.read(toolRequestRepositoryProvider).listAvailableTools(row.toolType);
+      if (!mounted) return;
+      setState(() {
+        row.availableTools = tools;
+        row.selectedTools.removeWhere((t) => !tools.any((x) => x.toolMaster == t));
+        row.loadingTools = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => row.loadingTools = false);
+    }
   }
 
   void _removeItemRow(int index) {
@@ -665,7 +683,13 @@ class _ToolRequestsScreenState extends ConsumerState<ToolRequestsScreen> {
                           .map((t) => DropdownMenuItem(value: t, child: Text(t)))
                           .toList(),
                       onChanged: (v) {
-                        if (v != null) setState(() => row.toolType = v);
+                        if (v == null || v == row.toolType) return;
+                        setState(() {
+                          row.toolType = v;
+                          row.selectedTools.clear();
+                          row.availableTools = [];
+                        });
+                        _loadAvailableTools(row);
                       },
                     ),
                   ),
@@ -677,6 +701,11 @@ class _ToolRequestsScreenState extends ConsumerState<ToolRequestsScreen> {
                       labelText: 'Qty',
                       hintText: '1',
                       keyboardType: TextInputType.number,
+                      onChanged: (_) => setState(() {
+                        while (row.selectedTools.length > row.qty && row.selectedTools.isNotEmpty) {
+                          row.selectedTools.removeLast();
+                        }
+                      }),
                     ),
                   ),
                 ],
@@ -704,6 +733,71 @@ class _ToolRequestsScreenState extends ConsumerState<ToolRequestsScreen> {
                     ),
                   ],
                 ),
+              ] else ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Text('AVAILABLE TOOLS',
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textSecondary,
+                            letterSpacing: 0.8)),
+                    const Spacer(),
+                    if (row.loadingTools)
+                      const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2)),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                if (!row.loadingTools && row.availableTools.isEmpty)
+                  const Text('No available tools of this type.',
+                      style: TextStyle(fontSize: 12, color: AppTheme.textSecondary))
+                else
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: row.availableTools.map((t) {
+                      final selected = row.selectedTools.contains(t.toolMaster);
+                      final label = (t.toolName != null && t.toolName!.isNotEmpty)
+                          ? '${t.toolCode} · ${t.toolName}'
+                          : t.toolCode;
+                      return FilterChip(
+                        label: Text(label, style: const TextStyle(fontSize: 12)),
+                        avatar: t.isPreferred
+                            ? const Icon(Icons.star, size: 15, color: Colors.amber)
+                            : null,
+                        selected: selected,
+                        visualDensity: VisualDensity.compact,
+                        onSelected: (v) {
+                          if (v && row.selectedTools.length >= row.qty) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: Text('Already selected ${row.qty} of qty ${row.qty}'),
+                              backgroundColor: AppTheme.warning,
+                            ));
+                            return;
+                          }
+                          setState(() {
+                            if (v) {
+                              row.selectedTools.add(t.toolMaster);
+                            } else {
+                              row.selectedTools.remove(t.toolMaster);
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                if (row.selectedTools.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      '${row.selectedTools.length}/${row.qty} specific tool(s) selected — any remainder is auto-assigned at fulfillment.',
+                      style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                    ),
+                  ),
               ],
             ],
           ),
@@ -721,6 +815,10 @@ class _ToolItemRow {
   final lengthCtrl = TextEditingController();
   String toolType = 'Mold';
 
+  List<AvailableTool> availableTools = [];
+  List<String> selectedTools = [];
+  bool loadingTools = false;
+
   int get qty => int.tryParse(qtyCtrl.text) ?? 0;
 
   Map<String, dynamic> toJson() {
@@ -731,6 +829,9 @@ class _ToolItemRow {
     if (_isRollType(toolType)) {
       json['width_in_mm'] = double.tryParse(widthCtrl.text) ?? 0;
       json['length_in_mm'] = double.tryParse(lengthCtrl.text) ?? 0;
+    }
+    if (selectedTools.isNotEmpty) {
+      json['requested_tool_codes'] = selectedTools;
     }
     return json;
   }

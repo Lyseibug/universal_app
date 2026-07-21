@@ -33,6 +33,21 @@ class ToolRequestRepository {
     return ToolRequestDetail.fromJson(Map<String, dynamic>.from(data));
   }
 
+  /// Available Tool Master units of [toolType], for the create-request
+  /// screen's "pick the exact tool(s) you need" selector.
+  Future<List<AvailableTool>> listAvailableTools(String toolType, {String? itemCode}) async {
+    final data = await _api.call('tool_requests.list_available_tools', body: {
+      'tool_type': toolType,
+      if (itemCode != null) 'item_code': itemCode,
+    });
+    if (data is List) {
+      return data
+          .map((j) => AvailableTool.fromJson(Map<String, dynamic>.from(j)))
+          .toList();
+    }
+    return const [];
+  }
+
   Future<dynamic> create({
     required String targetWorkstation,
     required List<Map<String, dynamic>> items,

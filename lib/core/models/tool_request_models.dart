@@ -177,6 +177,35 @@ class ToolRequestFulfillResult {
       );
 }
 
+/// An Available Tool Master unit of a given tool_type — the source list for
+/// the create-request screen's "pick the exact tool(s) you need" selector.
+class AvailableTool {
+  final String toolMaster;
+  final String toolCode;
+  final String? toolName;
+  final String? itemCode;
+  final String? condition;
+  final bool isPreferred;
+
+  const AvailableTool({
+    required this.toolMaster,
+    required this.toolCode,
+    this.toolName,
+    this.itemCode,
+    this.condition,
+    this.isPreferred = false,
+  });
+
+  factory AvailableTool.fromJson(Map<String, dynamic> json) => AvailableTool(
+        toolMaster: (json['name'] ?? json['tool_code'])?.toString() ?? '',
+        toolCode: json['tool_code']?.toString() ?? '',
+        toolName: json['tool_name']?.toString(),
+        itemCode: json['item_code']?.toString(),
+        condition: json['condition']?.toString(),
+        isPreferred: json['is_preferred'] == true || json['is_preferred'] == 1,
+      );
+}
+
 /// A tool Staged at a specific workstation — the source list for the
 /// station-side "pick from what's staged here" selector.
 class StagedTool {
