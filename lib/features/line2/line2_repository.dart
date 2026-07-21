@@ -34,9 +34,14 @@ class Line2Repository {
 
   // ── Flowchart / Scanning ────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>> scanFlowchart(String barcode) async {
-    final data = await _api.call('line2.scan_flowchart',
-        body: {'barcode': barcode});
+  /// [workstation], when given, is validated server-side against this step's
+  /// actual allowed workstations for the item's production type — a mismatch
+  /// raises instead of silently opening the Job Card at a different station.
+  Future<Map<String, dynamic>> scanFlowchart(String barcode, {String? workstation}) async {
+    final data = await _api.call('line2.scan_flowchart', body: {
+      'barcode': barcode,
+      if (workstation != null && workstation.isNotEmpty) 'workstation': workstation,
+    });
     return Map<String, dynamic>.from(data);
   }
 

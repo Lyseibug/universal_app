@@ -18,9 +18,7 @@ import '../../features/line1/cutting_screen.dart';
 import '../../features/line1/weighing_screen.dart';
 import '../../features/po_reception/po_reception_screen.dart';
 import '../../features/line2/active_jobs_screen.dart';
-import '../../features/line2/sleeve_building_screen.dart';
-import '../../features/line2/curing_screen.dart';
-import '../../features/line2/processing_screen.dart';
+import '../../features/line2/line2_production_screen.dart';
 import '../../features/line2/labelling_screen.dart';
 import '../../features/line2/qc_measurement_screen.dart';
 import '../../features/line2/qc_final_screen.dart';
@@ -59,9 +57,12 @@ final Map<String, ScreenBuilder> screenRegistry = {
   'po_reception':       (s) => PoReceptionScreen(screen: s),
   // Line 2 — Belt/Sleeve Building
   'line2_active_jobs':  (s) => ActiveJobsScreen(screen: s),
-  'line2_building':     (s) => SleeveBuildingScreen(screen: s),
-  'line2_curing':       (s) => CuringScreen(screen: s),
-  'line2_processing':   (s) => ProcessingScreen(screen: s),
+  // Building/Curing/Processing share one adaptive screen — see
+  // line2_production_screen.dart. Each PDT screen key still gates
+  // independently server-side (api/line2.py STEP_TO_SCREEN).
+  'line2_building':     (s) => Line2ProductionScreen(screen: s),
+  'line2_curing':       (s) => Line2ProductionScreen(screen: s),
+  'line2_processing':   (s) => Line2ProductionScreen(screen: s),
   'line2_labelling':    (s) => LabellingScreen(screen: s),
   'line2_qc_measure':   (s) => QcMeasurementScreen(screen: s),
   'line2_qc_final':     (s) => QcFinalScreen(screen: s),

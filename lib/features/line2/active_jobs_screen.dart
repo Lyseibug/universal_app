@@ -8,10 +8,8 @@ import '../../core/theme/app_theme.dart';
 import '../../providers/service_providers.dart';
 import '../../widgets/pdt_scaffold.dart';
 import '../../widgets/status_chip.dart';
-import 'curing_screen.dart';
+import 'line2_production_screen.dart';
 import 'line2_repository.dart';
-import 'processing_screen.dart';
-import 'sleeve_building_screen.dart';
 
 class ActiveJobsScreen extends ConsumerStatefulWidget {
   final MenuScreen screen;
@@ -109,9 +107,10 @@ class _ActiveJobsScreenState extends ConsumerState<ActiveJobsScreen> {
 
       final menuScreen = _resolveMenuScreen(screenKey);
       final resumedScreen = switch (screenKey) {
-        'line2_curing' => CuringScreen(screen: menuScreen, resumeJob: scanResult),
-        'line2_building' => SleeveBuildingScreen(screen: menuScreen, resumeJob: scanResult),
-        'line2_processing' => ProcessingScreen(screen: menuScreen, resumeJob: scanResult),
+        'line2_curing' ||
+        'line2_building' ||
+        'line2_processing' =>
+          Line2ProductionScreen(screen: menuScreen, resumeJob: scanResult),
         _ => null,
       };
       if (resumedScreen == null) {
@@ -135,7 +134,7 @@ class _ActiveJobsScreenState extends ConsumerState<ActiveJobsScreen> {
 
   /// Same "look up MenuScreen by key in the loaded menu, else construct a
   /// fallback literal" idiom used elsewhere in this app (e.g.
-  /// curing_screen.dart's _goToToolRequests, manufacturing_mr_screen.dart's
+  /// line2_production_screen.dart's _goToToolRequests, manufacturing_mr_screen.dart's
   /// _goToPickList).
   MenuScreen _resolveMenuScreen(String screenKey) {
     MenuScreen? found;
