@@ -128,7 +128,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                         // ── Title ───────────────────────────────────────────
                         Text(
-                          'Sign In',
+                          'Login',
                           style: Theme.of(context).textTheme.displaySmall?.copyWith(
                             color: AppTheme.textPrimary,
                           ),
@@ -180,7 +180,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                         // ── Login button ─────────────────────────────────────
                         CustomButton(
-                          text: 'Sign In',
+                          text: 'Login',
                           isLoading: authState.isLoading,
                           onPressed: _handleLogin,
                           icon: Icons.login,

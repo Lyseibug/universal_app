@@ -142,7 +142,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
               // ── Title ─────────────────────────────────────────────────────
               const Text(
-                'Universal WMS',
+                'UniTrack',
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.w700,
@@ -152,7 +152,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
               ),
               const SizedBox(height: 6),
               const Text(
-                'Warehouse Management',
+                '',
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.white70,
