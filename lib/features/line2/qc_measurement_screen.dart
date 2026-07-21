@@ -32,10 +32,23 @@ class _QcMeasurementScreenState extends ConsumerState<QcMeasurementScreen> {
   List<String> _assignedStations = [];
   String? _selectedWorkstation;
 
+  // Several inspectors share one QC login — this is who actually did the
+  // check, recorded on the Job Card instead of the shared session user.
+  List<Map<String, dynamic>> _inspectors = [];
+  String? _selectedInspector;
+
   @override
   void initState() {
     super.initState();
     _loadWorkerStations();
+    _loadInspectors();
+  }
+
+  Future<void> _loadInspectors() async {
+    try {
+      final inspectors = await ref.read(line2RepositoryProvider).listInspectors();
+      if (mounted) setState(() => _inspectors = inspectors);
+    } catch (_) {}
   }
 
   @override
@@ -55,7 +68,7 @@ class _QcMeasurementScreenState extends ConsumerState<QcMeasurementScreen> {
           final ws = s['workstations'];
           if (ws is List) all.addAll(ws.map((w) => w.toString()));
         }
-        final qcStations = all.where((w) => w.contains('QC')).toList();
+        final qcStations = all.where((w) => w.startsWith('Q')).toList();
         setState(() {
           _assignedStations = all;
           _workstations = qcStations.isNotEmpty ? qcStations : all;
@@ -115,6 +128,14 @@ class _QcMeasurementScreenState extends ConsumerState<QcMeasurementScreen> {
   }
 
   Future<void> _submitMeasurements() async {
+    if (_inspectors.isNotEmpty && _selectedInspector == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Select which inspector is submitting this check'),
+        backgroundColor: AppTheme.danger,
+      ));
+      return;
+    }
+
     for (final p in _params) {
       final val = p.controller.text.trim();
       if (p.isMandatory && val.isEmpty) {
@@ -146,6 +167,7 @@ class _QcMeasurementScreenState extends ConsumerState<QcMeasurementScreen> {
         workOrder: _scanResult!['work_order']?.toString() ?? '',
         jobCard: _scanResult!['job_card']?.toString() ?? '',
         measurements: measurements,
+        inspector: _selectedInspector,
       );
 
       if (mounted) {
@@ -178,6 +200,27 @@ class _QcMeasurementScreenState extends ConsumerState<QcMeasurementScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (_inspectors.isNotEmpty) ...[
+          const Text('INSPECTOR',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary, letterSpacing: 1.0)),
+          const SizedBox(height: 6),
+          DropdownButtonFormField<String>(
+            value: _selectedInspector,
+            decoration: const InputDecoration(
+              hintText: 'Who is submitting this check?',
+              prefixIcon: Icon(Icons.badge_outlined),
+              isDense: true,
+            ),
+            items: _inspectors
+                .map((e) => DropdownMenuItem(
+                      value: e['name']?.toString(),
+                      child: Text(e['employee_name']?.toString() ?? e['name']?.toString() ?? ''),
+                    ))
+                .toList(),
+            onChanged: (v) => setState(() => _selectedInspector = v),
+          ),
+          const SizedBox(height: 16),
+        ],
         const Text('MEASUREMENTS',
             style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary, letterSpacing: 1.0)),
         const SizedBox(height: 10),

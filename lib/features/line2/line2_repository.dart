@@ -210,15 +210,28 @@ class Line2Repository {
     return Map<String, dynamic>.from(data);
   }
 
+  /// Employees eligible to be picked as the actual submitter on a shared QC
+  /// login (see submitMeasurement/submitQcResult `inspector`) — anyone whose
+  /// User holds the Quality Inspector role.
+  Future<List<Map<String, dynamic>>> listInspectors() async {
+    final data = await _api.call('line2_qc.list_inspectors', body: {});
+    if (data is List) {
+      return data.map((j) => Map<String, dynamic>.from(j)).toList();
+    }
+    return const [];
+  }
+
   Future<Map<String, dynamic>> submitMeasurement({
     required String workOrder,
     required String jobCard,
     required List<Map<String, dynamic>> measurements,
+    String? inspector,
   }) async {
     final result = await _writeQueue.run('line2_qc.submit_measurement', {
       'work_order': workOrder,
       'job_card': jobCard,
       'measurements': measurements,
+      if (inspector != null && inspector.isNotEmpty) 'inspector': inspector,
     });
     return Map<String, dynamic>.from(result);
   }
@@ -229,6 +242,7 @@ class Line2Repository {
     String? jobCard,
     double? acceptedQty,
     String? remarks,
+    String? inspector,
   }) async {
     final data = await _writeQueue.run('line2_qc.submit_qc_result', {
       'work_order': workOrder,
@@ -236,6 +250,7 @@ class Line2Repository {
       if (jobCard != null) 'job_card': jobCard,
       if (acceptedQty != null) 'accepted_qty': acceptedQty,
       if (remarks != null) 'remarks': remarks,
+      if (inspector != null && inspector.isNotEmpty) 'inspector': inspector,
     });
     return Map<String, dynamic>.from(data);
   }

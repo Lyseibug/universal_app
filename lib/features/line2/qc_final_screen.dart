@@ -44,10 +44,23 @@ class _QcFinalScreenState extends ConsumerState<QcFinalScreen> {
   List<String> _workstations = [];
   String? _selectedWorkstation;
 
+  // Several inspectors share one QC login — this is who actually did the
+  // check, recorded on the Job Card instead of the shared session user.
+  List<Map<String, dynamic>> _inspectors = [];
+  String? _selectedInspector;
+
   @override
   void initState() {
     super.initState();
     _loadWorkerStations();
+    _loadInspectors();
+  }
+
+  Future<void> _loadInspectors() async {
+    try {
+      final inspectors = await ref.read(line2RepositoryProvider).listInspectors();
+      if (mounted) setState(() => _inspectors = inspectors);
+    } catch (_) {}
   }
 
   @override
@@ -67,7 +80,7 @@ class _QcFinalScreenState extends ConsumerState<QcFinalScreen> {
           final ws = s['workstations'];
           if (ws is List) all.addAll(ws.map((w) => w.toString()));
         }
-        final qcStations = all.where((w) => w.contains('QC')).toList();
+        final qcStations = all.where((w) => w.startsWith('Q')).toList();
         setState(() {
           _workstations = qcStations.isNotEmpty ? qcStations : all;
           if (_workstations.isNotEmpty) _selectedWorkstation = _workstations.first;
@@ -134,6 +147,14 @@ class _QcFinalScreenState extends ConsumerState<QcFinalScreen> {
   }
 
   Future<void> _completeWo() async {
+    if (_inspectors.isNotEmpty && _selectedInspector == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Select which inspector is submitting this check'),
+        backgroundColor: AppTheme.danger,
+      ));
+      return;
+    }
+
     // Require flowchart photo before completion
     final photoResult = await FlowchartPhotoCapture.show(
       context,
@@ -162,6 +183,7 @@ class _QcFinalScreenState extends ConsumerState<QcFinalScreen> {
         workOrder: woName,
         result: _rejections.isEmpty ? 'Pass' : 'Fail',
         acceptedQty: _acceptedQty,
+        inspector: _selectedInspector,
       );
 
       // Hand the accepted quantity over to the warehouse. If some of this
@@ -256,6 +278,27 @@ class _QcFinalScreenState extends ConsumerState<QcFinalScreen> {
                   ),
 
                 if (_scanResult != null) ...[
+                  if (_inspectors.isNotEmpty) ...[
+                    const Text('INSPECTOR',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary, letterSpacing: 1.0)),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<String>(
+                      value: _selectedInspector,
+                      decoration: const InputDecoration(
+                        hintText: 'Who is submitting this check?',
+                        prefixIcon: Icon(Icons.badge_outlined),
+                        isDense: true,
+                      ),
+                      items: _inspectors
+                          .map((e) => DropdownMenuItem(
+                                value: e['name']?.toString(),
+                                child: Text(e['employee_name']?.toString() ?? e['name']?.toString() ?? ''),
+                              ))
+                          .toList(),
+                      onChanged: (v) => setState(() => _selectedInspector = v),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   ProductDetailsCard.fromScanResult(_scanResult!),
                   const SizedBox(height: 16),
 
