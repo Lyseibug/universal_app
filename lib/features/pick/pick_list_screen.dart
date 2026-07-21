@@ -41,12 +41,18 @@ class _PickListScreenState extends ConsumerState<PickListScreen> with SingleTick
   bool _submitting = false;
 
   final _lotCtrl = TextEditingController();
+  final _batchCtrl = TextEditingController();
   final _qtyCtrl = TextEditingController();
   final _mrFilterCtrl = TextEditingController();
 
   final _lotFocus = FocusNode();
+  final _batchFocus = FocusNode();
   final _qtyFocus = FocusNode();
   final _mrFilterFocus = FocusNode();
+
+  // Batches available in the currently scanned bin for the selected item.
+  List<PickBatchOption> _batches = [];
+  bool _batchesLoading = false;
 
   @override
   void initState() {
@@ -59,9 +65,11 @@ class _PickListScreenState extends ConsumerState<PickListScreen> with SingleTick
   void dispose() {
     _tabController.dispose();
     _lotCtrl.dispose();
+    _batchCtrl.dispose();
     _qtyCtrl.dispose();
     _mrFilterCtrl.dispose();
     _lotFocus.dispose();
+    _batchFocus.dispose();
     _qtyFocus.dispose();
     _mrFilterFocus.dispose();
     super.dispose();
@@ -122,6 +130,7 @@ class _PickListScreenState extends ConsumerState<PickListScreen> with SingleTick
     if (_selectedPick == null) return;
 
     final actualLot = _lotCtrl.text.trim();
+    final actualBatch = _batchCtrl.text.trim();
     final pickedQty = double.tryParse(_qtyCtrl.text) ?? 0.0;
     final suggestedLot = _selectedPick!.suggestedLot ?? '';
 
@@ -143,12 +152,36 @@ class _PickListScreenState extends ConsumerState<PickListScreen> with SingleTick
       return;
     }
 
+    // Quantity can only be capped by what the chosen bin/batch actually has —
+    // not by how much was originally requested.
+    if (actualBatch.isNotEmpty) {
+      PickBatchOption? matchedBatch;
+      for (final b in _batches) {
+        if (b.batchNo == actualBatch) {
+          matchedBatch = b;
+          break;
+        }
+      }
+      if (matchedBatch != null && pickedQty > matchedBatch.qty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Quantity ($pickedQty) exceeds available quantity in batch $actualBatch (${_fmtQty(matchedBatch.qty)}).',
+            ),
+            backgroundColor: AppTheme.danger,
+          ),
+        );
+        return;
+      }
+    }
+
     setState(() => _submitting = true);
     try {
       await ref.read(pickRepositoryProvider).pick(
             pickItem: _selectedPick!.name,
             actualLot: actualLot,
             pickedQty: pickedQty,
+            actualBatch: actualBatch.isNotEmpty ? actualBatch : null,
           );
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -186,6 +219,7 @@ class _PickListScreenState extends ConsumerState<PickListScreen> with SingleTick
   void _selectedItemDismiss() {
     setState(() {
       _selectedPick = null;
+      _batches = [];
     });
   }
 
@@ -193,15 +227,90 @@ class _PickListScreenState extends ConsumerState<PickListScreen> with SingleTick
     setState(() {
       _selectedPick = pick;
       _lotCtrl.clear();
+      _batchCtrl.clear();
+      _batches = [];
       final remaining = pick.requiredQty - pick.pickedQty;
       _qtyCtrl.text = remaining.toStringAsFixed(remaining.truncateToDouble() == remaining ? 0 : 2);
     });
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _lotFocus.requestFocus();
       }
     });
+
+    if (pick.suggestedLot != null && pick.suggestedLot!.isNotEmpty) {
+      _loadBatches(pick.suggestedLot);
+    }
+  }
+
+  /// Loads the batches available for the selected item in [lot] (defaults to
+  /// the item's suggested bin when [lot] is null/empty). A bin can hold more
+  /// than one batch, so this drives both the suggested-batch chip and the
+  /// list the picker can tap/scan from.
+  Future<void> _loadBatches(String? lot) async {
+    if (_selectedPick == null) return;
+    setState(() => _batchesLoading = true);
+    try {
+      final batches = await ref.read(pickRepositoryProvider).listBatches(
+            pickItem: _selectedPick!.name,
+            lot: lot,
+          );
+      if (!mounted) return;
+      setState(() {
+        _batches = batches;
+        _batchesLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _batches = [];
+        _batchesLoading = false;
+      });
+    }
+  }
+
+  String _fmtQty(double v) =>
+      v.truncateToDouble() == v ? v.toStringAsFixed(0) : v.toStringAsFixed(2);
+
+  /// Batches available for the item in the currently scanned/suggested bin.
+  /// A bin can hold several batches at once, so every batch found is shown
+  /// as a tappable chip (the FIFO-suggested one highlighted); tapping fills
+  /// the Scan Batch field, same pattern as the Suggested Lot chip.
+  Widget _buildBatchChips() {
+    if (_batchesLoading) {
+      return const SizedBox(
+        height: 16,
+        width: 16,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      );
+    }
+    if (_batches.isEmpty) {
+      return const Text('None', style: TextStyle(fontWeight: FontWeight.bold));
+    }
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: _batches.map((b) {
+        return GestureDetector(
+          onTap: () {
+            setState(() => _batchCtrl.text = b.batchNo);
+            _qtyFocus.requestFocus();
+          },
+          child: Chip(
+            label: Text(
+              '${b.batchNo} (${_fmtQty(b.qty)})',
+              style: TextStyle(
+                color: b.isSuggested ? Colors.white : AppTheme.textPrimary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            backgroundColor: b.isSuggested ? AppTheme.primary : AppTheme.bgElevated,
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          ),
+        );
+      }).toList(),
+    );
   }
 
   @override
@@ -427,7 +536,8 @@ class _PickListScreenState extends ConsumerState<PickListScreen> with SingleTick
                               setState(() {
                                 _lotCtrl.text = item.suggestedLot!;
                               });
-                              _qtyFocus.requestFocus();
+                              _loadBatches(item.suggestedLot);
+                              _batchFocus.requestFocus();
                             },
                             child: Chip(
                               label: Text(
@@ -440,6 +550,17 @@ class _PickListScreenState extends ConsumerState<PickListScreen> with SingleTick
                           )
                         else
                           const Text('None', style: TextStyle(fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.only(top: 2),
+                          child: Text('Batches: '),
+                        ),
+                        Expanded(child: _buildBatchChips()),
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -457,6 +578,22 @@ class _PickListScreenState extends ConsumerState<PickListScreen> with SingleTick
               labelText: 'Scan Lot',
               hintText: 'Scan Lot to pick from',
               prefixIcon: Icons.qr_code_scanner,
+              textInputAction: TextInputAction.next,
+              onSubmitted: (value) {
+                final lot = value.trim();
+                _batchCtrl.clear();
+                _loadBatches(lot.isNotEmpty ? lot : _selectedPick?.suggestedLot);
+                _batchFocus.requestFocus();
+              },
+            ),
+            const SizedBox(height: 14),
+
+            ScanInputField(
+              controller: _batchCtrl,
+              focusNode: _batchFocus,
+              labelText: 'Scan Batch',
+              hintText: 'Scan the batch to pick from',
+              prefixIcon: Icons.qr_code,
               textInputAction: TextInputAction.next,
               onSubmitted: (_) => _qtyFocus.requestFocus(),
             ),
