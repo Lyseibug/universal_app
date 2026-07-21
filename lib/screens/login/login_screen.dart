@@ -61,7 +61,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
 
     if (success && mounted) {
-      context.go('/workspace');
+      // Some roles (PDT Settings.skip_workstation_roles) never pick a
+      // workstation — send them straight to Home instead of /workspace.
+      final skipWorkstation = ref.read(authProvider).session?.skipWorkstation ?? false;
+      context.go(skipWorkstation ? '/home' : '/workspace');
       // Run update check after successful login (non-blocking)
       _runUpdateCheck();
     }

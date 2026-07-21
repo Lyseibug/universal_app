@@ -10,6 +10,7 @@ import '../../providers/service_providers.dart';
 import '../../providers/workstation_provider.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
+import '../../widgets/scan_input_field.dart';
 
 /// Workspace + workstation selection screen shown after login.
 ///
@@ -30,6 +31,8 @@ class WorkspaceScreen extends ConsumerStatefulWidget {
 
 class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
   final _helperCtrl = TextEditingController();
+  final _scanCtrl = TextEditingController();
+  final _scanFocus = FocusNode();
 
   List<WorkspaceModel>? _workspaces;
   WorkspaceModel? _selectedAssignment;
@@ -37,6 +40,8 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
   bool _loading = true;
   bool _confirming = false;
   String? _error;
+
+  List<String> get _stations => _selectedAssignment?.workstations ?? const [];
 
   @override
   void initState() {
@@ -47,7 +52,39 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
   @override
   void dispose() {
     _helperCtrl.dispose();
+    _scanCtrl.dispose();
+    _scanFocus.dispose();
     super.dispose();
+  }
+
+  /// Matches a scanned workstation ID against this assignment's allowed
+  /// stations (case/whitespace-insensitive) and selects it. A scan for a
+  /// station outside the assignment is rejected rather than silently
+  /// accepted, same as the dropdown only ever offering assigned stations.
+  void _handleWorkstationScan(String value) {
+    final scanned = value.trim();
+    if (scanned.isEmpty) return;
+
+    final match = _stations.firstWhere(
+      (s) => s.toLowerCase() == scanned.toLowerCase(),
+      orElse: () => '',
+    );
+
+    if (match.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('"$scanned" is not one of your assigned workstations.'),
+          backgroundColor: AppTheme.danger,
+        ),
+      );
+      _scanCtrl.clear();
+      return;
+    }
+
+    setState(() {
+      _selectedWorkstation = match;
+      _scanCtrl.text = match;
+    });
   }
 
   Future<void> _loadWorkspaces() async {
@@ -240,7 +277,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
       );
     }
 
-    final stations = _selectedAssignment?.workstations ?? const <String>[];
+    final stations = _stations;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTheme.horizontalPad),
@@ -291,14 +328,26 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
             const Text('WORKSTATION ID',
                 style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary, letterSpacing: 1.0)),
             const SizedBox(height: 6),
+            ScanInputField(
+              controller: _scanCtrl,
+              focusNode: _scanFocus,
+              labelText: 'Scan Workstation ID',
+              hintText: 'Scan the workstation barcode/QR',
+              prefixIcon: Icons.qr_code_scanner,
+              onSubmitted: _handleWorkstationScan,
+            ),
+            const SizedBox(height: 10),
             DropdownButtonFormField<String>(
               value: _selectedWorkstation,
               decoration: const InputDecoration(
-                hintText: 'Select workstation',
+                hintText: 'Or select workstation manually',
                 prefixIcon: Icon(Icons.place_outlined),
               ),
               items: stations.map((ws) => DropdownMenuItem(value: ws, child: Text(ws))).toList(),
-              onChanged: (ws) => setState(() => _selectedWorkstation = ws),
+              onChanged: (ws) => setState(() {
+                _selectedWorkstation = ws;
+                _scanCtrl.text = ws ?? '';
+              }),
             ),
             if (stations.length > 1) ...[
               const SizedBox(height: 4),

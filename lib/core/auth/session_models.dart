@@ -42,6 +42,9 @@ class SessionInfo {
   /// 'line2_curing') — null/empty means no auto-routing, land on the tile
   /// menu as before.
   final String? screenKey;
+  /// True when PDT Settings.skip_workstation_roles includes one of this
+  /// user's roles — they land on Home directly, bypassing /workspace.
+  final bool skipWorkstation;
 
   const SessionInfo({
     this.employee,
@@ -52,6 +55,7 @@ class SessionInfo {
     this.productionLine,
     this.assignedStations = const [],
     this.screenKey,
+    this.skipWorkstation = false,
   });
 
   factory SessionInfo.fromJson(Map<String, dynamic> json) => SessionInfo(
@@ -63,6 +67,7 @@ class SessionInfo {
         productionLine: json['production_line']?.toString(),
         assignedStations: (json['assigned_stations'] as List?)?.map((s) => s.toString()).toList() ?? const [],
         screenKey: json['screen_key']?.toString(),
+        skipWorkstation: json['skip_workstation'] == true,
       );
 
   Map<String, dynamic> toJson() => {
@@ -74,5 +79,6 @@ class SessionInfo {
         'production_line': productionLine,
         'assigned_stations': assignedStations,
         'screen_key': screenKey,
+        'skip_workstation': skipWorkstation,
       };
 }

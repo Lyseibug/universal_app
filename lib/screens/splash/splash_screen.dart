@@ -65,9 +65,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         }
         if (mounted) {
           // A workstation was already picked in a previous session → resume
-          // straight to /home. Otherwise the worker needs to pick one first.
+          // straight to /home. Same for roles PDT Settings exempts from
+          // workstation selection entirely. Otherwise pick one first.
           final hasWorkstation = (sessionInfo?.workspace ?? '').isNotEmpty;
-          context.go(hasWorkstation ? '/home' : '/workspace');
+          final skipWorkstation = sessionInfo?.skipWorkstation ?? false;
+          context.go((hasWorkstation || skipWorkstation) ? '/home' : '/workspace');
           // Run update check after navigation — non-blocking
           _runUpdateCheck();
         }
