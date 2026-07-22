@@ -188,6 +188,7 @@ class Line2Repository {
     required String rejectionType,
     String? reason,
     double? qty,
+    String? returnToStep,
   }) async {
     final result = await _writeQueue.run('line2.create_rejection', {
       'wo_name': workOrder,
@@ -195,6 +196,7 @@ class Line2Repository {
       'rejection_type': rejectionType,
       if (reason != null) 'reason_code': reason,
       if (qty != null) 'qty': qty,
+      if (returnToStep != null) 'return_to_step': returnToStep,
     });
     return Map<String, dynamic>.from(result);
   }

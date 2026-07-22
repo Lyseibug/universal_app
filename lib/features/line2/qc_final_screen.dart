@@ -190,6 +190,7 @@ class _QcFinalScreenState extends ConsumerState<QcFinalScreen> {
           rejectionType: r.isFullScrap ? 'Full Scrap' : 'Rework',
           reason: '${r.code}: ${r.description}',
           qty: r.qty.toDouble(),
+          returnToStep: r.reworkStep,
         );
       }
 
