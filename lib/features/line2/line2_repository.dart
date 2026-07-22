@@ -212,6 +212,14 @@ class Line2Repository {
     return Map<String, dynamic>.from(data);
   }
 
+  /// Whether QC Final should show/require the flowchart photo capture step
+  /// — driven by Job Card.custom_flowchart_photo's Hidden state in Desk
+  /// Customize Form, so this can be toggled without an app release.
+  Future<bool> isFlowchartPhotoRequired() async {
+    final data = await _api.call('line2_qc.flowchart_photo_required', body: {});
+    return (data is Map && data['required'] == true);
+  }
+
   /// Employees eligible to be picked as the actual submitter on a shared QC
   /// login (see submitMeasurement/submitQcResult `inspector`) — anyone whose
   /// User holds the Quality Inspector role.

@@ -49,17 +49,29 @@ class _QcFinalScreenState extends ConsumerState<QcFinalScreen> {
   List<Map<String, dynamic>> _inspectors = [];
   String? _selectedInspector;
 
+  // Desk-configurable (Job Card.custom_flowchart_photo Hidden state) —
+  // defaults to required until loaded, matching prior behavior.
+  bool _photoRequired = true;
+
   @override
   void initState() {
     super.initState();
     _loadWorkerStations();
     _loadInspectors();
+    _loadPhotoRequirement();
   }
 
   Future<void> _loadInspectors() async {
     try {
       final inspectors = await ref.read(line2RepositoryProvider).listInspectors();
       if (mounted) setState(() => _inspectors = inspectors);
+    } catch (_) {}
+  }
+
+  Future<void> _loadPhotoRequirement() async {
+    try {
+      final required = await ref.read(line2RepositoryProvider).isFlowchartPhotoRequired();
+      if (mounted) setState(() => _photoRequired = required);
     } catch (_) {}
   }
 
@@ -155,14 +167,16 @@ class _QcFinalScreenState extends ConsumerState<QcFinalScreen> {
       return;
     }
 
-    // Require flowchart photo before completion
-    final photoResult = await FlowchartPhotoCapture.show(
-      context,
-      lotNumber: _scanResult!['flowchart_barcode']?.toString() ?? '',
-      productName: _scanResult!['item_name']?.toString() ?? '',
-    );
-
-    if (photoResult == null) return;
+    // Flowchart photo capture — only shown/required when
+    // Job Card.custom_flowchart_photo is active (not Hidden) in Desk.
+    if (_photoRequired) {
+      final photoResult = await FlowchartPhotoCapture.show(
+        context,
+        lotNumber: _scanResult!['flowchart_barcode']?.toString() ?? '',
+        productName: _scanResult!['item_name']?.toString() ?? '',
+      );
+      if (photoResult == null) return;
+    }
 
     setState(() => _completing = true);
     try {
