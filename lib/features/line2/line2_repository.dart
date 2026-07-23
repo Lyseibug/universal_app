@@ -78,13 +78,18 @@ class Line2Repository {
     String? remarks,
     double? scrapQty,
     String? scrapReasonCode,
+    List<Map<String, dynamic>>? scrapEntries,
   }) async {
     final result = await _writeQueue.run('line2.complete_step', {
       'job_card': jobCard,
       if (measurements != null) 'measurements': measurements,
       if (remarks != null) 'remarks': remarks,
-      if (scrapQty != null && scrapQty > 0) 'scrap_qty': scrapQty,
-      if (scrapReasonCode != null) 'scrap_reason_code': scrapReasonCode,
+      if (scrapEntries != null && scrapEntries.isNotEmpty)
+        'scrap_entries': scrapEntries
+      else ...{
+        if (scrapQty != null && scrapQty > 0) 'scrap_qty': scrapQty,
+        if (scrapReasonCode != null) 'scrap_reason_code': scrapReasonCode,
+      },
     });
     return Map<String, dynamic>.from(result);
   }

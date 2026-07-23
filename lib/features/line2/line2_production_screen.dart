@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/api/api_exceptions.dart';
+import '../../core/errors/error_mapper.dart';
 import '../../core/menu/menu_models.dart';
 import '../../core/models/tool_request_models.dart';
 import '../../core/theme/app_theme.dart';
@@ -79,6 +81,10 @@ class _Line2ProductionScreenState extends ConsumerState<Line2ProductionScreen> {
   List<_MeasurementField> _measurements = [];
   List<Map<String, dynamic>> _reasonCodes = [];
   String? _selectedScrapReason;
+  /// Added scrap rows for this completion — {'reason_code', 'description', 'qty'}.
+  /// Multiple pieces can be scrapped for different reasons in one step
+  /// completion (e.g. Cutting: 2 for a dimension defect, 1 for a surface one).
+  final List<Map<String, dynamic>> _scrapEntries = [];
 
   String? get _currentStep => _scanResult?['current_step']?.toString();
   _ToolStepInfo? get _toolStepInfo => _toolSteps[_currentStep];
@@ -207,6 +213,7 @@ class _Line2ProductionScreenState extends ConsumerState<Line2ProductionScreen> {
       _reasonCodes = [];
       _selectedScrapReason = null;
       _scrapQtyCtrl.clear();
+      _scrapEntries.clear();
     });
 
     try {
@@ -220,6 +227,11 @@ class _Line2ProductionScreenState extends ConsumerState<Line2ProductionScreen> {
       _applyScanResult(data);
       setState(() => _scanning = false);
       await _afterScanLoaded(data);
+    } on ApiException catch (e) {
+      setState(() {
+        _error = messageFor(e);
+        _scanning = false;
+      });
     } catch (e) {
       setState(() {
         _error = 'Scan failed: $e';
@@ -253,6 +265,11 @@ class _Line2ProductionScreenState extends ConsumerState<Line2ProductionScreen> {
           backgroundColor: AppTheme.success,
         ));
       }
+    } on ApiException catch (e) {
+      setState(() {
+        _error = messageFor(e);
+        _assigningTool = false;
+      });
     } catch (e) {
       setState(() {
         _error = 'Tool assignment failed: $e';
@@ -276,10 +293,13 @@ class _Line2ProductionScreenState extends ConsumerState<Line2ProductionScreen> {
       }
     }
 
-    final scrapQty = double.tryParse(_scrapQtyCtrl.text.trim());
-    if (scrapQty != null && scrapQty > 0 && _selectedScrapReason == null) {
+    // A qty/reason typed into the "add entry" row but never tapped + is
+    // easy to lose silently — block instead of dropping it.
+    if (_scrapQtyCtrl.text.trim().isNotEmpty || _selectedScrapReason != null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Select a reason code for the scrap'), backgroundColor: AppTheme.danger));
+        content: Text('You have an unsaved scrap entry — tap + to add it, or clear the fields'),
+        backgroundColor: AppTheme.danger,
+      ));
       return;
     }
 
@@ -299,8 +319,7 @@ class _Line2ProductionScreenState extends ConsumerState<Line2ProductionScreen> {
       await ref.read(line2RepositoryProvider).completeStep(
             jobCard: _scanResult!['job_card']?.toString() ?? '',
             measurements: measurementData,
-            scrapQty: (scrapQty != null && scrapQty > 0) ? scrapQty : null,
-            scrapReasonCode: (scrapQty != null && scrapQty > 0) ? _selectedScrapReason : null,
+            scrapEntries: _scrapEntries.isNotEmpty ? _scrapEntries : null,
           );
 
       if (mounted) {
@@ -315,6 +334,11 @@ class _Line2ProductionScreenState extends ConsumerState<Line2ProductionScreen> {
         final toolId = _assignedToolId;
         _resetForm();
         setState(() => _assignedToolId = toolId);
+      }
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(messageFor(e)), backgroundColor: AppTheme.danger));
       }
     } catch (e) {
       if (mounted) {
@@ -335,6 +359,11 @@ class _Line2ProductionScreenState extends ConsumerState<Line2ProductionScreen> {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Tool returned to store'), backgroundColor: AppTheme.success));
         setState(() => _assignedToolId = null);
+      }
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(messageFor(e)), backgroundColor: AppTheme.danger));
       }
     } catch (e) {
       if (mounted) {
@@ -362,6 +391,7 @@ class _Line2ProductionScreenState extends ConsumerState<Line2ProductionScreen> {
       _reasonCodes = [];
       _selectedScrapReason = null;
       _scrapQtyCtrl.clear();
+      _scrapEntries.clear();
     });
   }
 
@@ -517,36 +547,107 @@ class _Line2ProductionScreenState extends ConsumerState<Line2ProductionScreen> {
         if (_isScrapCapableStep) ...[
           const Text('SCRAP',
               style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary, letterSpacing: 1.0)),
+          const SizedBox(height: 4),
+          const Text('Add one row per defect reason — multiple reasons can be recorded in one completion.',
+              style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
           const SizedBox(height: 10),
-          TextField(
-            controller: _scrapQtyCtrl,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              labelText: 'Scrap Qty',
-              helperText: 'Pieces lost at this station, if any',
-              border: OutlineInputBorder(),
-              isDense: true,
-            ),
-            onChanged: (_) => setState(() {}),
-          ),
-          const SizedBox(height: 12),
-          if ((double.tryParse(_scrapQtyCtrl.text.trim()) ?? 0) > 0)
-            DropdownButtonFormField<String>(
-              value: _selectedScrapReason,
-              decoration: const InputDecoration(
-                labelText: 'Scrap Reason *',
-                border: OutlineInputBorder(),
-                isDense: true,
+          if (_scrapEntries.isNotEmpty) ...[
+            ..._scrapEntries.map((entry) => Card(
+                  margin: const EdgeInsets.only(bottom: 6),
+                  child: ListTile(
+                    dense: true,
+                    title: Text('${entry['reason_code']} — ${entry['description'] ?? ''}',
+                        style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('${entry['qty']}',
+                            style: const TextStyle(fontWeight: FontWeight.bold)),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 18),
+                          color: AppTheme.danger,
+                          onPressed: () => setState(() => _scrapEntries.remove(entry)),
+                        ),
+                      ],
+                    ),
+                  ),
+                )),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                'Total scrap: ${_scrapEntries.fold<double>(0, (sum, e) => sum + (e['qty'] as double))}',
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
               ),
-              items: _reasonCodes
-                  .map((r) => DropdownMenuItem(
-                        value: '${r['code']}: ${r['description'] ?? ''}',
-                        child: Text('${r['code']} — ${r['description'] ?? ''}',
-                            overflow: TextOverflow.ellipsis),
-                      ))
-                  .toList(),
-              onChanged: (v) => setState(() => _selectedScrapReason = v),
             ),
+          ],
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 100,
+                child: TextField(
+                  controller: _scrapQtyCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Qty',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  value: _selectedScrapReason,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Reason',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: _reasonCodes
+                      .map((r) => DropdownMenuItem(
+                            value: r['code']?.toString(),
+                            child: Text('${r['code']} — ${r['description'] ?? ''}',
+                                overflow: TextOverflow.ellipsis),
+                          ))
+                      .toList(),
+                  onChanged: (v) => setState(() => _selectedScrapReason = v),
+                ),
+              ),
+              const SizedBox(width: 4),
+              IconButton.filled(
+                icon: const Icon(Icons.add),
+                onPressed: () {
+                  final qty = double.tryParse(_scrapQtyCtrl.text.trim());
+                  if (qty == null || qty <= 0) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('Enter a scrap quantity greater than 0'), backgroundColor: AppTheme.danger));
+                    return;
+                  }
+                  if (_selectedScrapReason == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('Select a reason code for the scrap'), backgroundColor: AppTheme.danger));
+                    return;
+                  }
+                  final reason = _reasonCodes.firstWhere(
+                    (r) => r['code']?.toString() == _selectedScrapReason,
+                    orElse: () => {},
+                  );
+                  setState(() {
+                    _scrapEntries.add({
+                      'reason_code': _selectedScrapReason,
+                      'description': reason['description']?.toString() ?? '',
+                      'qty': qty,
+                    });
+                    _scrapQtyCtrl.clear();
+                    _selectedScrapReason = null;
+                  });
+                },
+              ),
+            ],
+          ),
           const SizedBox(height: 12),
         ],
       ],
@@ -608,8 +709,18 @@ class _Line2ProductionScreenState extends ConsumerState<Line2ProductionScreen> {
         availableWorkstations: _workstations,
         selectedWorkstation: _selectedWorkstation,
         onWorkstationChanged: (ws) {
+          // Switching stations mid-job doesn't make sense — the loaded scan
+          // (Job Card, tool, timer, measurements) belongs to the *previous*
+          // station. Clear back to the scan prompt instead of silently
+          // leaving that station's in-progress form on screen under the
+          // newly-selected station.
+          final hadActiveScan = _scanResult != null;
           setState(() => _selectedWorkstation = ws);
-          _loadStagedTools();
+          if (hadActiveScan) {
+            _resetForm();
+          } else {
+            _loadStagedTools();
+          }
         },
         assignedStations: _assignedStations,
         scanController: _flowchartCtrl,
