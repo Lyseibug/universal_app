@@ -28,7 +28,6 @@ class QcFinalScreen extends ConsumerStatefulWidget {
 class _QcFinalScreenState extends ConsumerState<QcFinalScreen> {
   final _flowchartCtrl = TextEditingController();
   final _flowchartFocus = FocusNode();
-  final _acceptedQtyCtrl = TextEditingController();
 
   bool _scanning = false;
   bool _completing = false;
@@ -40,10 +39,11 @@ class _QcFinalScreenState extends ConsumerState<QcFinalScreen> {
 
   double get _inspectedQty => (_scanResult?['qty'] as num?)?.toDouble() ?? 0;
   double get _rejectedQty => _rejections.fold<double>(0, (sum, r) => sum + r.qty);
-  double get _acceptedQty {
-    final manual = double.tryParse(_acceptedQtyCtrl.text.trim());
-    return manual ?? (_inspectedQty - _rejectedQty);
-  }
+  // Purely derived from inspected - rejected — never manually typed. The
+  // only way to reduce it is to add a rejection/scrap entry below, so the
+  // two numbers can never silently drift apart.
+  double get _acceptedQty => _inspectedQty - _rejectedQty;
+  String _fmtQty(double v) => v.toStringAsFixed(v == v.roundToDouble() ? 0 : 2);
 
   List<String> _workstations = [];
   String? _selectedWorkstation;
@@ -76,8 +76,6 @@ class _QcFinalScreenState extends ConsumerState<QcFinalScreen> {
         codes = await ref.read(line2RepositoryProvider).getRejectionCodes(productionType);
       } catch (_) {}
     }
-    final qty = (data['qty'] as num?)?.toDouble() ?? 0;
-    _acceptedQtyCtrl.text = qty.toStringAsFixed(qty == qty.roundToDouble() ? 0 : 2);
     if (mounted) {
       setState(() {
         _scanResult = data;
@@ -104,7 +102,6 @@ class _QcFinalScreenState extends ConsumerState<QcFinalScreen> {
   void dispose() {
     _flowchartCtrl.dispose();
     _flowchartFocus.dispose();
-    _acceptedQtyCtrl.dispose();
     super.dispose();
   }
 
@@ -147,9 +144,6 @@ class _QcFinalScreenState extends ConsumerState<QcFinalScreen> {
         codes = await ref.read(line2RepositoryProvider).getRejectionCodes(productionType);
       }
 
-      final qty = (data['qty'] as num?)?.toDouble() ?? 0;
-      _acceptedQtyCtrl.text = qty.toStringAsFixed(qty == qty.roundToDouble() ? 0 : 2);
-
       setState(() {
         _scanResult = data;
         _rejectionCodes = codes;
@@ -175,11 +169,7 @@ class _QcFinalScreenState extends ConsumerState<QcFinalScreen> {
     );
 
     if (entry != null) {
-      setState(() {
-        _rejections.add(entry);
-        final newAccepted = _inspectedQty - _rejectedQty;
-        _acceptedQtyCtrl.text = newAccepted.toStringAsFixed(newAccepted == newAccepted.roundToDouble() ? 0 : 2);
-      });
+      setState(() => _rejections.add(entry));
     }
   }
 
@@ -263,7 +253,6 @@ class _QcFinalScreenState extends ConsumerState<QcFinalScreen> {
       _rejectionCodes = [];
       _error = null;
       _flowchartCtrl.clear();
-      _acceptedQtyCtrl.clear();
     });
   }
 
@@ -355,25 +344,11 @@ class _QcFinalScreenState extends ConsumerState<QcFinalScreen> {
                           const SizedBox(height: 10),
                           _qtyRow('Inspected Qty', _inspectedQty.toStringAsFixed(0)),
                           const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              const SizedBox(width: 110, child: Text('Accepted Qty', style: TextStyle(fontSize: 14))),
-                              Expanded(
-                                child: SizedBox(
-                                  height: 40,
-                                  child: TextField(
-                                    controller: _acceptedQtyCtrl,
-                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.success),
-                                    decoration: const InputDecoration(
-                                      isDense: true,
-                                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                          // Derived only — Inspected minus Rejected. Not
+                          // manually editable: the only way to change it is
+                          // to add/remove a rejection below, so the two
+                          // numbers can never silently drift apart.
+                          _qtyRow('Accepted Qty', _fmtQty(_acceptedQty), color: AppTheme.success),
                           const SizedBox(height: 6),
                           _qtyRow('Rejected Qty', _rejectedQty.toStringAsFixed(0), color: AppTheme.danger),
                         ],
@@ -410,13 +385,7 @@ class _QcFinalScreenState extends ConsumerState<QcFinalScreen> {
                             ),
                             trailing: IconButton(
                               icon: const Icon(Icons.delete_outline, size: 20, color: AppTheme.danger),
-                              onPressed: () {
-                                setState(() {
-                                  _rejections.removeAt(i);
-                                  final newAccepted = _inspectedQty - _rejectedQty;
-                                  _acceptedQtyCtrl.text = newAccepted.toStringAsFixed(newAccepted == newAccepted.roundToDouble() ? 0 : 2);
-                                });
-                              },
+                              onPressed: () => setState(() => _rejections.removeAt(i)),
                             ),
                           );
                         }).toList(),
