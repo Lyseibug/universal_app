@@ -136,7 +136,9 @@ class _Line2ProductionScreenState extends ConsumerState<Line2ProductionScreen> {
 
   Future<void> _loadWorkerStations() async {
     try {
-      final stations = await ref.read(line2RepositoryProvider).getWorkerStations();
+      final stations = await ref
+          .read(line2RepositoryProvider)
+          .getWorkerStations(screenKey: widget.screen.screenKey);
       if (stations.isNotEmpty && mounted) {
         final all = <String>[];
         for (final s in stations) {

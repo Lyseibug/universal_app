@@ -15,7 +15,11 @@ import 'widgets/support_help_section.dart';
 
 class QcFinalScreen extends ConsumerStatefulWidget {
   final MenuScreen screen;
-  const QcFinalScreen({required this.screen, super.key});
+  /// Pre-resolved scan_flowchart payload — used by Active Jobs' "resume"
+  /// action to open this screen already loaded on an in-progress INSPECT
+  /// job, without requiring a fresh barcode scan.
+  final Map<String, dynamic>? resumeJob;
+  const QcFinalScreen({required this.screen, this.resumeJob, super.key});
 
   @override
   ConsumerState<QcFinalScreen> createState() => _QcFinalScreenState();
@@ -59,6 +63,27 @@ class _QcFinalScreenState extends ConsumerState<QcFinalScreen> {
     _loadWorkerStations();
     _loadInspectors();
     _loadPhotoRequirement();
+    if (widget.resumeJob != null) {
+      _applyResumedScan(widget.resumeJob!);
+    }
+  }
+
+  Future<void> _applyResumedScan(Map<String, dynamic> data) async {
+    final productionType = data['production_type']?.toString() ?? '';
+    List<Map<String, dynamic>> codes = [];
+    if (productionType.isNotEmpty) {
+      try {
+        codes = await ref.read(line2RepositoryProvider).getRejectionCodes(productionType);
+      } catch (_) {}
+    }
+    final qty = (data['qty'] as num?)?.toDouble() ?? 0;
+    _acceptedQtyCtrl.text = qty.toStringAsFixed(qty == qty.roundToDouble() ? 0 : 2);
+    if (mounted) {
+      setState(() {
+        _scanResult = data;
+        _rejectionCodes = codes;
+      });
+    }
   }
 
   Future<void> _loadInspectors() async {

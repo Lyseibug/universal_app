@@ -10,6 +10,7 @@ import '../../widgets/pdt_scaffold.dart';
 import '../../widgets/status_chip.dart';
 import 'line2_production_screen.dart';
 import 'line2_repository.dart';
+import 'qc_final_screen.dart';
 
 class ActiveJobsScreen extends ConsumerStatefulWidget {
   final MenuScreen screen;
@@ -111,6 +112,8 @@ class _ActiveJobsScreenState extends ConsumerState<ActiveJobsScreen> {
         'line2_building' ||
         'line2_processing' =>
           Line2ProductionScreen(screen: menuScreen, resumeJob: scanResult),
+        'line2_qc_final' =>
+          QcFinalScreen(screen: menuScreen, resumeJob: scanResult),
         _ => null,
       };
       if (resumedScreen == null) {

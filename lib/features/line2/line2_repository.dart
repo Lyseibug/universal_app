@@ -15,8 +15,14 @@ class Line2Repository {
 
   // ── Worker Stations & Config ────────────────────────────────────────────
 
-  Future<List<Map<String, dynamic>>> getWorkerStations() async {
-    final data = await _api.call('line2.get_worker_stations', body: {});
+  /// [screenKey], when given, narrows the result to workstations that
+  /// actually belong to that screen (see building.get_worker_stations) —
+  /// so e.g. a worker assigned to both a Cutting and a QC station only sees
+  /// the Cutting one while on the Processing screen.
+  Future<List<Map<String, dynamic>>> getWorkerStations({String? screenKey}) async {
+    final data = await _api.call('line2.get_worker_stations', body: {
+      if (screenKey != null && screenKey.isNotEmpty) 'screen_key': screenKey,
+    });
     if (data is List) {
       return data.map((j) => Map<String, dynamic>.from(j)).toList();
     }
