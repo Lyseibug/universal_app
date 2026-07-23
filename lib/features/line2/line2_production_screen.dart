@@ -346,18 +346,41 @@ class _Line2ProductionScreenState extends ConsumerState<Line2ProductionScreen> {
             scrapEntries: _scrapEntries.isNotEmpty ? _scrapEntries : null,
           );
 
+      // Mold (Building) / Airbag (Curing) are released back to the store
+      // automatically the moment their step completes — no manual "Return
+      // to Store" prompt anymore. If the auto-release itself fails (e.g. a
+      // transient error), fall back to keeping the tool card up so the
+      // operator still has a way to release it by hand instead of it being
+      // silently stuck "in use".
+      String? toolAutoReleaseError;
+      final toolToRelease = _toolStepInfo != null ? _assignedToolId : null;
+      if (toolToRelease != null) {
+        try {
+          await ref.read(line2RepositoryProvider).returnToolToStore(toolId: toolToRelease);
+        } on ApiException catch (e) {
+          toolAutoReleaseError = messageFor(e);
+        } catch (e) {
+          toolAutoReleaseError = '$e';
+        }
+      }
+
       if (mounted) {
         final stepName = _scanResult?['step_name']?.toString() ?? 'Step';
-        final stationMsg = _toolStepInfo != null && _selectedWorkstation != null
-            ? ' - ${_toolStepInfo!.toolType.toLowerCase()} staged at $_selectedWorkstation'
+        final stationMsg = _toolStepInfo != null && toolAutoReleaseError == null
+            ? ' - ${_toolStepInfo!.toolType.toLowerCase()} released to store'
             : '';
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('$stepName completed$stationMsg'),
           backgroundColor: AppTheme.success,
         ));
-        final toolId = _assignedToolId;
         _resetForm();
-        setState(() => _assignedToolId = toolId);
+        if (toolAutoReleaseError != null) {
+          setState(() => _assignedToolId = toolToRelease);
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Step completed, but the tool could not be auto-released: $toolAutoReleaseError'),
+            backgroundColor: AppTheme.warning,
+          ));
+        }
       }
     } on ApiException catch (e) {
       if (mounted) {
@@ -655,6 +678,7 @@ class _Line2ProductionScreenState extends ConsumerState<Line2ProductionScreen> {
   Widget _buildMeasurementScrapContent() {
     final stepName = _scanResult?['step_name']?.toString() ?? _currentStep ?? 'Processing';
     final qty = _scanResult?['qty'];
+    final qtyUom = _scanResult?['qty_uom']?.toString();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -674,8 +698,10 @@ class _Line2ProductionScreenState extends ConsumerState<Line2ProductionScreen> {
                   style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.primary, fontSize: 13)),
             ),
             if (qty != null)
-              Text('Qty at this station: $qty',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              Text(
+                'Qty at this station: $qty${qtyUom != null && qtyUom.isNotEmpty ? ' $qtyUom' : ''}',
+                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              ),
           ],
         ),
         const SizedBox(height: 16),
@@ -746,9 +772,11 @@ class _Line2ProductionScreenState extends ConsumerState<Line2ProductionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Post-completion state: job scan cleared, but a just-used tool (from a
-    // Building/Curing step) is still known and can be manually returned to
-    // the store. Processing steps never reach this — they have no tool.
+    // Fallback-only state: the tool (Mold/Airbag) is normally auto-released
+    // to the store the instant its step completes (see _completeStep) — this
+    // only shows up if that auto-release itself failed, so the operator
+    // still has a way to release it by hand instead of it being silently
+    // stuck "in use". Processing steps never reach this — they have no tool.
     if (_scanResult == null && _assignedToolId != null) {
       return PdtScaffold(
         title: widget.screen.label,
@@ -758,10 +786,11 @@ class _Line2ProductionScreenState extends ConsumerState<Line2ProductionScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Card(
+                color: AppTheme.warningLight,
                 child: ListTile(
-                  leading: const Icon(Icons.build_outlined, color: AppTheme.success),
+                  leading: const Icon(Icons.warning_amber_outlined, color: AppTheme.warning),
                   title: Text('Tool $_assignedToolId'),
-                  subtitle: const Text('Staged here — scan the next flowchart, or return it'),
+                  subtitle: const Text('Auto-release failed — return it manually, or scan the next flowchart'),
                 ),
               ),
               const SizedBox(height: 12),

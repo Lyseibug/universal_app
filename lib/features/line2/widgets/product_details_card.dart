@@ -7,6 +7,12 @@ class ProductDetailsCard extends StatelessWidget {
   final String category;
   final String? workOrder;
   final double? qty;
+  /// Before the step that splits a bulk-planned unit into individual
+  /// pieces (Cutting/Two-Piece Cutting), qty is a sleeve-equivalent count,
+  /// not a raw belt count — see line2_building._display_qty. This label
+  /// (e.g. "Sleeve" vs "Belt") makes that unambiguous instead of showing a
+  /// bare number.
+  final String? qtyUom;
   final bool verified;
 
   const ProductDetailsCard({
@@ -15,6 +21,7 @@ class ProductDetailsCard extends StatelessWidget {
     required this.category,
     this.workOrder,
     this.qty,
+    this.qtyUom,
     this.verified = true,
     super.key,
   });
@@ -26,6 +33,7 @@ class ProductDetailsCard extends StatelessWidget {
       category: data['category']?.toString() ?? data['production_type']?.toString() ?? '',
       workOrder: data['work_order']?.toString(),
       qty: (data['qty'] as num?)?.toDouble(),
+      qtyUom: data['qty_uom']?.toString(),
     );
   }
 
@@ -77,7 +85,12 @@ class ProductDetailsCard extends StatelessWidget {
             _infoRow('Lot No', lotNo),
             _infoRow('Category', category),
             if (workOrder != null) _infoRow('Work Order', workOrder!),
-            if (qty != null) _infoRow('Qty', qty!.toStringAsFixed(qty! == qty!.roundToDouble() ? 0 : 2)),
+            if (qty != null)
+              _infoRow(
+                'Qty',
+                '${qty!.toStringAsFixed(qty! == qty!.roundToDouble() ? 0 : 2)}'
+                '${qtyUom != null && qtyUom!.isNotEmpty ? ' $qtyUom' : ''}',
+              ),
           ],
         ),
       ),
