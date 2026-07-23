@@ -58,7 +58,8 @@ class Line2ProductionScreen extends ConsumerStatefulWidget {
 class _Line2ProductionScreenState extends ConsumerState<Line2ProductionScreen> {
   final _flowchartCtrl = TextEditingController();
   final _flowchartFocus = FocusNode();
-  final _scrapQtyCtrl = TextEditingController();
+  final _processScrapQtyCtrl = TextEditingController();
+  final _rejectionQtyCtrl = TextEditingController();
 
   bool _scanning = false;
   bool _assigningTool = false;
@@ -79,12 +80,27 @@ class _Line2ProductionScreenState extends ConsumerState<Line2ProductionScreen> {
   List<StagedTool> _stagedTools = [];
 
   List<_MeasurementField> _measurements = [];
+  /// Every reason code available for this production type, each tagged
+  /// with a scrap_category ('Process Scrap' = routine/expected station
+  /// loss, e.g. trim waste; 'Rejection' = a quality defect). Physically
+  /// both end up in the same scrap warehouse — the split is purely so the
+  /// operator (and later, reporting) can tell them apart.
   List<Map<String, dynamic>> _reasonCodes = [];
-  String? _selectedScrapReason;
-  /// Added scrap rows for this completion — {'reason_code', 'description', 'qty'}.
-  /// Multiple pieces can be scrapped for different reasons in one step
-  /// completion (e.g. Cutting: 2 for a dimension defect, 1 for a surface one).
+  String? _selectedProcessScrapReason;
+  String? _selectedRejectionReason;
+  /// Added scrap rows for this completion — {'reason_code', 'description',
+  /// 'qty', 'category'}. Multiple pieces can be scrapped for different
+  /// reasons, across both categories, in one step completion.
   final List<Map<String, dynamic>> _scrapEntries = [];
+
+  List<Map<String, dynamic>> get _processScrapCodes =>
+      _reasonCodes.where((r) => r['scrap_category']?.toString() == 'Process Scrap').toList();
+  List<Map<String, dynamic>> get _rejectionCodes =>
+      _reasonCodes.where((r) => r['scrap_category']?.toString() != 'Process Scrap').toList();
+  List<Map<String, dynamic>> get _processScrapEntries =>
+      _scrapEntries.where((e) => e['category'] == 'Process Scrap').toList();
+  List<Map<String, dynamic>> get _rejectionEntries =>
+      _scrapEntries.where((e) => e['category'] != 'Process Scrap').toList();
 
   String? get _currentStep => _scanResult?['current_step']?.toString();
   _ToolStepInfo? get _toolStepInfo => _toolSteps[_currentStep];
@@ -110,7 +126,8 @@ class _Line2ProductionScreenState extends ConsumerState<Line2ProductionScreen> {
   void dispose() {
     _flowchartCtrl.dispose();
     _flowchartFocus.dispose();
-    _scrapQtyCtrl.dispose();
+    _processScrapQtyCtrl.dispose();
+    _rejectionQtyCtrl.dispose();
     for (final m in _measurements) {
       m.dispose();
     }
@@ -211,8 +228,10 @@ class _Line2ProductionScreenState extends ConsumerState<Line2ProductionScreen> {
       _assignedToolId = null;
       _timerStart = null;
       _reasonCodes = [];
-      _selectedScrapReason = null;
-      _scrapQtyCtrl.clear();
+      _selectedProcessScrapReason = null;
+      _selectedRejectionReason = null;
+      _processScrapQtyCtrl.clear();
+      _rejectionQtyCtrl.clear();
       _scrapEntries.clear();
     });
 
@@ -293,11 +312,14 @@ class _Line2ProductionScreenState extends ConsumerState<Line2ProductionScreen> {
       }
     }
 
-    // A qty/reason typed into the "add entry" row but never tapped + is
+    // A qty/reason typed into an "add entry" row but never tapped + is
     // easy to lose silently — block instead of dropping it.
-    if (_scrapQtyCtrl.text.trim().isNotEmpty || _selectedScrapReason != null) {
+    if (_processScrapQtyCtrl.text.trim().isNotEmpty ||
+        _selectedProcessScrapReason != null ||
+        _rejectionQtyCtrl.text.trim().isNotEmpty ||
+        _selectedRejectionReason != null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('You have an unsaved scrap entry — tap + to add it, or clear the fields'),
+        content: Text('You have an unsaved scrap/rejection entry — tap + to add it, or clear the fields'),
         backgroundColor: AppTheme.danger,
       ));
       return;
@@ -389,8 +411,10 @@ class _Line2ProductionScreenState extends ConsumerState<Line2ProductionScreen> {
       _timerStart = null;
       _flowchartCtrl.clear();
       _reasonCodes = [];
-      _selectedScrapReason = null;
-      _scrapQtyCtrl.clear();
+      _selectedProcessScrapReason = null;
+      _selectedRejectionReason = null;
+      _processScrapQtyCtrl.clear();
+      _rejectionQtyCtrl.clear();
       _scrapEntries.clear();
     });
   }
@@ -496,6 +520,136 @@ class _Line2ProductionScreenState extends ConsumerState<Line2ProductionScreen> {
     );
   }
 
+  void _addScrapEntry({
+    required String category,
+    required TextEditingController qtyCtrl,
+    required String? selectedReason,
+    required List<Map<String, dynamic>> codes,
+    required VoidCallback clearSelection,
+  }) {
+    final qty = double.tryParse(qtyCtrl.text.trim());
+    if (qty == null || qty <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Enter a $category quantity greater than 0'), backgroundColor: AppTheme.danger));
+      return;
+    }
+    if (selectedReason == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Select a reason code for the $category'), backgroundColor: AppTheme.danger));
+      return;
+    }
+    final reason = codes.firstWhere(
+      (r) => r['code']?.toString() == selectedReason,
+      orElse: () => {},
+    );
+    setState(() {
+      _scrapEntries.add({
+        'reason_code': selectedReason,
+        'description': reason['description']?.toString() ?? '',
+        'qty': qty,
+        'category': category,
+      });
+      qtyCtrl.clear();
+      clearSelection();
+    });
+  }
+
+  Widget _buildScrapSection({
+    required String title,
+    required String category,
+    required List<Map<String, dynamic>> codes,
+    required List<Map<String, dynamic>> entries,
+    required TextEditingController qtyCtrl,
+    required String? selectedReason,
+    required ValueChanged<String?> onReasonChanged,
+    required VoidCallback onAdd,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title.toUpperCase(),
+              style: const TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary, letterSpacing: 1.0)),
+          const SizedBox(height: 8),
+          if (entries.isNotEmpty) ...[
+            ...entries.map((entry) => Card(
+                  margin: const EdgeInsets.only(bottom: 6),
+                  child: ListTile(
+                    dense: true,
+                    title: Text('${entry['reason_code']} — ${entry['description'] ?? ''}',
+                        style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('${entry['qty']}',
+                            style: const TextStyle(fontWeight: FontWeight.bold)),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 18),
+                          color: AppTheme.danger,
+                          onPressed: () => setState(() => _scrapEntries.remove(entry)),
+                        ),
+                      ],
+                    ),
+                  ),
+                )),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                'Total $title: ${entries.fold<double>(0, (sum, e) => sum + (e['qty'] as double))}',
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+              ),
+            ),
+          ],
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 100,
+                child: TextField(
+                  controller: qtyCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Qty',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  value: selectedReason,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Reason',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: codes
+                      .map((r) => DropdownMenuItem(
+                            value: r['code']?.toString(),
+                            child: Text('${r['code']} — ${r['description'] ?? ''}',
+                                overflow: TextOverflow.ellipsis),
+                          ))
+                      .toList(),
+                  onChanged: onReasonChanged,
+                ),
+              ),
+              const SizedBox(width: 4),
+              IconButton.filled(
+                icon: const Icon(Icons.add),
+                onPressed: onAdd,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMeasurementScrapContent() {
     final stepName = _scanResult?['step_name']?.toString() ?? _currentStep ?? 'Processing';
     final qty = _scanResult?['qty'];
@@ -545,110 +699,44 @@ class _Line2ProductionScreenState extends ConsumerState<Line2ProductionScreen> {
         ],
 
         if (_isScrapCapableStep) ...[
-          const Text('SCRAP',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary, letterSpacing: 1.0)),
-          const SizedBox(height: 4),
-          const Text('Add one row per defect reason — multiple reasons can be recorded in one completion.',
-              style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
-          const SizedBox(height: 10),
-          if (_scrapEntries.isNotEmpty) ...[
-            ..._scrapEntries.map((entry) => Card(
-                  margin: const EdgeInsets.only(bottom: 6),
-                  child: ListTile(
-                    dense: true,
-                    title: Text('${entry['reason_code']} — ${entry['description'] ?? ''}',
-                        style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text('${entry['qty']}',
-                            style: const TextStyle(fontWeight: FontWeight.bold)),
-                        IconButton(
-                          icon: const Icon(Icons.close, size: 18),
-                          color: AppTheme.danger,
-                          onPressed: () => setState(() => _scrapEntries.remove(entry)),
-                        ),
-                      ],
-                    ),
-                  ),
-                )),
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text(
-                'Total scrap: ${_scrapEntries.fold<double>(0, (sum, e) => sum + (e['qty'] as double))}',
-                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
-              ),
-            ),
-          ],
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 100,
-                child: TextField(
-                  controller: _scrapQtyCtrl,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    labelText: 'Qty',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  value: _selectedScrapReason,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Reason',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  items: _reasonCodes
-                      .map((r) => DropdownMenuItem(
-                            value: r['code']?.toString(),
-                            child: Text('${r['code']} — ${r['description'] ?? ''}',
-                                overflow: TextOverflow.ellipsis),
-                          ))
-                      .toList(),
-                  onChanged: (v) => setState(() => _selectedScrapReason = v),
-                ),
-              ),
-              const SizedBox(width: 4),
-              IconButton.filled(
-                icon: const Icon(Icons.add),
-                onPressed: () {
-                  final qty = double.tryParse(_scrapQtyCtrl.text.trim());
-                  if (qty == null || qty <= 0) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text('Enter a scrap quantity greater than 0'), backgroundColor: AppTheme.danger));
-                    return;
-                  }
-                  if (_selectedScrapReason == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text('Select a reason code for the scrap'), backgroundColor: AppTheme.danger));
-                    return;
-                  }
-                  final reason = _reasonCodes.firstWhere(
-                    (r) => r['code']?.toString() == _selectedScrapReason,
-                    orElse: () => {},
-                  );
-                  setState(() {
-                    _scrapEntries.add({
-                      'reason_code': _selectedScrapReason,
-                      'description': reason['description']?.toString() ?? '',
-                      'qty': qty,
-                    });
-                    _scrapQtyCtrl.clear();
-                    _selectedScrapReason = null;
-                  });
-                },
-              ),
-            ],
+          const Text(
+            'Process Scrap = routine/expected loss (e.g. trim waste). Rejection = a quality defect. '
+            'Both are physically scrapped — recorded separately so they show up distinctly in reporting.',
+            style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
           ),
           const SizedBox(height: 12),
+          _buildScrapSection(
+            title: 'Process Scrap',
+            category: 'Process Scrap',
+            codes: _processScrapCodes,
+            entries: _processScrapEntries,
+            qtyCtrl: _processScrapQtyCtrl,
+            selectedReason: _selectedProcessScrapReason,
+            onReasonChanged: (v) => setState(() => _selectedProcessScrapReason = v),
+            onAdd: () => _addScrapEntry(
+              category: 'Process Scrap',
+              qtyCtrl: _processScrapQtyCtrl,
+              selectedReason: _selectedProcessScrapReason,
+              codes: _processScrapCodes,
+              clearSelection: () => _selectedProcessScrapReason = null,
+            ),
+          ),
+          _buildScrapSection(
+            title: 'Rejection',
+            category: 'Rejection',
+            codes: _rejectionCodes,
+            entries: _rejectionEntries,
+            qtyCtrl: _rejectionQtyCtrl,
+            selectedReason: _selectedRejectionReason,
+            onReasonChanged: (v) => setState(() => _selectedRejectionReason = v),
+            onAdd: () => _addScrapEntry(
+              category: 'Rejection',
+              qtyCtrl: _rejectionQtyCtrl,
+              selectedReason: _selectedRejectionReason,
+              codes: _rejectionCodes,
+              clearSelection: () => _selectedRejectionReason = null,
+            ),
+          ),
         ],
       ],
     );
