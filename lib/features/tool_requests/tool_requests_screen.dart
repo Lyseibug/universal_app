@@ -755,41 +755,116 @@ class _ToolRequestsScreenState extends ConsumerState<ToolRequestsScreen> {
                 if (!row.loadingTools && row.availableTools.isEmpty)
                   const Text('No available tools of this type.',
                       style: TextStyle(fontSize: 12, color: AppTheme.textSecondary))
-                else
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: row.availableTools.map((t) {
-                      final selected = row.selectedTools.contains(t.toolMaster);
-                      final label = (t.toolName != null && t.toolName!.isNotEmpty)
-                          ? '${t.toolCode} · ${t.toolName}'
-                          : t.toolCode;
-                      return FilterChip(
-                        label: Text(label, style: const TextStyle(fontSize: 12)),
-                        avatar: t.isPreferred
-                            ? const Icon(Icons.star, size: 15, color: Colors.amber)
-                            : null,
-                        selected: selected,
-                        visualDensity: VisualDensity.compact,
-                        onSelected: (v) {
-                          if (v && row.selectedTools.length >= row.qty) {
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                              content: Text('Already selected ${row.qty} of qty ${row.qty}'),
-                              backgroundColor: AppTheme.warning,
-                            ));
-                            return;
-                          }
-                          setState(() {
-                            if (v) {
-                              row.selectedTools.add(t.toolMaster);
-                            } else {
-                              row.selectedTools.remove(t.toolMaster);
-                            }
-                          });
-                        },
+                else ...[
+                  Autocomplete<AvailableTool>(
+                    displayStringForOption: (t) =>
+                        (t.toolName != null && t.toolName!.isNotEmpty)
+                            ? '${t.toolCode} · ${t.toolName}'
+                            : t.toolCode,
+                    optionsBuilder: (TextEditingValue value) {
+                      final query = value.text.trim().toLowerCase();
+                      final candidates = row.availableTools
+                          .where((t) => !row.selectedTools.contains(t.toolMaster));
+                      final filtered = query.isEmpty
+                          ? candidates
+                          : candidates.where((t) =>
+                              t.toolCode.toLowerCase().contains(query) ||
+                              (t.toolName?.toLowerCase().contains(query) ?? false));
+                      final sorted = filtered.toList()
+                        ..sort((a, b) {
+                          if (a.isPreferred != b.isPreferred) return a.isPreferred ? -1 : 1;
+                          return a.toolCode.compareTo(b.toolCode);
+                        });
+                      return sorted.take(30);
+                    },
+                    onSelected: (t) {
+                      if (row.selectedTools.length >= row.qty) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text('Already selected ${row.qty} of qty ${row.qty}'),
+                          backgroundColor: AppTheme.warning,
+                        ));
+                        row.searchCtrl?.clear();
+                        return;
+                      }
+                      setState(() => row.selectedTools.add(t.toolMaster));
+                      row.searchCtrl?.clear();
+                    },
+                    fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                      row.searchCtrl = controller;
+                      final full = row.selectedTools.length >= row.qty;
+                      return TextField(
+                        controller: controller,
+                        focusNode: focusNode,
+                        enabled: !full,
+                        decoration: InputDecoration(
+                          hintText: full
+                              ? 'Selected ${row.qty} of ${row.qty}'
+                              : 'Search by code or name...',
+                          prefixIcon: const Icon(Icons.search, size: 20),
+                          border: const OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        style: const TextStyle(fontSize: 13),
                       );
-                    }).toList(),
+                    },
+                    optionsViewBuilder: (context, onSelected, options) {
+                      final list = options.toList();
+                      return Align(
+                        alignment: Alignment.topLeft,
+                        child: Material(
+                          elevation: 4,
+                          borderRadius: BorderRadius.circular(6),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxHeight: 240, maxWidth: 340),
+                            child: ListView.builder(
+                              padding: EdgeInsets.zero,
+                              shrinkWrap: true,
+                              itemCount: list.length,
+                              itemBuilder: (context, index) {
+                                final t = list[index];
+                                final label = (t.toolName != null && t.toolName!.isNotEmpty)
+                                    ? '${t.toolCode} · ${t.toolName}'
+                                    : t.toolCode;
+                                return ListTile(
+                                  dense: true,
+                                  leading: t.isPreferred
+                                      ? const Icon(Icons.star, size: 16, color: Colors.amber)
+                                      : const SizedBox(width: 16),
+                                  title: Text(label, style: const TextStyle(fontSize: 13)),
+                                  onTap: () => onSelected(t),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      );
+                    },
                   ),
+                  if (row.selectedTools.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: row.selectedTools.map((toolMaster) {
+                        final t = row.availableTools.firstWhere(
+                          (t) => t.toolMaster == toolMaster,
+                          orElse: () => AvailableTool(toolMaster: toolMaster, toolCode: toolMaster),
+                        );
+                        final label = (t.toolName != null && t.toolName!.isNotEmpty)
+                            ? '${t.toolCode} · ${t.toolName}'
+                            : t.toolCode;
+                        return Chip(
+                          label: Text(label, style: const TextStyle(fontSize: 12)),
+                          avatar: t.isPreferred
+                              ? const Icon(Icons.star, size: 15, color: Colors.amber)
+                              : null,
+                          visualDensity: VisualDensity.compact,
+                          onDeleted: () => setState(() => row.selectedTools.remove(toolMaster)),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ],
                 if (row.selectedTools.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
@@ -818,6 +893,11 @@ class _ToolItemRow {
   List<AvailableTool> availableTools = [];
   List<String> selectedTools = [];
   bool loadingTools = false;
+  /// Captured from Autocomplete's fieldViewBuilder so onSelected can clear
+  /// the search text after adding a tool (Autocomplete otherwise leaves the
+  /// picked option's label sitting in the field, which reads wrong for a
+  /// "search then add to a list" flow instead of single-value selection).
+  TextEditingController? searchCtrl;
 
   int get qty => int.tryParse(qtyCtrl.text) ?? 0;
 
