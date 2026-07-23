@@ -95,6 +95,7 @@ class _RejectionModalState extends State<RejectionModal> {
           const SizedBox(height: 6),
           DropdownButtonFormField<String>(
             value: _selectedCode?['code']?.toString(),
+            isExpanded: true,
             decoration: const InputDecoration(hintText: 'Select reason code'),
             items: widget.rejectionCodes.map((c) {
               final code = c['code']?.toString() ?? '';

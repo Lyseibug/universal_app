@@ -314,6 +314,7 @@ class _QcFinalScreenState extends ConsumerState<QcFinalScreen> {
                     const SizedBox(height: 6),
                     DropdownButtonFormField<String>(
                       value: _selectedInspector,
+                      isExpanded: true,
                       decoration: const InputDecoration(
                         hintText: 'Who is submitting this check?',
                         prefixIcon: Icon(Icons.badge_outlined),

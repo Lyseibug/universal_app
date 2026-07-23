@@ -206,6 +206,7 @@ class _QcMeasurementScreenState extends ConsumerState<QcMeasurementScreen> {
           const SizedBox(height: 6),
           DropdownButtonFormField<String>(
             value: _selectedInspector,
+            isExpanded: true,
             decoration: const InputDecoration(
               hintText: 'Who is submitting this check?',
               prefixIcon: Icon(Icons.badge_outlined),
