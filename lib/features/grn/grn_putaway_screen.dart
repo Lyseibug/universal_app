@@ -342,13 +342,9 @@ class _GrnPutAwayScreenState extends ConsumerState<GrnPutAwayScreen> {
         suggestedLot: _suggestion?.lot,
       );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('$qty allocated to $lot successful!'),
-          backgroundColor: AppTheme.success,
-        ),
-      );
-
+      // No toast — the pending list refreshing below (and the view
+      // switching back to the list once the line is fully allocated) is
+      // confirmation enough for this per-allocation action.
       await _loadPending();
 
       final updatedItem = _pendingItems.where((e) => e.name == _selectedItem!.name).firstOrNull;

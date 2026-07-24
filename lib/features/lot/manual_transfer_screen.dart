@@ -93,10 +93,7 @@ class _ManualTransferScreenState extends ConsumerState<ManualTransferScreen> {
             qty: qty,
           );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Stock Transfer submitted!'), backgroundColor: AppTheme.success),
-      );
-
+      // No toast — the form clearing below is confirmation enough.
       // Reset form fields
       setState(() {
         _fromLotCtrl.clear();

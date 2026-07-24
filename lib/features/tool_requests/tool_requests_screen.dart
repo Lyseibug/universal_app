@@ -141,10 +141,7 @@ class _ToolRequestsScreenState extends ConsumerState<ToolRequestsScreen> {
       if (!mounted) return;
       final reqName = result is Map ? (result['name'] ?? '') : '';
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Created $reqName'), backgroundColor: AppTheme.success),
-      );
-
+      // No toast — the detail view loading below shows the newly created request.
       _clearCreateForm();
       _loadDetail(reqName.toString());
     } on ApiException catch (e) {
@@ -209,9 +206,7 @@ class _ToolRequestsScreenState extends ConsumerState<ToolRequestsScreen> {
     try {
       await ref.read(toolRequestRepositoryProvider).submit(_detail!.name);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Submitted'), backgroundColor: AppTheme.success),
-      );
+      // No toast — the detail view refreshing below shows the new status.
       _loadDetail(_detail!.name);
     } on ApiException catch (e) {
       if (mounted) {
@@ -236,15 +231,17 @@ class _ToolRequestsScreenState extends ConsumerState<ToolRequestsScreen> {
       final result = await ref.read(toolRequestRepositoryProvider).fulfill(_detail!.name);
       if (!mounted) return;
 
+      // Only a real shortfall needs a popup — the detail view refreshing
+      // below already shows a full fulfillment (tools staged per line).
       final anyShortfall = result.results.any((r) => r.shortfall > 0);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(anyShortfall
-              ? 'Fulfilled what was Available — some lines still short.'
-              : 'Fully fulfilled — tools staged.'),
-          backgroundColor: anyShortfall ? AppTheme.warning : AppTheme.success,
-        ),
-      );
+      if (anyShortfall) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Fulfilled what was Available — some lines still short.'),
+            backgroundColor: AppTheme.warning,
+          ),
+        );
+      }
       _loadDetail(_detail!.name);
     } on ApiException catch (e) {
       if (mounted) {

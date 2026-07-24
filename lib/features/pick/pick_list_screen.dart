@@ -108,9 +108,8 @@ class _PickListScreenState extends ConsumerState<PickListScreen> with SingleTick
     setState(() => _submitting = true);
     try {
       await ref.read(pickRepositoryProvider).claim(pickItem);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Item claimed successfully!'), backgroundColor: AppTheme.success),
-      );
+      // No toast — switching to the In Progress tab below is confirmation
+      // enough that the claim went through.
       await _loadPicks();
       _tabController.animateTo(1); // switch to In Progress tab
     } on ApiException catch (e) {
@@ -184,10 +183,7 @@ class _PickListScreenState extends ConsumerState<PickListScreen> with SingleTick
             actualBatch: actualBatch.isNotEmpty ? actualBatch : null,
           );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pick list item submitted successfully!'), backgroundColor: AppTheme.success),
-      );
-
+      // No toast — the item list updating below is confirmation enough.
       final currentItem = _selectedPick!;
       final remaining = currentItem.requiredQty - currentItem.pickedQty;
       setState(() {

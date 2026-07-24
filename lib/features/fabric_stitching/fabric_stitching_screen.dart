@@ -87,8 +87,8 @@ class _FabricStitchingScreenState extends ConsumerState<FabricStitchingScreen> {
             remarks: _remarksCtrl.text.trim().isEmpty ? null : _remarksCtrl.text.trim(),
           );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Stitch count logged'), backgroundColor: AppTheme.success));
+        // No toast — the form clearing and today's log list refreshing
+        // below is confirmation enough for this per-entry action.
         _stitchCountCtrl.clear();
         _remarksCtrl.clear();
       }

@@ -134,10 +134,8 @@ class _WeighingScreenState extends ConsumerState<WeighingScreen> {
         workOrder: _selectedWorkOrder!.name,
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Loaded ${result.qty} Kg to Weighing Machine'),
-          backgroundColor: AppTheme.success,
-        ));
+        // No routine "Loaded" toast — the screen resetting to the scan
+        // prompt is confirmation enough for this per-scan action.
         setState(() { _scannedItem = null; _boxBarcode = null; });
         _scanCtrl.clear();
         _qtyCtrl.clear();

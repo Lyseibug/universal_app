@@ -148,10 +148,8 @@ class _CuttingScreenState extends ConsumerState<CuttingScreen> {
             outputQty: outputQty,
           );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Cut complete: $outputQty of $targetItem produced'),
-          backgroundColor: AppTheme.success,
-        ));
+        // No routine "Cut complete" toast — the screen resetting to the
+        // scan prompt is confirmation enough for this per-cut action.
         _reset();
       }
     } catch (e) {

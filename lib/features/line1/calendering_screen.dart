@@ -258,12 +258,8 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
           await ref.read(line1RepositoryProvider).startRunFromBatches([
         {'batch_no': _pendingScan!.batchNo, 'qty': qty},
       ], _selectedWorkOrder!.name);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Run ${result.name} started'),
-          backgroundColor: AppTheme.success,
-        ));
-      }
+      // No toast — the screen switches straight into the active-run view
+      // below, which is confirmation enough that the run started.
       setState(() {
         _pendingScan = null;
         _scanCtrl.clear();
@@ -582,10 +578,8 @@ class _CalenderingScreenState extends ConsumerState<CalenderingScreen>
           );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Calendering run completed'),
-          backgroundColor: AppTheme.success,
-        ));
+        // No toast — the screen clearing back to the run list is
+        // confirmation enough.
         setState(() {
           _activeRun = null;
           _inWizard = false;

@@ -64,24 +64,21 @@ class _PhysicalInventoryScreenState extends ConsumerState<PhysicalInventoryScree
     for (int i = 0; i < _counts.length; i++) {
       if (_counts[i]['item_code'].toString().toLowerCase() == cleanBarcode.toLowerCase() ||
           _counts[i]['batch_no'].toString().toLowerCase() == cleanBarcode.toLowerCase()) {
+        // No toast — the count visibly incrementing in the list below is
+        // confirmation enough for this per-scan action.
         setState(() {
           final current = _counts[i]['counted_qty'] ?? 0.0;
           _counts[i]['counted_qty'] = current + 1.0;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Incremented ${_counts[i]['item_code']} count to ${_counts[i]['counted_qty']}'),
-            duration: const Duration(seconds: 1),
-            backgroundColor: AppTheme.success,
-          ),
-        );
         found = true;
         break;
       }
     }
 
     if (!found) {
-      // Barcode not in the system expected list - add it as a new count row
+      // Barcode not in the system expected list - add it as a new count row.
+      // No toast — the new row appearing in the list below is confirmation
+      // enough.
       setState(() {
         _counts.add({
           'item_code': cleanBarcode,
@@ -90,13 +87,6 @@ class _PhysicalInventoryScreenState extends ConsumerState<PhysicalInventoryScree
           'counted_qty': 1.0,
         });
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Added new item $cleanBarcode with count 1.0'),
-          duration: const Duration(seconds: 2),
-          backgroundColor: AppTheme.info,
-        ),
-      );
     }
   }
 

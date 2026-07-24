@@ -174,10 +174,8 @@ class _MixerLoadingScreenState extends ConsumerState<MixerLoadingScreen> {
             sourceWarehouse: entry['warehouse'] as String?,
           );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Loaded $qty Kg of $itemLabel into the mixer'),
-          backgroundColor: AppTheme.success,
-        ));
+        // No routine "Loaded" toast — the screen resetting to the scan
+        // prompt is confirmation enough for this per-scan action.
         _reset();
         _loadData();
       }

@@ -171,10 +171,8 @@ class _MaterialLoadingScreenState extends ConsumerState<MaterialLoadingScreen> {
         qty: qty,
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Loaded ${result.qty} Kg → ${result.stream ?? _resolvedStream}'),
-          backgroundColor: AppTheme.success,
-        ));
+        // No routine "Loaded" toast — the screen resetting to the scan
+        // prompt is confirmation enough for this per-scan action.
         _reset();
         _loadData();
       }

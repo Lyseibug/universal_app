@@ -151,13 +151,7 @@ class _ManufacturingMRScreenState
 
       final mrName = result is Map ? (result['name'] ?? '') : '';
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Created $mrName'),
-          backgroundColor: AppTheme.success,
-        ),
-      );
-
+      // No toast — the detail view loading below shows the newly created MR.
       _clearCreateForm();
       _loadDetail(mrName.toString());
     } on ApiException catch (e) {
@@ -253,14 +247,11 @@ class _ManufacturingMRScreenState
               );
 
       if (!mounted) return;
+      // No toast — leaving edit mode below is confirmation enough.
       setState(() {
         _detail = updated;
         _editing = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Saved'), backgroundColor: AppTheme.success),
-      );
     } on ApiException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -307,11 +298,7 @@ class _ManufacturingMRScreenState
           .submitMR(_detail!.name);
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Submitted successfully'),
-            backgroundColor: AppTheme.success),
-      );
+      // No toast — the detail view refreshing below shows the new status.
       _loadDetail(_detail!.name);
     } on ApiException catch (e) {
       if (mounted) {
@@ -341,11 +328,7 @@ class _ManufacturingMRScreenState
           .createPickList(_detail!.name);
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Pick list created'),
-            backgroundColor: AppTheme.success),
-      );
+      // No toast — the detail view refreshing below shows the new status.
       _loadDetail(_detail!.name);
     } on ApiException catch (e) {
       if (mounted) {
@@ -383,11 +366,7 @@ class _ManufacturingMRScreenState
           .fulfillDirect(_detail!.name);
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Fulfilled — stock moved'),
-            backgroundColor: AppTheme.success),
-      );
+      // No toast — the detail view refreshing below shows the new status.
       _loadDetail(_detail!.name);
     } on ApiException catch (e) {
       if (mounted) {
