@@ -15,6 +15,8 @@ _$AppNotificationImpl _$$AppNotificationImplFromJson(
       type: json['type'] as String,
       read: json['read'] as bool? ?? false,
       creation: DateTime.parse(json['creation'] as String),
+      documentType: json['document_type'] as String?,
+      documentName: json['document_name'] as String?,
     );
 
 Map<String, dynamic> _$$AppNotificationImplToJson(
@@ -26,4 +28,6 @@ Map<String, dynamic> _$$AppNotificationImplToJson(
       'type': instance.type,
       'read': instance.read,
       'creation': instance.creation.toIso8601String(),
+      'document_type': instance.documentType,
+      'document_name': instance.documentName,
     };

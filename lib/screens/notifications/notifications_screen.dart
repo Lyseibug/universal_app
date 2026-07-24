@@ -167,12 +167,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         }
 
         final item = state.notifications[index];
-        return _buildNotificationCard(item);
+        return _buildNotificationCard(item, state.acknowledgedAlertIds);
       },
     );
   }
 
-  Widget _buildNotificationCard(AppNotification item) {
+  Widget _buildNotificationCard(AppNotification item, Set<String> acknowledgedAlertIds) {
     Color typeColor;
     IconData icon;
 
@@ -296,6 +296,38 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                             fontSize: 12,
                             color: AppTheme.textSecondary,
                             height: 1.4,
+                          ),
+                        ),
+                      ],
+                      if (item.documentType == 'PDT Alert' &&
+                          item.documentName != null &&
+                          !acknowledgedAlertIds.contains(item.documentName)) ...[
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(0, 32),
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              foregroundColor: AppTheme.primary,
+                            ),
+                            onPressed: () async {
+                              try {
+                                await ref
+                                    .read(notificationsListProvider.notifier)
+                                    .acknowledgeAlert(item);
+                              } catch (e) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Failed to acknowledge — try again'),
+                                      backgroundColor: AppTheme.danger,
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                            child: const Text('Acknowledge'),
                           ),
                         ),
                       ],

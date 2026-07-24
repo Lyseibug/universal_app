@@ -14,6 +14,10 @@ class AppNotification with _$AppNotification {
     // ignore: invalid_annotation_target
     @JsonKey(name: 'read', defaultValue: false) required bool read,
     required DateTime creation,
+    // ignore: invalid_annotation_target
+    @JsonKey(name: 'document_type') String? documentType,
+    // ignore: invalid_annotation_target
+    @JsonKey(name: 'document_name') String? documentName,
   }) = _AppNotification;
 
   factory AppNotification.fromJson(Map<String, dynamic> json) =>

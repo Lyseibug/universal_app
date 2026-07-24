@@ -49,6 +49,13 @@ class NotificationRepository {
     }
     await _api.call('notifications.mark_read', body: body);
   }
+
+  /// Acknowledge a "PDT Alert" (e.g. a not-started-Job-Card alert) as its
+  /// assigned supervisor. Same acknowledge() the desk button on PDT Alert
+  /// calls -- this is just the mobile path to it.
+  Future<void> acknowledgeAlert(String alertName) async {
+    await _api.call('alerts.acknowledge_alert', body: {'alert_name': alertName});
+  }
 }
 
 final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {

@@ -30,7 +30,11 @@ mixin _$AppNotification {
 // ignore: invalid_annotation_target
   @JsonKey(name: 'read', defaultValue: false)
   bool get read => throw _privateConstructorUsedError;
-  DateTime get creation => throw _privateConstructorUsedError;
+  DateTime get creation => throw _privateConstructorUsedError; // ignore: invalid_annotation_target
+  @JsonKey(name: 'document_type')
+  String? get documentType => throw _privateConstructorUsedError; // ignore: invalid_annotation_target
+  @JsonKey(name: 'document_name')
+  String? get documentName => throw _privateConstructorUsedError;
 
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
   @JsonKey(ignore: true)
@@ -50,7 +54,9 @@ abstract class $AppNotificationCopyWith<$Res> {
       @JsonKey(name: 'email_content') String? content,
       String type,
       @JsonKey(name: 'read', defaultValue: false) bool read,
-      DateTime creation});
+      DateTime creation,
+      @JsonKey(name: 'document_type') String? documentType,
+      @JsonKey(name: 'document_name') String? documentName});
 }
 
 /// @nodoc
@@ -72,6 +78,8 @@ class _$AppNotificationCopyWithImpl<$Res, $Val extends AppNotification>
     Object? type = null,
     Object? read = null,
     Object? creation = null,
+    Object? documentType = freezed,
+    Object? documentName = freezed,
   }) {
     return _then(_value.copyWith(
       id: null == id
@@ -98,6 +106,14 @@ class _$AppNotificationCopyWithImpl<$Res, $Val extends AppNotification>
           ? _value.creation
           : creation // ignore: cast_nullable_to_non_nullable
               as DateTime,
+      documentType: freezed == documentType
+          ? _value.documentType
+          : documentType // ignore: cast_nullable_to_non_nullable
+              as String?,
+      documentName: freezed == documentName
+          ? _value.documentName
+          : documentName // ignore: cast_nullable_to_non_nullable
+              as String?,
     ) as $Val);
   }
 }
@@ -116,7 +132,9 @@ abstract class _$$AppNotificationImplCopyWith<$Res>
       @JsonKey(name: 'email_content') String? content,
       String type,
       @JsonKey(name: 'read', defaultValue: false) bool read,
-      DateTime creation});
+      DateTime creation,
+      @JsonKey(name: 'document_type') String? documentType,
+      @JsonKey(name: 'document_name') String? documentName});
 }
 
 /// @nodoc
@@ -136,6 +154,8 @@ class __$$AppNotificationImplCopyWithImpl<$Res>
     Object? type = null,
     Object? read = null,
     Object? creation = null,
+    Object? documentType = freezed,
+    Object? documentName = freezed,
   }) {
     return _then(_$AppNotificationImpl(
       id: null == id
@@ -162,6 +182,14 @@ class __$$AppNotificationImplCopyWithImpl<$Res>
           ? _value.creation
           : creation // ignore: cast_nullable_to_non_nullable
               as DateTime,
+      documentType: freezed == documentType
+          ? _value.documentType
+          : documentType // ignore: cast_nullable_to_non_nullable
+              as String?,
+      documentName: freezed == documentName
+          ? _value.documentName
+          : documentName // ignore: cast_nullable_to_non_nullable
+              as String?,
     ));
   }
 }
@@ -175,7 +203,9 @@ class _$AppNotificationImpl implements _AppNotification {
       @JsonKey(name: 'email_content') this.content,
       required this.type,
       @JsonKey(name: 'read', defaultValue: false) required this.read,
-      required this.creation});
+      required this.creation,
+      @JsonKey(name: 'document_type') this.documentType,
+      @JsonKey(name: 'document_name') this.documentName});
 
   factory _$AppNotificationImpl.fromJson(Map<String, dynamic> json) =>
       _$$AppNotificationImplFromJson(json);
@@ -197,10 +227,18 @@ class _$AppNotificationImpl implements _AppNotification {
   final bool read;
   @override
   final DateTime creation;
+// ignore: invalid_annotation_target
+  @override
+  @JsonKey(name: 'document_type')
+  final String? documentType;
+// ignore: invalid_annotation_target
+  @override
+  @JsonKey(name: 'document_name')
+  final String? documentName;
 
   @override
   String toString() {
-    return 'AppNotification(id: $id, subject: $subject, content: $content, type: $type, read: $read, creation: $creation)';
+    return 'AppNotification(id: $id, subject: $subject, content: $content, type: $type, read: $read, creation: $creation, documentType: $documentType, documentName: $documentName)';
   }
 
   @override
@@ -214,13 +252,17 @@ class _$AppNotificationImpl implements _AppNotification {
             (identical(other.type, type) || other.type == type) &&
             (identical(other.read, read) || other.read == read) &&
             (identical(other.creation, creation) ||
-                other.creation == creation));
+                other.creation == creation) &&
+            (identical(other.documentType, documentType) ||
+                other.documentType == documentType) &&
+            (identical(other.documentName, documentName) ||
+                other.documentName == documentName));
   }
 
   @JsonKey(ignore: true)
   @override
-  int get hashCode =>
-      Object.hash(runtimeType, id, subject, content, type, read, creation);
+  int get hashCode => Object.hash(runtimeType, id, subject, content, type,
+      read, creation, documentType, documentName);
 
   @JsonKey(ignore: true)
   @override
@@ -244,7 +286,10 @@ abstract class _AppNotification implements AppNotification {
       @JsonKey(name: 'email_content') final String? content,
       required final String type,
       @JsonKey(name: 'read', defaultValue: false) required final bool read,
-      required final DateTime creation}) = _$AppNotificationImpl;
+      required final DateTime creation,
+      @JsonKey(name: 'document_type') final String? documentType,
+      @JsonKey(name: 'document_name')
+      final String? documentName}) = _$AppNotificationImpl;
 
   factory _AppNotification.fromJson(Map<String, dynamic> json) =
       _$AppNotificationImpl.fromJson;
@@ -264,6 +309,12 @@ abstract class _AppNotification implements AppNotification {
   bool get read;
   @override
   DateTime get creation;
+  @override // ignore: invalid_annotation_target
+  @JsonKey(name: 'document_type')
+  String? get documentType;
+  @override // ignore: invalid_annotation_target
+  @JsonKey(name: 'document_name')
+  String? get documentName;
   @override
   @JsonKey(ignore: true)
   _$$AppNotificationImplCopyWith<_$AppNotificationImpl> get copyWith =>

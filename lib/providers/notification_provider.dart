@@ -99,6 +99,9 @@ class NotificationsListState {
   final bool isLoadingMore;
   final bool hasMore;
   final String? error;
+  // document_name of PDT Alerts acknowledged this session -- tracked locally
+  // so the "Acknowledge" button disappears immediately without a refetch.
+  final Set<String> acknowledgedAlertIds;
 
   const NotificationsListState({
     required this.notifications,
@@ -106,6 +109,7 @@ class NotificationsListState {
     required this.isLoadingMore,
     required this.hasMore,
     this.error,
+    this.acknowledgedAlertIds = const {},
   });
 
   const NotificationsListState.initial()
@@ -113,7 +117,8 @@ class NotificationsListState {
         isLoading = false,
         isLoadingMore = false,
         hasMore = true,
-        error = null;
+        error = null,
+        acknowledgedAlertIds = const {};
 
   NotificationsListState copyWith({
     List<AppNotification>? notifications,
@@ -122,6 +127,7 @@ class NotificationsListState {
     bool? hasMore,
     String? error,
     bool clearError = false,
+    Set<String>? acknowledgedAlertIds,
   }) {
     return NotificationsListState(
       notifications: notifications ?? this.notifications,
@@ -129,6 +135,7 @@ class NotificationsListState {
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       hasMore: hasMore ?? this.hasMore,
       error: clearError ? null : (error ?? this.error),
+      acknowledgedAlertIds: acknowledgedAlertIds ?? this.acknowledgedAlertIds,
     );
   }
 }
@@ -231,6 +238,27 @@ class NotificationsListNotifier extends StateNotifier<NotificationsListState> {
     } catch (e) {
       // Revert if fail
       fetchNotifications(refresh: true);
+    }
+  }
+
+  Future<void> acknowledgeAlert(AppNotification item) async {
+    if (item.documentType != 'PDT Alert' || item.documentName == null) return;
+    if (state.acknowledgedAlertIds.contains(item.documentName)) return;
+
+    // Optimistic: hide the button immediately.
+    state = state.copyWith(
+      acknowledgedAlertIds: {...state.acknowledgedAlertIds, item.documentName!},
+    );
+    try {
+      await _repo.acknowledgeAlert(item.documentName!);
+      if (!item.read) await markAsRead(item.id);
+    } catch (e) {
+      if (mounted) {
+        final reverted = Set<String>.from(state.acknowledgedAlertIds)
+          ..remove(item.documentName);
+        state = state.copyWith(acknowledgedAlertIds: reverted);
+      }
+      rethrow;
     }
   }
 

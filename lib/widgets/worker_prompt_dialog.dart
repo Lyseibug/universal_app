@@ -39,7 +39,21 @@ class _WorkerPromptListenerState extends ConsumerState<WorkerPromptListener> {
 
     _dialogShowing = true;
     final ctrl = TextEditingController();
-    final isOverrun = prompt.type == 'Overrun';
+    final String dialogTitle;
+    final IconData dialogIcon;
+    switch (prompt.type) {
+      case 'Overrun':
+        dialogTitle = 'Workstation Time Exceeded';
+        dialogIcon = Icons.timer_off_rounded;
+        break;
+      case 'Not Started':
+        dialogTitle = 'No Job Card Started';
+        dialogIcon = Icons.assignment_late_outlined;
+        break;
+      default:
+        dialogTitle = 'Are You Still There?';
+        dialogIcon = Icons.help_outline_rounded;
+    }
 
     bool submitting = false;
     String? error;
@@ -52,12 +66,8 @@ class _WorkerPromptListenerState extends ConsumerState<WorkerPromptListener> {
         child: StatefulBuilder(
           builder: (dialogCtx, setDialogState) {
             return AlertDialog(
-              icon: Icon(
-                isOverrun ? Icons.timer_off_rounded : Icons.help_outline_rounded,
-                color: AppTheme.amber,
-                size: 32,
-              ),
-              title: Text(isOverrun ? 'Workstation Time Exceeded' : 'Are You Still There?'),
+              icon: Icon(dialogIcon, color: AppTheme.amber, size: 32),
+              title: Text(dialogTitle),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
