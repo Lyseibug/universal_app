@@ -275,17 +275,14 @@ class _Line2ProductionScreenState extends ConsumerState<Line2ProductionScreen> {
             toolId: toolId,
             jobCard: _scanResult!['job_card']?.toString() ?? '',
           );
+      // No toast here — the tool card below immediately shows a green
+      // checkmark + "assigned" state, which is confirmation enough without
+      // interrupting with a popup on every single tool pick.
       setState(() {
         _toolAssigned = true;
         _assignedToolId = toolId;
         _assigningTool = false;
       });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('${_toolStepInfo?.toolType ?? 'Tool'} assigned successfully'),
-          backgroundColor: AppTheme.success,
-        ));
-      }
     } on ApiException catch (e) {
       setState(() {
         _error = messageFor(e);
@@ -365,14 +362,11 @@ class _Line2ProductionScreenState extends ConsumerState<Line2ProductionScreen> {
       }
 
       if (mounted) {
-        final stepName = _scanResult?['step_name']?.toString() ?? 'Step';
-        final stationMsg = _toolStepInfo != null && toolAutoReleaseError == null
-            ? ' - ${_toolStepInfo!.toolType.toLowerCase()} released to store'
-            : '';
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('$stepName completed$stationMsg'),
-          backgroundColor: AppTheme.success,
-        ));
+        // No routine "Step completed" toast — the screen resetting straight
+        // back to the scan prompt is confirmation enough for the single
+        // most frequent action on this screen. The auto-release failure
+        // below still needs a popup since it's the one case nothing else
+        // on screen would otherwise surface.
         _resetForm();
         if (toolAutoReleaseError != null) {
           setState(() => _assignedToolId = toolToRelease);

@@ -170,9 +170,9 @@ class _QcMeasurementScreenState extends ConsumerState<QcMeasurementScreen> {
         inspector: _selectedInspector,
       );
 
+      // No routine "submitted" toast — the screen resetting straight back
+      // to the scan prompt is confirmation enough for this per-scan action.
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('QC measurements submitted'), backgroundColor: AppTheme.success));
         _resetForm();
       }
     } catch (e) {

@@ -115,7 +115,8 @@ class _PackingScreenState extends ConsumerState<PackingScreen>
         _creatingBox = false;
       });
       await _refreshBoxPickList();
-      _showSuccess('Box $_activeBoxId created');
+      // No toast — the active Box ID now showing on screen is confirmation
+      // enough for this per-box action.
     } catch (e) {
       setState(() => _creatingBox = false);
       _showError('Error: $e');
@@ -215,7 +216,8 @@ class _PackingScreenState extends ConsumerState<PackingScreen>
         _creatingPallet = false;
       });
       await _refreshPalletPickList();
-      _showSuccess('Pallet $_activePalletId created');
+      // No toast — the active Pallet ID now showing on screen is
+      // confirmation enough for this per-pallet action.
     } catch (e) {
       setState(() => _creatingPallet = false);
       _showError('Error: $e');

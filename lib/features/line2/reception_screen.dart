@@ -38,14 +38,6 @@ class _ReceptionScreenState extends ConsumerState<ReceptionScreen> {
     ));
   }
 
-  void _showSuccess(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(message),
-      backgroundColor: AppTheme.success,
-    ));
-  }
-
   Future<void> _receiveFlowchart(String barcode) async {
     final trimmed = barcode.trim();
     if (trimmed.isEmpty) return;
@@ -66,13 +58,9 @@ class _ReceptionScreenState extends ConsumerState<ReceptionScreen> {
         _receiving = false;
       });
       _receiveScanCtrl.clear();
-      final status = result['dispatch_status']?.toString() ?? '';
-      if (status == 'Not Completed') {
-        _showError(
-            'Received ${result['total_received_qty']} of ${result['qc_accepted_qty']} — ${result['shortfall_qty']} short, flowchart Not Completed');
-      } else {
-        _showSuccess('Flowchart fully received');
-      }
+      // No toast — the result card below shows the exact same status
+      // (icon, qty, shortfall if any) immediately, so a popup would just
+      // be repeating it.
     } catch (e) {
       setState(() => _receiving = false);
       _showError('Receive error: $e');

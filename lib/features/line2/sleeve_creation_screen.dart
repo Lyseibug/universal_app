@@ -58,16 +58,12 @@ class _SleeveCreationScreenState extends ConsumerState<SleeveCreationScreen> {
             workOrder: workOrder,
             sleeveCount: sleeveCount,
           );
+      // No toast — the result card renders immediately below with the
+      // created sleeve details, which is confirmation enough.
       setState(() {
         _result = result;
         _creating = false;
       });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Sleeves created successfully'),
-          backgroundColor: AppTheme.success,
-        ));
-      }
     } catch (e) {
       setState(() {
         _error = 'Creation failed: $e';

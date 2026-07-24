@@ -133,10 +133,6 @@ class _ToolStatusScreenState extends ConsumerState<ToolStatusScreen> {
                         weightKg: weight,
                       );
                   if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text('Weight updated'),
-                      backgroundColor: AppTheme.success,
-                    ));
                     _loadTools();
                   }
                 } catch (e) {
@@ -211,10 +207,6 @@ class _ToolStatusScreenState extends ConsumerState<ToolStatusScreen> {
                         feedingSpeed: speed,
                       );
                   if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text('Wheel change recorded'),
-                      backgroundColor: AppTheme.success,
-                    ));
                     _loadTools();
                   }
                 } catch (e) {
@@ -532,10 +524,6 @@ class _ToolStatusScreenState extends ConsumerState<ToolStatusScreen> {
     try {
       await ref.read(line2RepositoryProvider).returnToolToStore(toolId: toolCode);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('$toolCode returned to store'),
-          backgroundColor: AppTheme.success,
-        ));
         _loadTools();
       }
     } catch (e) {

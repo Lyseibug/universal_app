@@ -282,6 +282,13 @@ class AppTheme {
           borderRadius: BorderRadius.circular(borderRadius),
         ),
         contentTextStyle: GoogleFonts.inter(fontSize: 14, color: Colors.white),
+        // Most PDT screens dock a persistent action bar (Finish/Complete/
+        // Back) inside the screen body rather than Scaffold's own
+        // bottomNavigationBar slot, so a snackbar floating with the default
+        // ~8px margin lands right on top of those buttons. Lifting it clear
+        // of a typical ~72-80dp button bar fixes that everywhere at once.
+        margin: EdgeInsets.only(left: 16, right: 16, bottom: 96),
+        duration: Duration(seconds: 3),
       ),
 
       // ─── Progress Indicator ───────────────────────────────────────────────
