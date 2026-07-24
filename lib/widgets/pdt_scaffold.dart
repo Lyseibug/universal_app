@@ -9,6 +9,7 @@ import '../core/sync/write_queue_entry.dart';
 import '../core/theme/app_theme.dart';
 import '../providers/service_providers.dart';
 import '../features/support/support_repository.dart';
+import '../features/maintenance/maintenance_request_form.dart';
 import 'custom_button.dart';
 import 'custom_text_field.dart';
 
@@ -140,7 +141,7 @@ class _SupportDrawerState extends ConsumerState<_SupportDrawer> with SingleTicke
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -224,6 +225,7 @@ class _SupportDrawerState extends ConsumerState<_SupportDrawer> with SingleTicke
           tabs: const [
             Tab(text: 'Chat'),
             Tab(text: 'Ticket'),
+            Tab(text: 'Maint.'),
           ],
         ),
       ),
@@ -283,6 +285,10 @@ class _SupportDrawerState extends ConsumerState<_SupportDrawer> with SingleTicke
               ],
             ),
           ),
+          // Maintenance Tab -- shared form with the dedicated
+          // maintenance_request screen (raise_maintenance_request_screen.dart);
+          // closes the drawer on a successful submit, same as Chat/Ticket above.
+          MaintenanceRequestForm(onSubmitted: () => Navigator.of(context).pop()),
         ],
       ),
     );
