@@ -35,8 +35,18 @@ class SessionRepository {
     }
     await _tokens.write(token);
     await _sessionBox.put('logged_in_username', usr); // Cache username
+    final siteName = data['site_name']?.toString();
+    if (siteName != null && siteName.isNotEmpty) {
+      await _sessionBox.put('site_name', siteName);
+    }
     AppLogger.info('Login successful. Token saved.', tag: _tag);
     return List<String>.from(data['roles'] ?? const []);
+  }
+
+  /// The Frappe site name returned at login -- required to build the
+  /// correctly-namespaced socket.io connection URL (see socket_provider.dart).
+  Future<String?> getSiteName() async {
+    return _sessionBox.get('site_name') as String?;
   }
 
   /// List available workstation assignments for the authenticated worker.

@@ -7,6 +7,7 @@ class SocketService {
   final String _token;
   final String _employeeId;
   final String _userEmail;
+  final String? _siteName;
   final void Function(Map<String, dynamic> data) onNotificationReceived;
   final void Function(Map<String, dynamic> data)? onGroupMessageReceived;
   final void Function(Map<String, dynamic> data)? onDirectMessageReceived;
@@ -17,18 +18,31 @@ class SocketService {
     required String employeeId,
     required String userEmail,
     required this.onNotificationReceived,
+    String? siteName,
     this.onGroupMessageReceived,
     this.onDirectMessageReceived,
   })  : _baseUrl = baseUrl,
         _token = token,
         _employeeId = employeeId,
-        _userEmail = userEmail;
+        _userEmail = userEmail,
+        _siteName = siteName;
 
   /// Establish socket connection
   void connect() {
     disconnect();
 
-    final socketUrl = _baseUrl;
+    // Frappe's realtime server namespaces every connection by site
+    // (apps/frappe/realtime/index.js: `io.of(/^\/.*$/)` + the authenticate
+    // middleware's site-name check) and publish_realtime always emits on
+    // `/<site>` (apps/frappe/frappe/realtime.py). Without the `/<site>`
+    // suffix here the socket lands on the default namespace instead and
+    // silently never receives anything it's published -- confirmed live:
+    // connections succeed either way, but only the namespaced one actually
+    // gets events. Falls back to the bare host if site_name isn't known yet
+    // (e.g. a cached pre-login session) -- same as before this fix, so it
+    // degrades to the previous (broken-for-realtime) behavior rather than
+    // failing to connect at all.
+    final socketUrl = (_siteName != null && _siteName.isNotEmpty) ? '$_baseUrl/$_siteName' : _baseUrl;
     AppLogger.info('Initializing Socket.io client to: $socketUrl', tag: 'SocketService');
 
     try {
@@ -38,6 +52,9 @@ class SocketService {
             .setTransports(['websocket', 'polling']) // Fallback to polling if websocket fails
             .setExtraHeaders({
               'Authorization': 'token $_token',
+              // The site-namespaced connection is only accepted if Origin's
+              // hostname matches Host's hostname (see authenticate.js).
+              'Origin': _baseUrl,
             })
             .enableAutoConnect()
             .enableReconnection()

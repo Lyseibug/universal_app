@@ -61,6 +61,7 @@ class SocketNotifier extends StateNotifier<void> {
     final erpUrl = _ref.read(storageServiceProvider).getErpUrl();
     final token = await _ref.read(tokenStoreProvider).read();
     final userEmail = await _ref.read(sessionRepositoryProvider).getUsername() ?? '';
+    final siteName = await _ref.read(sessionRepositoryProvider).getSiteName();
 
     if (erpUrl.isEmpty || token == null || token.isEmpty) {
       AppLogger.warning('Cannot connect socket: URL or token is missing', tag: 'SocketNotifier');
@@ -72,6 +73,7 @@ class SocketNotifier extends StateNotifier<void> {
       token: token,
       employeeId: employeeId,
       userEmail: userEmail,
+      siteName: siteName,
       onNotificationReceived: (data) {
         _handleNotification(data);
       },
