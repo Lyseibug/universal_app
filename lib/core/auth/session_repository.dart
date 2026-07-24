@@ -34,7 +34,19 @@ class SessionRepository {
       throw Exception('Login did not return a valid API token');
     }
     await _tokens.write(token);
-    await _sessionBox.put('logged_in_username', usr); // Cache username
+    // Cache the server-confirmed canonical username, NOT the raw form input
+    // -- `usr` may be an Employee code or a differently-cased/whitespaced
+    // email; every "is this my own message" comparison downstream (chat
+    // bubble alignment, live-message thread filtering, the realtime
+    // user:<email> room subscription) depends on this matching exactly
+    // what the backend stamps as sender/recipient/for_user, which is always
+    // frappe.session.user. Falls back to `usr` only if talking to an old
+    // backend that hasn't been redeployed with this field yet.
+    final canonicalUsername = data['user']?.toString();
+    await _sessionBox.put(
+      'logged_in_username',
+      (canonicalUsername != null && canonicalUsername.isNotEmpty) ? canonicalUsername : usr,
+    );
     final siteName = data['site_name']?.toString();
     if (siteName != null && siteName.isNotEmpty) {
       await _sessionBox.put('site_name', siteName);

@@ -115,10 +115,15 @@ class SocketNotifier extends StateNotifier<void> {
       // 2. Insert into notifications list
       _ref.read(notificationsListProvider.notifier).insertNotification(notification);
 
-      // 3. Show global SnackBar notification if not already on notifications screen
+      // 3. Show global SnackBar notification if not already on notifications screen.
+      // Skipped for chat messages -- an open thread already updates live via
+      // its own socket stream (new_group_message/new_direct_message), and a
+      // closed one just shows an unread badge; a toast on top is just noise.
+      final isChatNotification = notification.documentType == 'Chat Group' ||
+          notification.documentType == 'Direct Message';
       final router = _ref.read(appRouterProvider);
       final currentPath = router.routerDelegate.currentConfiguration.uri.path;
-      if (currentPath != '/notifications') {
+      if (currentPath != '/notifications' && !isChatNotification) {
         scaffoldMessengerKey.currentState?.clearSnackBars();
         scaffoldMessengerKey.currentState?.showSnackBar(
           SnackBar(
