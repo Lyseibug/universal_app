@@ -8,6 +8,8 @@ class SocketService {
   final String _employeeId;
   final String _userEmail;
   final void Function(Map<String, dynamic> data) onNotificationReceived;
+  final void Function(Map<String, dynamic> data)? onGroupMessageReceived;
+  final void Function(Map<String, dynamic> data)? onDirectMessageReceived;
 
   SocketService({
     required String baseUrl,
@@ -15,6 +17,8 @@ class SocketService {
     required String employeeId,
     required String userEmail,
     required this.onNotificationReceived,
+    this.onGroupMessageReceived,
+    this.onDirectMessageReceived,
   })  : _baseUrl = baseUrl,
         _token = token,
         _employeeId = employeeId,
@@ -81,6 +85,25 @@ class SocketService {
         if (data != null && data is Map) {
           final payload = Map<String, dynamic>.from(data);
           onNotificationReceived(payload);
+        }
+      });
+
+      // Group chat: a new message in one of the caller's groups (publish_realtime
+      // targets the recipient's own user:<email> room -- same delivery mechanism
+      // as new_notification above, just a separate event name/payload shape).
+      _socket?.on('new_group_message', (data) {
+        AppLogger.info('Socket received event [new_group_message]', tag: 'SocketService');
+        if (data != null && data is Map) {
+          onGroupMessageReceived?.call(Map<String, dynamic>.from(data));
+        }
+      });
+
+      // 1:1 direct chat: same delivery mechanism as new_group_message above,
+      // just a distinct event name/payload shape (sender/recipient, not group).
+      _socket?.on('new_direct_message', (data) {
+        AppLogger.info('Socket received event [new_direct_message]', tag: 'SocketService');
+        if (data != null && data is Map) {
+          onDirectMessageReceived?.call(Map<String, dynamic>.from(data));
         }
       });
 

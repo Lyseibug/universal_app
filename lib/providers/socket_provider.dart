@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -14,6 +16,18 @@ import 'service_providers.dart';
 class SocketNotifier extends StateNotifier<void> {
   final Ref _ref;
   SocketService? _service;
+  final StreamController<Map<String, dynamic>> _groupMessageController =
+      StreamController<Map<String, dynamic>>.broadcast();
+  final StreamController<Map<String, dynamic>> _directMessageController =
+      StreamController<Map<String, dynamic>>.broadcast();
+
+  /// Raw new_group_message payloads (group, name, sender, sender_name,
+  /// message, sent_at) -- group_chat_thread_screen filters this by group id.
+  Stream<Map<String, dynamic>> get groupMessages => _groupMessageController.stream;
+
+  /// Raw new_direct_message payloads (sender, recipient, name, sender_name,
+  /// message, sent_at) -- direct_chat_thread_screen filters by sender/recipient.
+  Stream<Map<String, dynamic>> get directMessages => _directMessageController.stream;
 
   SocketNotifier(this._ref) : super(null) {
     _init();
@@ -60,6 +74,12 @@ class SocketNotifier extends StateNotifier<void> {
       userEmail: userEmail,
       onNotificationReceived: (data) {
         _handleNotification(data);
+      },
+      onGroupMessageReceived: (data) {
+        if (!_groupMessageController.isClosed) _groupMessageController.add(data);
+      },
+      onDirectMessageReceived: (data) {
+        if (!_directMessageController.isClosed) _directMessageController.add(data);
       },
     );
 
@@ -137,6 +157,8 @@ class SocketNotifier extends StateNotifier<void> {
   @override
   void dispose() {
     _disconnect();
+    _groupMessageController.close();
+    _directMessageController.close();
     super.dispose();
   }
 }
@@ -144,4 +166,19 @@ class SocketNotifier extends StateNotifier<void> {
 /// Provider that manages Socket.io connection lifecycle
 final socketProvider = StateNotifierProvider<SocketNotifier, void>((ref) {
   return SocketNotifier(ref);
+});
+
+/// Broadcast stream of raw new_group_message payloads -- group_chat_thread_screen
+/// listens and filters by group id. Depends on socketProvider so the
+/// underlying SocketNotifier (and its connection) is guaranteed to exist.
+final groupMessageStreamProvider = Provider<Stream<Map<String, dynamic>>>((ref) {
+  ref.watch(socketProvider);
+  return ref.read(socketProvider.notifier).groupMessages;
+});
+
+/// Broadcast stream of raw new_direct_message payloads -- direct_chat_thread_screen
+/// listens and filters by sender/recipient.
+final directMessageStreamProvider = Provider<Stream<Map<String, dynamic>>>((ref) {
+  ref.watch(socketProvider);
+  return ref.read(socketProvider.notifier).directMessages;
 });
