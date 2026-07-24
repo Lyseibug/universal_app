@@ -11,6 +11,8 @@ import '../../features/tool_requests/tool_requests_screen.dart';
 import '../../features/support/support_screen.dart';
 import '../../features/chat/group_chat_list_screen.dart';
 import '../../features/chat/direct_chat_list_screen.dart';
+import '../../features/maintenance/raise_maintenance_request_screen.dart';
+import '../../features/maintenance/maintenance_team_screen.dart';
 import '../../features/line1/material_loading_screen.dart';
 import '../../features/line1/mixer_loading_screen.dart';
 import '../../features/line1/bag_viewer_screen.dart';
@@ -47,6 +49,8 @@ final Map<String, ScreenBuilder> screenRegistry = {
   'support':            (s) => SupportScreen(screen: s),
   'chat_groups':        (s) => GroupChatListScreen(screen: s),
   'chat_direct':        (s) => DirectChatListScreen(screen: s),
+  'maintenance_request': (s) => RaiseMaintenanceRequestScreen(screen: s),
+  'maintenance_team':    (s) => MaintenanceTeamScreen(screen: s),
   'manufacturing_mr':   (s) => ManufacturingMRScreen(screen: s),
   'tool_requests':      (s) => ToolRequestsScreen(screen: s),
   'material_loading':   (s) => MaterialLoadingScreen(screen: s),

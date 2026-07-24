@@ -137,17 +137,10 @@ class _SupportDrawerState extends ConsumerState<_SupportDrawer> with SingleTicke
   final _issueDescCtrl = TextEditingController();
   bool _sendingIssue = false;
 
-  // Maintenance
-  final _maintEquipCtrl = TextEditingController();
-  final _maintTypeCtrl = TextEditingController();
-  final _maintDescCtrl = TextEditingController();
-  String _maintUrgency = 'Normal';
-  bool _sendingMaint = false;
-
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
   }
 
   @override
@@ -156,9 +149,6 @@ class _SupportDrawerState extends ConsumerState<_SupportDrawer> with SingleTicke
     _chatCtrl.dispose();
     _issueTypeCtrl.dispose();
     _issueDescCtrl.dispose();
-    _maintEquipCtrl.dispose();
-    _maintTypeCtrl.dispose();
-    _maintDescCtrl.dispose();
     super.dispose();
   }
 
@@ -222,47 +212,6 @@ class _SupportDrawerState extends ConsumerState<_SupportDrawer> with SingleTicke
     }
   }
 
-  Future<void> _submitMaintenance() async {
-    final equip = _maintEquipCtrl.text.trim();
-    final type = _maintTypeCtrl.text.trim();
-    final desc = _maintDescCtrl.text.trim();
-
-    if (equip.isEmpty || type.isEmpty || desc.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all maintenance request fields.')),
-      );
-      return;
-    }
-
-    setState(() => _sendingMaint = true);
-    try {
-      await ref.read(supportRepositoryProvider).raiseMaintenanceRequest(
-            equipment: equip,
-            issueType: type,
-            description: desc,
-            urgency: _maintUrgency,
-          );
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Maintenance request submitted!'), backgroundColor: AppTheme.success),
-      );
-      _maintEquipCtrl.clear();
-      _maintTypeCtrl.clear();
-      _maintDescCtrl.clear();
-      setState(() => _maintUrgency = 'Normal');
-      Navigator.of(context).pop(); // close drawer
-    } on ApiException catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(messageFor(e)), backgroundColor: AppTheme.danger),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.danger),
-      );
-    } finally {
-      if (mounted) setState(() => _sendingMaint = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -275,7 +224,6 @@ class _SupportDrawerState extends ConsumerState<_SupportDrawer> with SingleTicke
           tabs: const [
             Tab(text: 'Chat'),
             Tab(text: 'Ticket'),
-            Tab(text: 'Maint.'),
           ],
         ),
       ),
@@ -331,62 +279,6 @@ class _SupportDrawerState extends ConsumerState<_SupportDrawer> with SingleTicke
                   isLoading: _sendingIssue,
                   icon: Icons.confirmation_number_outlined,
                   onPressed: _raiseSupport,
-                ),
-              ],
-            ),
-          ),
-          // Maintenance Tab
-          SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                CustomTextField(
-                  controller: _maintEquipCtrl,
-                  labelText: 'Equipment / Machine ID',
-                  hintText: 'e.g. Forklift-03',
-                  prefixIcon: const Icon(Icons.precision_manufacturing_outlined),
-                ),
-                const SizedBox(height: 12),
-                CustomTextField(
-                  controller: _maintTypeCtrl,
-                  labelText: 'Issue Type',
-                  hintText: 'e.g. Battery dead, Wheel damage',
-                  prefixIcon: const Icon(Icons.build_outlined),
-                ),
-                const SizedBox(height: 12),
-                CustomTextField(
-                  controller: _maintDescCtrl,
-                  labelText: 'Details',
-                  hintText: 'Explain maintenance needs...',
-                  prefixIcon: const Icon(Icons.info_outline),
-                  maxLines: 3,
-                ),
-                const SizedBox(height: 14),
-                DropdownButtonFormField<String>(
-                  value: _maintUrgency,
-                  decoration: const InputDecoration(
-                    labelText: 'Urgency',
-                    prefixIcon: Icon(Icons.priority_high_outlined),
-                  ),
-                  items: ['Normal', 'Medium', 'High', 'Critical'].map((level) {
-                    return DropdownMenuItem<String>(
-                      value: level,
-                      child: Text(level),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    if (val != null) {
-                      setState(() => _maintUrgency = val);
-                    }
-                  },
-                ),
-                const SizedBox(height: 16),
-                CustomButton(
-                  text: 'Submit Request',
-                  isLoading: _sendingMaint,
-                  icon: Icons.engineering_outlined,
-                  onPressed: _submitMaintenance,
                 ),
               ],
             ),

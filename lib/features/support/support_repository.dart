@@ -25,21 +25,6 @@ class SupportRepository {
     });
   }
 
-  /// Submits an equipment maintenance request.
-  Future<void> raiseMaintenanceRequest({
-    required String equipment,
-    required String issueType,
-    required String description,
-    required String urgency,
-  }) async {
-    await _api.call('notifications.maintenance_request', body: {
-      'equipment': equipment,
-      'issue_type': issueType,
-      'description': description,
-      'urgency': urgency,
-    });
-  }
-
   /// Registers the device player ID for push notifications.
   Future<void> registerDevice(String playerId) async {
     await _api.call('notifications.register_device', body: {'player_id': playerId});

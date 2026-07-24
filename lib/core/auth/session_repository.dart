@@ -1,12 +1,19 @@
-import 'dart:convert';
 
-import 'package:hive_flutter/hive_flutter.dart';
+ 'dart:convert';
 
-import '../api/api_client.dart';
-import '../menu/menu_models.dart';
-import '../utils/logger.dart';
-import 'session_models.dart';
-import 'token_store.dart';
+
+ 'package:hive_flutter/hive_flutter.dart';
+
+
+ '../api/api_client.dart';
+
+ '../menu/menu_models.dart';
+
+ '../utils/logger.dart';
+
+ 'session_models.dart';
+
+ 'token_store.dart';
 
 const _tag = 'SessionRepository';
 const _sessionBoxName = 'session';
