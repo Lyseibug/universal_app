@@ -38,6 +38,7 @@ class _RaiseMaintenanceRequestScreenState extends ConsumerState<RaiseMaintenance
   DownTimeIssue? _selectedIssue;
 
   final _descriptionCtrl = TextEditingController();
+  String _urgency = 'Normal';
   bool _submitting = false;
 
   @override
@@ -134,6 +135,7 @@ class _RaiseMaintenanceRequestScreenState extends ConsumerState<RaiseMaintenance
             machine: _machine!,
             issueType: _selectedIssue!.name,
             description: _descriptionCtrl.text.trim().isNotEmpty ? _descriptionCtrl.text.trim() : null,
+            urgency: _urgency,
           );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -145,6 +147,7 @@ class _RaiseMaintenanceRequestScreenState extends ConsumerState<RaiseMaintenance
       setState(() {
         _selectedIssue = null;
         _descriptionCtrl.clear();
+        _urgency = 'Normal';
       });
     } on ApiException catch (e) {
       if (mounted) {
@@ -187,6 +190,22 @@ class _RaiseMaintenanceRequestScreenState extends ConsumerState<RaiseMaintenance
                   controller: _descriptionCtrl,
                   hintText: 'Additional details...',
                   maxLines: 4,
+                ),
+                const SizedBox(height: 20),
+                const Text('Priority', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                const SizedBox(height: 6),
+                DropdownButtonFormField<String>(
+                  value: _urgency,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.priority_high_outlined),
+                  ),
+                  items: ['Normal', 'Medium', 'High', 'Critical'].map((level) {
+                    return DropdownMenuItem<String>(value: level, child: Text(level));
+                  }).toList(),
+                  onChanged: (val) {
+                    if (val != null) setState(() => _urgency = val);
+                  },
                 ),
                 const SizedBox(height: 28),
                 CustomButton(
